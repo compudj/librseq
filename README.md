@@ -20,7 +20,7 @@ s390.
 Building against local version of kernel headers
 ------------------------------------------------
 
-cd /path/to/kernel/sources
-make headers_install
-cd /path/to/librseq
-CPPFLAGS=-I/path/to/kernel/sources/usr/include make
+    cd /path/to/kernel/sources
+    make headers_install
+    cd /path/to/librseq
+    CPPFLAGS=-I/path/to/kernel/sources/usr/include make
