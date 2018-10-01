@@ -30,7 +30,11 @@ clean:
 
 install: librseq.so
 	mkdir -p $(DESTDIR)$(PREFIX)/lib
-	cp $< $(DESTDIR)$(PREFIX)/lib/librseq.so
+	cp librseq.so $(DESTDIR)$(PREFIX)/lib/librseq.so
+	mkdir -p $(DESTDIR)$(PREFIX)/include/rseq
+	cp include/rseq/*.h $(DESTDIR)$(PREFIX)/include/rseq
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/lib/librseq.so
+	rm -f $(DESTDIR)$(PREFIX)/include/rseq/*.h
+	rmdir $(DESTDIR)$(PREFIX)/include/rseq/
