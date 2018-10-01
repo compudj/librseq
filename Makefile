@@ -14,6 +14,8 @@ CPPFLAGS += -I./include
 CFLAGS += -O2 -g
 LDFLAGS += -pthread
 
+PREFIX = /usr/local
+
 all: librseq.so
 
 INCLUDES=$(wildcard remote/*.h)
@@ -21,7 +23,14 @@ INCLUDES=$(wildcard remote/*.h)
 librseq.so: src/rseq.c ${INCLUDES}
 	$(CC) $(CFLAGS) $(LDFLAGS) $(CPPFLAGS) -shared -fpic src/rseq.c -o $@
 
-.PHONY: clean
+.PHONY: clean install uninstall
 
 clean:
 	rm -f librseq.so
+
+install: librseq.so
+	mkdir -p $(DESTDIR)$(PREFIX)/lib
+	cp $< $(DESTDIR)$(PREFIX)/lib/librseq.so
+
+uninstall:
+	rm -f $(DESTDIR)$(PREFIX)/lib/librseq.so
