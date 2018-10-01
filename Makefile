@@ -9,8 +9,10 @@
 # granted, provided the above notices are retained, and a notice that
 # the code was modified is included with the above copyright notice.
 
-CPPFLAGS = -O2 -g -I./include
-LDFLAGS = -pthread
+
+CPPFLAGS += -I./include
+CFLAGS += -O2 -g
+LDFLAGS += -pthread
 
 all: librseq.so
 
@@ -19,7 +21,7 @@ INCLUDES=$(wildcard remote/*.h)
 librseq.so: src/rseq.c ${INCLUDES}
 	$(CC) $(CFLAGS) $(LDFLAGS) $(CPPFLAGS) -shared -fpic src/rseq.c -o $@
 
-.PHONY: clean fetch
+.PHONY: clean
 
 clean:
 	rm -f librseq.so
