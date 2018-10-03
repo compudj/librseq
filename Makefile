@@ -18,10 +18,11 @@ PREFIX = /usr/local
 
 all: librseq.so
 
-INCLUDES=$(wildcard remote/*.h)
+INCLUDES=$(wildcard include/rseq/*.h)
 
-librseq.so: src/rseq.c ${INCLUDES}
-	$(CC) $(CFLAGS) $(LDFLAGS) $(CPPFLAGS) -shared -fpic src/rseq.c -o $@
+librseq.so: src/rseq.c src/cpu-op.c ${INCLUDES}
+	$(CC) $(CFLAGS) $(LDFLAGS) $(CPPFLAGS) -shared -fpic \
+			src/rseq.c src/cpu-op.c -o $@
 
 .PHONY: clean install uninstall
 
