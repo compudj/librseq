@@ -14,6 +14,7 @@
 
 int cpu_opv(struct cpu_op *cpuopv, int cpuopcnt, int cpu, int flags);
 int cpu_op_get_current_cpu(void);
+int cpu_op_available(void);
 
 int cpu_op_cmpxchg(void *v, void *expect, void *old, void *_new, size_t len,
 		   int cpu);

@@ -15,6 +15,8 @@
 #include <rseq/rseq.h>
 #include <rseq/cpu-op.h>
 
+int percpu_op_available(void);
+
 static inline __attribute__((always_inline))
 int percpu_cmpeqv_storev(intptr_t *v, intptr_t expect, intptr_t newv,
 			 int cpu)

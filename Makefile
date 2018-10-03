@@ -20,9 +20,9 @@ all: librseq.so
 
 INCLUDES=$(wildcard include/rseq/*.h)
 
-librseq.so: src/rseq.c src/cpu-op.c ${INCLUDES}
+librseq.so: src/rseq.c src/cpu-op.c src/percpu-op.c ${INCLUDES}
 	$(CC) $(CFLAGS) $(LDFLAGS) $(CPPFLAGS) -shared -fpic \
-			src/rseq.c src/cpu-op.c -o $@
+			src/rseq.c src/cpu-op.c src/percpu-op.c -o $@
 
 .PHONY: clean install uninstall
 

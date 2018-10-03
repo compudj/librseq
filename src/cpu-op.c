@@ -39,6 +39,16 @@ int cpu_opv(struct cpu_op *cpu_opv, int cpuopcnt, int cpu, int flags)
 	return syscall(__NR_cpu_opv, cpu_opv, cpuopcnt, cpu, flags);
 }
 
+int cpu_op_available(void)
+{
+	int rc;
+
+	rc = cpu_opv(NULL, 0, 0, CPU_OP_NR_FLAG);
+	if (rc >= 0)
+		return 1;
+	return 0;
+}
+
 int cpu_op_get_current_cpu(void)
 {
 	int cpu;

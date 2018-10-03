@@ -30,6 +30,8 @@
 
 #define ARRAY_SIZE(arr)	(sizeof(arr) / sizeof((arr)[0]))
 
+#define RSEQ_FLAG_UNDEFINED 0x80000000
+
 /*
  * linux/rseq.h defines struct rseq as aligned on 32 bytes. The kernel ABI
  * size is 20 bytes. For support of multiple rseq users within a process,
@@ -54,6 +56,29 @@ volatile struct libc_rseq __lib_rseq_abi = {
 extern __attribute__((weak, alias("__lib_rseq_abi"))) __thread
 volatile struct rseq __rseq_abi;
 
+static int sys_rseq(volatile struct rseq *rseq_abi, uint32_t rseq_len,
+		    int flags, uint32_t sig)
+{
+	return syscall(__NR_rseq, rseq_abi, rseq_len, flags, sig);
+}
+
+int rseq_available(void)
+{
+	int rc;
+
+	rc = sys_rseq(NULL, 0, RSEQ_FLAG_UNDEFINED, 0);
+	if (rc != -1)
+		abort();
+	switch (errno) {
+	case ENOSYS:
+		return 0;
+	case EINVAL:
+		return 1;
+	default:
+		abort();
+	}
+}
+
 static void signal_off_save(sigset_t *oldset)
 {
 	sigset_t set;
@@ -72,12 +97,6 @@ static void signal_restore(sigset_t oldset)
 	ret = pthread_sigmask(SIG_SETMASK, &oldset, NULL);
 	if (ret)
 		abort();
-}
-
-static int sys_rseq(volatile struct rseq *rseq_abi, uint32_t rseq_len,
-		    int flags, uint32_t sig)
-{
-	return syscall(__NR_rseq, rseq_abi, rseq_len, flags, sig);
 }
 
 int rseq_register_current_thread(void)
