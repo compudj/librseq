@@ -10,7 +10,7 @@
 # the code was modified is included with the above copyright notice.
 
 CPPFLAGS += -I../include
-CFLAGS += -O2 -g
+CFLAGS += -O2 -g -L../ -Wl,-rpath=../
 LDFLAGS += -pthread
 
 all: basic_percpu_ops_test
@@ -18,8 +18,7 @@ all: basic_percpu_ops_test
 INCLUDES=$(wildcard ../include/rseq/*.h)
 
 basic_percpu_ops_test: basic_percpu_ops_test.c ${INCLUDES}
-	$(CC) $(CFLAGS) $(LDFLAGS) $(CPPFLAGS) -shared -fpic \
-			$< -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $(CPPFLAGS) $< -lrseq -o $@
 
 .PHONY: clean
 
