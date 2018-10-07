@@ -9,6 +9,7 @@
 # granted, provided the above notices are retained, and a notice that
 # the code was modified is included with the above copyright notice.
 
+SUBDIRS = tests/
 
 CPPFLAGS += -I./include
 CFLAGS += -O2 -g
@@ -16,7 +17,12 @@ LDFLAGS += -pthread
 
 PREFIX = /usr/local
 
-all: librseq.so
+all: librseq.so subdirs
+
+subdirs:
+	for dir in $(SUBDIRS); do \
+		$(MAKE) -C $$dir; \
+	done
 
 INCLUDES=$(wildcard include/rseq/*.h)
 
@@ -24,9 +30,10 @@ librseq.so: src/rseq.c src/cpu-op.c src/percpu-op.c ${INCLUDES}
 	$(CC) $(CFLAGS) $(LDFLAGS) $(CPPFLAGS) -shared -fpic \
 			src/rseq.c src/cpu-op.c src/percpu-op.c -o $@
 
-.PHONY: clean install uninstall
+.PHONY: clean install uninstall subdirs
 
 clean:
+	$(MAKE) -C $(SUBDIRS) clean
 	rm -f librseq.so
 
 install: librseq.so
