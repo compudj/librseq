@@ -44,6 +44,8 @@ struct percpu_list {
 	struct percpu_list_entry c[CPU_SETSIZE];
 };
 
+static bool is_rseq_available;
+
 /* A simple percpu spinlock. */
 void rseq_percpu_lock(struct percpu_lock *lock, int cpu)
 {
@@ -82,7 +84,7 @@ void *test_percpu_spinlock_thread(void *arg)
 	struct spinlock_test_data *data = arg;
 	int i;
 
-	if (rseq_register_current_thread()) {
+	if (is_rseq_available && rseq_register_current_thread()) {
 		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
 			errno, strerror(errno));
 		abort();
@@ -94,7 +96,7 @@ void *test_percpu_spinlock_thread(void *arg)
 		data->c[cpu].count++;
 		rseq_percpu_unlock(&data->lock, cpu);
 	}
-	if (rseq_unregister_current_thread()) {
+	if (is_rseq_available && rseq_unregister_current_thread()) {
 		fprintf(stderr, "Error: rseq_unregister_current_thread(...) failed(%d): %s\n",
 			errno, strerror(errno));
 		abort();
@@ -191,7 +193,7 @@ void *test_percpu_list_thread(void *arg)
 	int i;
 	struct percpu_list *list = (struct percpu_list *)arg;
 
-	if (rseq_register_current_thread()) {
+	if (is_rseq_available && rseq_register_current_thread()) {
 		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
 			errno, strerror(errno));
 		abort();
@@ -206,7 +208,7 @@ void *test_percpu_list_thread(void *arg)
 			percpu_list_push(list, node, percpu_current_cpu());
 	}
 
-	if (rseq_unregister_current_thread()) {
+	if (is_rseq_available && rseq_unregister_current_thread()) {
 		fprintf(stderr, "Error: rseq_unregister_current_thread(...) failed(%d): %s\n",
 			errno, strerror(errno));
 		abort();
@@ -273,7 +275,15 @@ void test_percpu_list(void)
 
 int main(int argc, char **argv)
 {
-	if (rseq_register_current_thread()) {
+	is_rseq_available = rseq_available();
+	if (!is_rseq_available)
+		fprintf(stderr, "Warning: rseq is not available\n");
+	if (!cpu_op_available()) {
+		fprintf(stderr, "Error: cpu_opv is not available\n");
+		goto error;
+	}
+
+	if (is_rseq_available && rseq_register_current_thread()) {
 		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
 			errno, strerror(errno));
 		goto error;
@@ -282,7 +292,7 @@ int main(int argc, char **argv)
 	test_percpu_spinlock();
 	printf("percpu_list\n");
 	test_percpu_list();
-	if (rseq_unregister_current_thread()) {
+	if (is_rseq_available && rseq_unregister_current_thread()) {
 		fprintf(stderr, "Error: rseq_unregister_current_thread(...) failed(%d): %s\n",
 			errno, strerror(errno));
 		goto error;
