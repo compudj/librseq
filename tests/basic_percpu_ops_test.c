@@ -44,15 +44,12 @@ struct percpu_list {
 	struct percpu_list_entry c[CPU_SETSIZE];
 };
 
-/* A simple percpu spinlock.  Returns the cpu lock was acquired on. */
-int rseq_percpu_lock(struct percpu_lock *lock)
+/* A simple percpu spinlock. */
+void rseq_percpu_lock(struct percpu_lock *lock, int cpu)
 {
-	int cpu;
-
 	for (;;) {
 		int ret;
 
-		cpu = rseq_cpu_start();
 		ret = percpu_cmpeqv_storev(&lock->c[cpu].v,
 					   0, 1, cpu);
 		if (rseq_likely(!ret))
@@ -68,7 +65,6 @@ int rseq_percpu_lock(struct percpu_lock *lock)
 	 * Matches rseq_smp_store_release().
 	 */
 	rseq_smp_acquire__after_ctrl_dep();
-	return cpu;
 }
 
 void rseq_percpu_unlock(struct percpu_lock *lock, int cpu)
@@ -84,7 +80,7 @@ void rseq_percpu_unlock(struct percpu_lock *lock, int cpu)
 void *test_percpu_spinlock_thread(void *arg)
 {
 	struct spinlock_test_data *data = arg;
-	int i, cpu;
+	int i;
 
 	if (rseq_register_current_thread()) {
 		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
@@ -92,7 +88,9 @@ void *test_percpu_spinlock_thread(void *arg)
 		abort();
 	}
 	for (i = 0; i < data->reps; i++) {
-		cpu = rseq_percpu_lock(&data->lock);
+		int cpu = percpu_current_cpu();
+
+		rseq_percpu_lock(&data->lock, cpu);
 		data->c[cpu].count++;
 		rseq_percpu_unlock(&data->lock, cpu);
 	}
@@ -202,10 +200,10 @@ void *test_percpu_list_thread(void *arg)
 	for (i = 0; i < 100000; i++) {
 		struct percpu_list_node *node;
 
-		node = percpu_list_pop(list, rseq_cpu_start());
+		node = percpu_list_pop(list, percpu_current_cpu());
 		sched_yield();  /* encourage shuffling */
 		if (node)
-			percpu_list_push(list, node, rseq_cpu_start());
+			percpu_list_push(list, node, percpu_current_cpu());
 	}
 
 	if (rseq_unregister_current_thread()) {

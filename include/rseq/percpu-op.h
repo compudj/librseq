@@ -17,6 +17,11 @@
 
 int percpu_op_available(void);
 
+static inline uint32_t percpu_current_cpu(void)
+{
+	return rseq_current_cpu();
+}
+
 static inline __attribute__((always_inline))
 int percpu_cmpeqv_storev(intptr_t *v, intptr_t expect, intptr_t newv,
 			 int cpu)
