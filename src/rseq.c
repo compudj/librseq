@@ -30,8 +30,6 @@
 
 #define ARRAY_SIZE(arr)	(sizeof(arr) / sizeof((arr)[0]))
 
-#define RSEQ_FLAG_UNDEFINED 0x80000000
-
 /*
  * linux/rseq.h defines struct rseq as aligned on 32 bytes. The kernel ABI
  * size is 20 bytes. For support of multiple rseq users within a process,
@@ -66,7 +64,7 @@ int rseq_available(void)
 {
 	int rc;
 
-	rc = sys_rseq(NULL, 0, RSEQ_FLAG_UNDEFINED, 0);
+	rc = sys_rseq(NULL, 0, 0, 0);
 	if (rc != -1)
 		abort();
 	switch (errno) {
