@@ -25,6 +25,7 @@
 #include <syscall.h>
 #include <assert.h>
 #include <signal.h>
+#include <limits.h>
 
 #include <rseq/rseq.h>
 
@@ -103,6 +104,10 @@ int rseq_register_current_thread(void)
 	sigset_t oldset;
 
 	signal_off_save(&oldset);
+	if (__lib_rseq_abi.refcount == INT_MAX) {
+		ret = -1;
+		goto end;
+	}
 	if (__lib_rseq_abi.refcount++)
 		goto end;
 	rc = sys_rseq(&__rseq_abi, sizeof(struct rseq), 0, RSEQ_SIG);
@@ -125,6 +130,10 @@ int rseq_unregister_current_thread(void)
 	sigset_t oldset;
 
 	signal_off_save(&oldset);
+	if (!__lib_rseq_abi.refcount) {
+		ret = -1;
+		goto end;
+	}
 	if (--__lib_rseq_abi.refcount)
 		goto end;
 	rc = sys_rseq(&__rseq_abi, sizeof(struct rseq),
