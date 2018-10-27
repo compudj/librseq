@@ -237,10 +237,7 @@ int cpu_op_cmpeqv_storev_mb_storev(intptr_t *v, intptr_t expect,
 			.u.memcpy_op.expect_fault_src = 0,
 		},
 		[2] = {
-			.op = CPU_MB_OP,
-		},
-		[3] = {
-			.op = CPU_MEMCPY_OP,
+			.op = CPU_MEMCPY_RELEASE_OP,
 			.len = sizeof(intptr_t),
 			.u.memcpy_op.dst = (unsigned long)v,
 			.u.memcpy_op.src = (unsigned long)&newv,
@@ -342,10 +339,7 @@ int cpu_op_cmpeqv_memcpy_mb_storev(intptr_t *v, intptr_t expect,
 			.u.memcpy_op.expect_fault_src = 0,
 		},
 		[2] = {
-			.op = CPU_MB_OP,
-		},
-		[3] = {
-			.op = CPU_MEMCPY_OP,
+			.op = CPU_MEMCPY_RELEASE_OP,
 			.len = sizeof(intptr_t),
 			.u.memcpy_op.dst = (unsigned long)v,
 			.u.memcpy_op.src = (unsigned long)&newv,
