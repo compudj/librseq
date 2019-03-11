@@ -7,20 +7,51 @@ by Mathieu Desnoyers
 Building
 --------
 
+### Prerequisites
+
+This source tree is based on the Autotools suite from GNU to simplify
+portability. Here are some things you should have on your system in order to
+compile the Git repository tree:
+
+  - [GNU Autotools](http://www.gnu.org/software/autoconf/)
+    (**Automake >= 1.10**, **Autoconf >= 2.50**,
+    **Autoheader >= 2.50**;
+    make sure your system-wide `automake` points to a recent version!)
+  - **[GNU Libtool](https://www.gnu.org/software/libtool/) >= 2.2**
+  - **Linux kernel headers** from kernel **>= 4.18** to build on x86, arm,
+    ppc, and mips and from kernel **>= 4.19** to build on s390.
+
+
+### Building steps
+
+If you get the tree from the Git repository, you will need to run
+
+    ./bootstrap
+
+in its root. It calls all the GNU tools needed to prepare the tree
+configuration.
+
+To build and install, do:
+
+    ./configure
     make
-    make install
+    sudo make install
+    sudo ldconfig
 
-Requirements
-------------
+**Note:** the `configure` script sets `/usr/local` as the default prefix for
+files it installs. However, this path is not part of most distributions'
+default library path, which will cause builds depending on `librseq`
+to fail unless `-L/usr/local/lib` is added to `LDFLAGS`. You may provide a
+custom prefix to `configure` by using the `--prefix` switch
+(e.g., `--prefix=/usr`).
 
-It requires Linux kernel headers from kernel >= 4.18 to build on x86, arm, ppc,
-and mips. It requires Linux kernel headers from kernel >= 4.19 to build on
-s390.
 
-Building against local version of kernel headers
-------------------------------------------------
+### Building against a local version of the kernel headers
 
     cd /path/to/kernel/sources
     make headers_install
     cd /path/to/librseq
-    CPPFLAGS=-I/path/to/kernel/sources/usr/include make
+    CPPFLAGS=-I/path/to/kernel/sources/usr/include ./configure
+    make
+    sudo make install
+    sudo ldconfig

@@ -1,0 +1,9 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+
+set -x
+if [ ! -d "config" ]; then
+	mkdir config
+fi
+
+autoreconf -vi
