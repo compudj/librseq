@@ -15,6 +15,8 @@
  * Lesser General Public License for more details.
  */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <rseq/rseq.h>
 #include <rseq/cpu-op.h>

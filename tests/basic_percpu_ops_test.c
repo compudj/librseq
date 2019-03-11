@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: LGPL-2.1-only
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <assert.h>
 #include <pthread.h>
 #include <sched.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <stddef.h>
+#include <errno.h>
 
 #include <rseq/percpu-op.h>
 
@@ -273,7 +277,7 @@ void test_percpu_list(void)
 	assert(sum == expected_sum);
 }
 
-int main(int argc, char **argv)
+int main(void)
 {
 	is_rseq_available = rseq_available();
 	if (!is_rseq_available)
