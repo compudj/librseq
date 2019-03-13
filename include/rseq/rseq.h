@@ -72,6 +72,8 @@ extern __thread volatile uint32_t __rseq_refcount;
 #include <rseq/rseq-x86.h>
 #elif defined(__ARMEL__)
 #include <rseq/rseq-arm.h>
+#elif defined (__AARCH64EL__)
+#include <rseq/rseq-arm64.h>
 #elif defined(__PPC__)
 #include <rseq/rseq-ppc.h>
 #elif defined(__mips__)
