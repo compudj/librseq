@@ -48,10 +48,11 @@ do {									\
 
 /*
  * Exit points of a rseq critical section consist of all instructions outside
- * of the critical section where a critical section can branch to. The abort IP
- * is already part of the __rseq_cs section and should not be explicitly
- * defined as an additional exit point. Knowing all exit points is useful to
- * assist debuggers stepping over the critical section.
+ * of the critical section where a critical section can either branch to or
+ * reach through the normal course of its execution. The abort IP and the
+ * post-commit IP are already part of the __rseq_cs section and should not be
+ * explicitly defined as additional exit points. Knowing all exit points is
+ * useful to assist debuggers stepping over the critical section.
  */
 #define RSEQ_ASM_DEFINE_EXIT_POINT(start_ip, exit_ip)			\
 		".pushsection __rseq_exit_point_array, \"aw\"\n\t"	\
