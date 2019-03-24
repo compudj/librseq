@@ -32,12 +32,12 @@
 
 #define ARRAY_SIZE(arr)	(sizeof(arr) / sizeof((arr)[0]))
 
-__attribute__((weak)) __thread
+__thread
 volatile struct rseq __rseq_abi = {
 	.cpu_id = RSEQ_CPU_ID_UNINITIALIZED,
 };
 
-__attribute__((weak)) __thread
+__thread
 volatile uint32_t __rseq_refcount;
 
 static int sys_rseq(volatile struct rseq *rseq_abi, uint32_t rseq_len,
