@@ -100,3 +100,32 @@ AC_CONFIG_FILES([
 ])
 
 AC_OUTPUT
+
+#
+# Mini-report on what will be built.
+#
+
+PPRINT_INIT
+PPRINT_SET_INDENT(1)
+PPRINT_SET_TS(38)
+
+AS_ECHO
+AS_ECHO("${PPRINT_COLOR_BLDBLU}librseq $PACKAGE_VERSION${PPRINT_COLOR_RST}")
+AS_ECHO
+
+PPRINT_SUBTITLE([Features])
+
+PPRINT_PROP_STRING([Target architecture], $host_cpu)
+
+# SMP support enabled/disabled
+test "x${ac_cv_header_linux_cpu_opv_h}" = "xyes" && value=1 || value=0
+PPRINT_PROP_BOOL([CPU OPV support], $value)
+
+report_bindir="`eval eval echo $bindir`"
+report_libdir="`eval eval echo $libdir`"
+
+# Print the bindir and libdir this `make install' will install into.
+AS_ECHO
+PPRINT_SUBTITLE([Install directories])
+PPRINT_PROP_STRING([Binaries], [$report_bindir])
+PPRINT_PROP_STRING([Libraries], [$report_libdir])
