@@ -256,7 +256,7 @@ int cpu_op_cmpeqv_storev_storev(intptr_t *v, intptr_t expect,
 	return cpu_opv(opvec, ARRAY_SIZE(opvec), cpu, 0);
 }
 
-int cpu_op_cmpeqv_storev_mb_storev(intptr_t *v, intptr_t expect,
+int cpu_op_cmpeqv_storev_storev_release(intptr_t *v, intptr_t expect,
 				   intptr_t *v2, intptr_t newv2,
 				   intptr_t newv, int cpu)
 {
@@ -376,7 +376,7 @@ int cpu_op_cmpeqv_memcpy_storev(intptr_t *v, intptr_t expect,
 	return cpu_opv(opvec, ARRAY_SIZE(opvec), cpu, 0);
 }
 
-int cpu_op_cmpeqv_memcpy_mb_storev(intptr_t *v, intptr_t expect,
+int cpu_op_cmpeqv_memcpy_storev_release(intptr_t *v, intptr_t expect,
 				   void *dst, void *src, size_t len,
 				   intptr_t newv, int cpu)
 {

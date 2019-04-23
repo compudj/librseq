@@ -27,7 +27,7 @@ int cpu_op_cmpnev_storeoffp_load(intptr_t *v, intptr_t expectnot,
 int cpu_op_cmpeqv_storev_storev(intptr_t *v, intptr_t expect,
 				intptr_t *v2, intptr_t newv2,
 				intptr_t newv, int cpu);
-int cpu_op_cmpeqv_storev_mb_storev(intptr_t *v, intptr_t expect,
+int cpu_op_cmpeqv_storev_storev_release(intptr_t *v, intptr_t expect,
 				   intptr_t *v2, intptr_t newv2,
 				   intptr_t newv, int cpu);
 int cpu_op_cmpeqv_cmpeqv_storev(intptr_t *v, intptr_t expect,
@@ -36,7 +36,7 @@ int cpu_op_cmpeqv_cmpeqv_storev(intptr_t *v, intptr_t expect,
 int cpu_op_cmpeqv_memcpy_storev(intptr_t *v, intptr_t expect,
 				void *dst, void *src, size_t len,
 				intptr_t newv, int cpu);
-int cpu_op_cmpeqv_memcpy_mb_storev(intptr_t *v, intptr_t expect,
+int cpu_op_cmpeqv_memcpy_storev_release(intptr_t *v, intptr_t expect,
 				   void *dst, void *src, size_t len,
 				   intptr_t newv, int cpu);
 int cpu_op_addv(intptr_t *v, int64_t count, int cpu);

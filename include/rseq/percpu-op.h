@@ -91,8 +91,8 @@ int percpu_cmpeqv_storev_storev_release(intptr_t *v, intptr_t expect,
 	if (rseq_unlikely(ret)) {
 		if (ret > 0)
 			return ret;
-		return cpu_op_cmpeqv_storev_mb_storev(v, expect, v2, newv2,
-						      newv, cpu);
+		return cpu_op_cmpeqv_storev_storev_release(v, expect, v2, newv2,
+							   newv, cpu);
 	}
 	return 0;
 }
@@ -144,8 +144,8 @@ int percpu_cmpeqv_memcpy_storev_release(intptr_t *v, intptr_t expect,
 	if (rseq_unlikely(ret)) {
 		if (ret > 0)
 			return ret;
-		return cpu_op_cmpeqv_memcpy_mb_storev(v, expect, dst, src, len,
-						      newv, cpu);
+		return cpu_op_cmpeqv_memcpy_storev_release(v, expect, dst, src,
+							   len, newv, cpu);
 	}
 	return 0;
 }
