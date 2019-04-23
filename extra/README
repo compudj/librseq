@@ -1,1 +1,21 @@
-Kernel includes for test builds. Do not use for real builds.
+Kernel headers for test builds. Do not use for production builds.
+
+- linux/rseq.h
+
+  It is a copy from the upstream Linux v5.0 kernel uapi.
+
+  It also contains definitive system call number definitions for the rseq
+  system call, in case the kernel uapi headers are not recent enough
+  to define them.
+
+
+- linux/cpu_opv.h
+
+  It is a copy from the Linux rseq tree (not upstream yet):
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/rseq/linux-rseq.git/
+  tag: v5.0-rseq-20190423.2
+
+  It also contains system call number definitions for the cpu_opv
+  system call (not yet upstream), which will likely change before
+  being integrated upstream.
