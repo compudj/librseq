@@ -19,6 +19,7 @@ int cpu_op_available(void);
 int cpu_op_cmpxchg(void *v, void *expect, void *old, void *_new, size_t len,
 		   int cpu);
 int cpu_op_add(void *v, int64_t count, size_t len, int cpu);
+int cpu_op_add_release(void *v, int64_t count, size_t len, int cpu);
 
 int cpu_op_cmpeqv_storev(intptr_t *v, intptr_t expect, intptr_t newv, int cpu);
 int cpu_op_cmpnev_storeoffp_load(intptr_t *v, intptr_t expectnot,

@@ -119,6 +119,23 @@ int cpu_op_add(void *v, int64_t count, size_t len, int cpu)
 	return cpu_opv(opvec, ARRAY_SIZE(opvec), cpu, 0);
 }
 
+int cpu_op_add_release(void *v, int64_t count, size_t len, int cpu)
+{
+	struct cpu_op opvec[] = {
+		[0] = {
+			.op = CPU_ADD_RELEASE_OP,
+			.len = len,
+			.u.arithmetic_op = {
+				.p = (unsigned long)v,
+				.count = count,
+				.expect_fault_p = 0,
+			},
+		},
+	};
+
+	return cpu_opv(opvec, ARRAY_SIZE(opvec), cpu, 0);
+}
+
 int cpu_op_cmpeqv_storev(intptr_t *v, intptr_t expect, intptr_t newv,
 			 int cpu)
 {
