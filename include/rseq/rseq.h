@@ -70,7 +70,7 @@ extern int __rseq_handled;
 
 #if defined(__x86_64__) || defined(__i386__)
 #include <rseq/rseq-x86.h>
-#elif defined(__ARMEL__)
+#elif defined(__ARMEL__) || defined(__ARMEB__)
 #include <rseq/rseq-arm.h>
 #elif defined (__AARCH64EL__)
 #include <rseq/rseq-arm64.h>
