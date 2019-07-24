@@ -61,7 +61,7 @@ void rseq_percpu_lock(struct percpu_lock *lock, int cpu)
 		if (rseq_likely(!ret))
 			break;
 		if (rseq_unlikely(ret < 0)) {
-			perror("cpu_opv");
+			perror("do_on_cpu");
 			abort();
 		}
 		/* Retry if comparison fails. */
@@ -156,7 +156,7 @@ int percpu_list_push(struct percpu_list *list, struct percpu_list_node *node,
 		if (rseq_likely(!ret))
 			break;
 		if (rseq_unlikely(ret < 0)) {
-			perror("cpu_opv");
+			perror("do_on_cpu");
 			abort();
 		}
 		/* Retry if comparison fails. */
@@ -184,7 +184,7 @@ struct percpu_list_node *percpu_list_pop(struct percpu_list *list,
 	ret = percpu_cmpnev_storeoffp_load(targetptr, expectnot,
 					   offset, load, cpu);
 	if (rseq_unlikely(ret < 0)) {
-		perror("cpu_opv");
+		perror("do_on_cpu");
 		abort();
 	}
 	if (ret > 0)
@@ -283,7 +283,7 @@ int main(void)
 	if (!is_rseq_available)
 		fprintf(stderr, "Warning: rseq is not available\n");
 	if (!cpu_op_available()) {
-		fprintf(stderr, "Error: cpu_opv is not available\n");
+		fprintf(stderr, "Error: do_on_cpu is not available\n");
 		goto error;
 	}
 

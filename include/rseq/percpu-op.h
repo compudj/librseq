@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1-only OR MIT */
+/* SPDX-License-Identifier: LGPL-2.1 OR MIT */
 /*
  * percpu-op.h
  *
@@ -14,8 +14,6 @@
 #include <stdlib.h>
 #include <rseq/rseq.h>
 #include <rseq/cpu-op.h>
-
-int percpu_op_available(void);
 
 static inline uint32_t percpu_current_cpu(void)
 {
@@ -146,6 +144,20 @@ int percpu_cmpeqv_memcpy_storev_release(intptr_t *v, intptr_t expect,
 			return ret;
 		return cpu_op_cmpeqv_memcpy_storev_release(v, expect, dst, src,
 							   len, newv, cpu);
+	}
+	return 0;
+}
+
+static inline __attribute__((always_inline))
+int percpu_deref_loadoffp(intptr_t *p, off_t voffp, intptr_t *load, int cpu)
+{
+	int ret;
+
+	ret = rseq_deref_loadoffp(p, voffp, load, cpu);
+	if (rseq_unlikely(ret)) {
+		if (ret > 0)
+			return ret;
+		return cpu_op_deref_loadoffp(p, voffp, load, cpu);
 	}
 	return 0;
 }

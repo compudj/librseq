@@ -822,4 +822,11 @@ error2:
 #endif
 }
 
+/* TODO. */
+static inline __attribute__((always_inline))
+int rseq_deref_loadoffp(void *p, off_t voffp, intptr_t *load, int cpu)
+{
+	return -1;
+}
+
 #endif /* !RSEQ_SKIP_FASTPATH */

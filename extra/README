@@ -9,13 +9,13 @@ Kernel headers for test builds. Do not use for production builds.
   to define them.
 
 
-- linux/cpu_opv.h
+- linux/do_on_cpu.h
 
   It is a copy from the Linux rseq tree (not upstream yet):
 
   https://git.kernel.org/pub/scm/linux/kernel/git/rseq/linux-rseq.git/
-  tag: v5.0-rseq-20190423.2
+  tag: v5.1.16-rseq-20190725
 
-  It also contains system call number definitions for the cpu_opv
+  It also contains system call number definitions for the do_on_cpu
   system call (not yet upstream), which will likely change before
   being integrated upstream.

@@ -10,7 +10,7 @@ lib_LTLIBRARIES = librseq.la
 librseq_la_SOURCES = \
 	rseq.c
 
-if HAVE_CPU_OPV
+if HAVE_DO_ON_CPU
 librseq_la_SOURCES += \
 	cpu-op.c  \
 	percpu-op.c
