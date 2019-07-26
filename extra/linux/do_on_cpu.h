@@ -24,7 +24,7 @@ enum do_on_cpu_flags {
  * kernel 5.1 are the same across all architectures.
  */
 #ifndef __NR_do_on_cpu
-#define __NR_do_on_cpu           428
+#define __NR_do_on_cpu           434
 #endif
 
 #endif /* _UAPI_LINUX_DO_ON_CPU_H */
