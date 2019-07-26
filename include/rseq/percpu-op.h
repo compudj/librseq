@@ -21,6 +21,16 @@ static inline uint32_t percpu_current_cpu(void)
 }
 
 static inline __attribute__((always_inline))
+int percpu_fence(int cpu)
+{
+	if (cpu < 0)
+		return -1;
+	if ((uint32_t) cpu == percpu_current_cpu())
+		return 0;
+	return cpu_op_fence(cpu);
+}
+
+static inline __attribute__((always_inline))
 int percpu_cmpeqv_storev(intptr_t *v, intptr_t expect, intptr_t newv,
 			 int cpu)
 {
