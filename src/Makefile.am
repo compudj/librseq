@@ -13,7 +13,8 @@ librseq_la_SOURCES = \
 if HAVE_DO_ON_CPU
 librseq_la_SOURCES += \
 	cpu-op.c  \
-	percpu-op.c
+	percpu-op.c \
+	do-on-cpu-insn.h
 endif
 
 librseq_la_LDFLAGS = -no-undefined -version-info $(RSEQ_LIBRARY_VERSION)
