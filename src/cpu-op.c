@@ -501,44 +501,80 @@ int __cpu_op_cmpeqv_memcpy_storev(intptr_t *v, intptr_t expect,
 	stx_mode = release ? BPF_MEM_ACQ_REL : BPF_MEM;
 
 	enum {
-		BPF_LABEL_BRANCH1 = 6,
-		BPF_LABEL_LOOP = 12,
-		BPF_LABEL_BRANCH2 = 19,
-		BPF_LABEL_FAIL = 23,
+		BPF_LABEL_BRANCH_TEST = 6,
+		BPF_LABEL_LOOP8 = 14,
+		BPF_LABEL_BRANCH8_1 = 15,
+		BPF_LABEL_LOOP1 = 20,
+		BPF_LABEL_BRANCH1_1 = 21,
+		BPF_LABEL_BRANCH1_2 = 26,
+		BPF_LABEL_FAIL = 30,
 	};
 
 	{
 		struct bpf_insn bytecode[] = {
-			[0] = BPFI_LD_IMM64(BPF_REG_5, BPF_PTR_TO_V(v)),
-			[2] = BPFI_LDX(bpf_size2, BPF_REG_1, BPF_REG_5, 0),
+			/*
+			 * r0 is 0
+			 * r1 is temporary register,
+			 * r2 is expect
+			 * r6 is v
+			 */
+			[0] = BPFI_LD_IMM64(BPF_REG_6, BPF_PTR_TO_V(v)),
+			[2] = BPFI_LDX(bpf_size2, BPF_REG_1, BPF_REG_6, 0),
 			[3] = BPFI_LD_IMM64(BPF_REG_2, expect),
 			[5] = BPFI_JNE_X(BPF_REG_1, BPF_REG_2,
-					 BPF_LABEL_FAIL - BPF_LABEL_BRANCH1),
+					 BPF_LABEL_FAIL - BPF_LABEL_BRANCH_TEST),
 
-			[BPF_LABEL_BRANCH1] = BPFI_LD_IMM64(BPF_REG_2,
-							    BPF_PTR_TO_V(dst)),
+			/*
+			 * r0 is 0
+			 * r1 is temporary register,
+			 * r2 is dst iterator,
+			 * r3 is src iterator,
+			 * r4 is src + (len & ~7)	// end of 8-byte copy
+			 * r5 is src + len		// end of 1-byte copy
+			 * r6 is v
+			 */
+			[BPF_LABEL_BRANCH_TEST] = BPFI_LD_IMM64(BPF_REG_2,
+								BPF_PTR_TO_V(dst)),
 			[8] = BPFI_LD_IMM64(BPF_REG_3, BPF_PTR_TO_V(src)),
-			[10] = BPFI_LD_IMM64(BPF_REG_4, len),
+			[10] = BPFI_LD_IMM64(BPF_REG_4, BPF_PTR_TO_V(src) + (len & ~7)),
+			[12] = BPFI_LD_IMM64(BPF_REG_5, BPF_PTR_TO_V(src) + len),
 
-			/* Loop target. */
-			[BPF_LABEL_LOOP] = BPFI_JEQ_K(BPF_REG_4, 0, 6),
+			/* 8-byte copy loop target. */
+			[BPF_LABEL_LOOP8] = BPFI_JEQ_X(BPF_REG_3, BPF_REG_4,
+						       BPF_LABEL_LOOP1 - BPF_LABEL_BRANCH8_1),
 
-			[13] = BPFI_LDX(BPF_B, BPF_REG_1, BPF_REG_3, 0),
-			[14] = BPFI_STX(BPF_B, BPF_REG_2, BPF_REG_1, 0),
+			[BPF_LABEL_BRANCH8_1] = BPFI_LDX(BPF_DW, BPF_REG_1, BPF_REG_3, 0),
+			[16] = BPFI_STX(BPF_DW, BPF_REG_2, BPF_REG_1, 0),
 
-			[15] = BPFI_ADD64_K(BPF_REG_2, 1),
-			[16] = BPFI_ADD64_K(BPF_REG_3, 1),
-			[17] = BPFI_SUB64_K(BPF_REG_4, 1),
-			[18] = BPFI_JA_K(BPF_LABEL_LOOP - BPF_LABEL_BRANCH2),
+			[17] = BPFI_ADD64_K(BPF_REG_2, 8),
+			[18] = BPFI_ADD64_K(BPF_REG_3, 8),
+			[19] = BPFI_JA_K(BPF_LABEL_LOOP8 - BPF_LABEL_LOOP1),
+
+			/* 1-byte copy loop target. */
+			[BPF_LABEL_LOOP1] = BPFI_JEQ_X(BPF_REG_3, BPF_REG_5,
+						       BPF_LABEL_BRANCH1_2 - BPF_LABEL_BRANCH1_1),
+
+			[BPF_LABEL_BRANCH1_1] = BPFI_LDX(BPF_B, BPF_REG_1, BPF_REG_3, 0),
+			[22] = BPFI_STX(BPF_B, BPF_REG_2, BPF_REG_1, 0),
+
+			[23] = BPFI_ADD64_K(BPF_REG_2, 1),
+			[24] = BPFI_ADD64_K(BPF_REG_3, 1),
+			[25] = BPFI_JA_K(BPF_LABEL_LOOP1 - BPF_LABEL_BRANCH1_2),
 
 			/* Completed, do store. */
-			[BPF_LABEL_BRANCH2] = BPFI_LD_IMM64(BPF_REG_2, newv),
-			[21] = BPFI_STX_MODE(bpf_size2, stx_mode, BPF_REG_5,
+
+			/*
+			 * r0 is 0
+			 * r2 is newv
+			 * r6 is v
+			 */
+			[BPF_LABEL_BRANCH1_2] = BPFI_LD_IMM64(BPF_REG_2, newv),
+			[28] = BPFI_STX_MODE(bpf_size2, stx_mode, BPF_REG_6,
 					     BPF_REG_2, 0),
 
-			[22] = BPFI_EXIT(),	/* r0 = 0. */
+			[29] = BPFI_EXIT(),	/* r0 = 0. */
 			[BPF_LABEL_FAIL] = BPFI_LD_IMM32(BPF_REG_0, 1),
-			[24] = BPFI_EXIT(),	/* r0 = 1. */
+			[31] = BPFI_EXIT(),	/* r0 = 1. */
 		};
 
 		do {
