@@ -44,8 +44,16 @@
 #define RSEQ_INJECT_FAILED
 #endif
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 extern __thread struct rseq __rseq_abi;
 extern int __rseq_handled;
+
+#if defined(__cplusplus)
+}
+#endif
 
 #define rseq_likely(x)		__builtin_expect(!!(x), 1)
 #define rseq_unlikely(x)	__builtin_expect(!!(x), 0)
@@ -82,6 +90,10 @@ extern int __rseq_handled;
 #include <rseq/rseq-s390.h>
 #else
 #error unsupported target
+#endif
+
+#if defined(__cplusplus)
+extern "C" {
 #endif
 
 /*
@@ -162,5 +174,9 @@ static inline void rseq_prepare_unload(void)
 {
 	rseq_clear_rseq_cs();
 }
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif  /* RSEQ_H_ */
