@@ -44,14 +44,14 @@
 #define RSEQ_INJECT_FAILED
 #endif
 
-#if defined(__cplusplus)
+#ifdef __cplusplus
 extern "C" {
 #endif
 
 extern __thread struct rseq __rseq_abi;
 extern int __rseq_handled;
 
-#if defined(__cplusplus)
+#ifdef __cplusplus
 }
 #endif
 
@@ -92,7 +92,7 @@ extern int __rseq_handled;
 #error unsupported target
 #endif
 
-#if defined(__cplusplus)
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -175,7 +175,7 @@ static inline void rseq_prepare_unload(void)
 	rseq_clear_rseq_cs();
 }
 
-#if defined(__cplusplus)
+#ifdef __cplusplus
 }
 #endif
 
