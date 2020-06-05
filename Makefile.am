@@ -7,8 +7,7 @@ ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = \
 	include \
-	src \
-	tests
+	src
 
 dist_doc_DATA = README.md
 

@@ -11,9 +11,3 @@ nobase_include_HEADERS = \
 	rseq/rseq-s390.h \
 	rseq/rseq-skip.h \
 	rseq/rseq-x86.h
-
-if HAVE_DO_ON_CPU
-nobase_include_HEADERS += \
-	rseq/cpu-op.h \
-	rseq/percpu-op.h
-endif

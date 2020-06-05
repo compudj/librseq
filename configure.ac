@@ -78,13 +78,6 @@ AS_IF([test "x${ac_cv_header_linux_rseq_h}" != "xyes"], [
 	AC_MSG_ERROR([Cannot find 'linux/rseq.h'.])
 ])
 
-AC_CHECK_HEADER([linux/do_on_cpu.h])
-AH_TEMPLATE([HAVE_DO_ON_CPU], [Defined to 1 if we have do_on_cpu headers.])
-AS_IF([test "x${ac_cv_header_linux_do_on_cpu_h}" = "xyes"], [
-	AC_DEFINE(HAVE_DO_ON_CPU, 1)
-])
-AM_CONDITIONAL([HAVE_DO_ON_CPU], [test "x${ac_cv_header_linux_do_on_cpu_h}" = "xyes"])
-
 AM_CPPFLAGS="-include config.h"
 AC_SUBST(AM_CPPFLAGS)
 
@@ -95,7 +88,6 @@ AC_CONFIG_FILES([
 	Makefile
 	include/Makefile
 	src/Makefile
-	tests/Makefile
 	src/librseq.pc
 ])
 
@@ -116,10 +108,6 @@ AS_ECHO
 PPRINT_SUBTITLE([Features])
 
 PPRINT_PROP_STRING([Target architecture], $host_cpu)
-
-# SMP support enabled/disabled
-test "x${ac_cv_header_linux_do_on_cpu_h}" = "xyes" && value=1 || value=0
-PPRINT_PROP_BOOL([do_on_cpu system call support], $value)
 
 report_bindir="`eval eval echo $bindir`"
 report_libdir="`eval eval echo $libdir`"
