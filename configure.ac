@@ -86,6 +86,8 @@ AC_SUBST(AM_CFLAGS)
 
 AC_CONFIG_FILES([
 	Makefile
+	doc/Makefile
+	doc/man/Makefile
 	include/Makefile
 	src/Makefile
 	src/librseq.pc
