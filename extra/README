@@ -7,15 +7,3 @@ Kernel headers for test builds. Do not use for production builds.
   It also contains definitive system call number definitions for the rseq
   system call, in case the kernel uapi headers are not recent enough
   to define them.
-
-
-- linux/do_on_cpu.h
-
-  It is a copy from the Linux rseq tree (not upstream yet):
-
-  https://git.kernel.org/pub/scm/linux/kernel/git/rseq/linux-rseq.git/
-  tag: v5.1.16-rseq-20190725
-
-  It also contains system call number definitions for the do_on_cpu
-  system call (not yet upstream), which will likely change before
-  being integrated upstream.

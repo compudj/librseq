@@ -13,7 +13,6 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <rseq/rseq.h>
-#include <rseq/cpu-op.h>
 
 static inline uint32_t percpu_current_cpu(void)
 {
@@ -27,7 +26,8 @@ int percpu_fence(int cpu)
 		return -1;
 	if ((uint32_t) cpu == percpu_current_cpu())
 		return 0;
-	return cpu_op_fence(cpu);
+	//TODO: Missing cpu_mutex system call or similar.
+	abort();
 }
 
 static inline __attribute__((always_inline))
@@ -40,7 +40,8 @@ int percpu_cmpeqv_storev(intptr_t *v, intptr_t expect, intptr_t newv,
 	if (rseq_unlikely(ret)) {
 		if (ret > 0)
 			return ret;
-		return cpu_op_cmpeqv_storev(v, expect, newv, cpu);
+		//TODO: Missing cpu_mutex system call or similar.
+		abort();
 	}
 	return 0;
 }
@@ -55,8 +56,8 @@ int percpu_cmpnev_storeoffp_load(intptr_t *v, intptr_t expectnot,
 	if (rseq_unlikely(ret)) {
 		if (ret > 0)
 			return ret;
-		return cpu_op_cmpnev_storeoffp_load(v, expectnot, voffp,
-						    load, cpu);
+		//TODO: Missing cpu_mutex system call or similar.
+		abort();
 	}
 	return 0;
 }
@@ -64,8 +65,10 @@ int percpu_cmpnev_storeoffp_load(intptr_t *v, intptr_t expectnot,
 static inline __attribute__((always_inline))
 int percpu_addv(intptr_t *v, intptr_t count, int cpu)
 {
-	if (rseq_unlikely(rseq_addv(v, count, cpu)))
-		return cpu_op_addv(v, count, cpu);
+	if (rseq_unlikely(rseq_addv(v, count, cpu))) {
+		//TODO: Missing cpu_mutex system call or similar.
+		abort();
+	}
 	return 0;
 }
 
@@ -81,8 +84,8 @@ int percpu_cmpeqv_storev_storev(intptr_t *v, intptr_t expect,
 	if (rseq_unlikely(ret)) {
 		if (ret > 0)
 			return ret;
-		return cpu_op_cmpeqv_storev_storev(v, expect, v2, newv2,
-						   newv, cpu);
+		//TODO: Missing cpu_mutex system call or similar.
+		abort();
 	}
 	return 0;
 }
@@ -99,8 +102,8 @@ int percpu_cmpeqv_storev_storev_release(intptr_t *v, intptr_t expect,
 	if (rseq_unlikely(ret)) {
 		if (ret > 0)
 			return ret;
-		return cpu_op_cmpeqv_storev_storev_release(v, expect, v2, newv2,
-							   newv, cpu);
+		//TODO: Missing cpu_mutex system call or similar.
+		abort();
 	}
 	return 0;
 }
@@ -116,8 +119,8 @@ int percpu_cmpeqv_cmpeqv_storev(intptr_t *v, intptr_t expect,
 	if (rseq_unlikely(ret)) {
 		if (ret > 0)
 			return ret;
-		return cpu_op_cmpeqv_cmpeqv_storev(v, expect, v2, expect2,
-						   newv, cpu);
+		//TODO: Missing cpu_mutex system call or similar.
+		abort();
 	}
 	return 0;
 }
@@ -134,8 +137,8 @@ int percpu_cmpeqv_memcpy_storev(intptr_t *v, intptr_t expect,
 	if (rseq_unlikely(ret)) {
 		if (ret > 0)
 			return ret;
-		return cpu_op_cmpeqv_memcpy_storev(v, expect, dst, src, len,
-						   newv, cpu);
+		//TODO: Missing cpu_mutex system call or similar.
+		abort();
 	}
 	return 0;
 }
@@ -152,8 +155,8 @@ int percpu_cmpeqv_memcpy_storev_release(intptr_t *v, intptr_t expect,
 	if (rseq_unlikely(ret)) {
 		if (ret > 0)
 			return ret;
-		return cpu_op_cmpeqv_memcpy_storev_release(v, expect, dst, src,
-							   len, newv, cpu);
+		//TODO: Missing cpu_mutex system call or similar.
+		abort();
 	}
 	return 0;
 }
@@ -167,7 +170,8 @@ int percpu_deref_loadoffp(intptr_t *p, off_t voffp, intptr_t *load, int cpu)
 	if (rseq_unlikely(ret)) {
 		if (ret > 0)
 			return ret;
-		return cpu_op_deref_loadoffp(p, voffp, load, cpu);
+		//TODO: Missing cpu_mutex system call or similar.
+		abort();
 	}
 	return 0;
 }

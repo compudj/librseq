@@ -10,13 +10,6 @@ lib_LTLIBRARIES = librseq.la
 librseq_la_SOURCES = \
 	rseq.c
 
-if HAVE_DO_ON_CPU
-librseq_la_SOURCES += \
-	cpu-op.c  \
-	percpu-op.c \
-	do-on-cpu-insn.h
-endif
-
 librseq_la_LDFLAGS = -no-undefined -version-info $(RSEQ_LIBRARY_VERSION)
 
 pkgconfigdir = $(libdir)/pkgconfig
