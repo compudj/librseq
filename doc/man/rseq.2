@@ -1,4 +1,4 @@
-.\" Copyright 2015-2017 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+.\" Copyright 2015-2020 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
 .\"
 .\" %%%LICENSE_START(VERBATIM)
 .\" Permission is granted to make and distribute verbatim copies of this
@@ -22,7 +22,7 @@
 .\" the source, must acknowledge the copyright and authors of this work.
 .\" %%%LICENSE_END
 .\"
-.TH RSEQ 2 2017-11-10 "Linux" "Linux Programmer's Manual"
+.TH RSEQ 2 2020-06-05 "Linux" "Linux Programmer's Manual"
 .SH NAME
 rseq \- Restartable sequences and cpu number cache
 .SH SYNOPSIS
@@ -46,7 +46,8 @@ context.
 Restartable sequences are atomic with respect to preemption (making it
 atomic with respect to other threads running on the same CPU), as well
 as signal delivery (user-space execution contexts nested over the same
-thread).
+thread). They either complete atomically with respect to preemption on
+the current CPU and signal delivery, or they are aborted.
 
 It is suited for update operations on per-cpu data.
 
@@ -81,9 +82,7 @@ in termination of the process by a segmentation fault.
 The
 .I rseq
 argument is a pointer to the thread-local rseq structure to be shared
-between kernel and user-space. A NULL
-.I rseq
-value unregisters the current thread rseq structure.
+between kernel and user-space.
 
 .PP
 The layout of
@@ -91,7 +90,7 @@ The layout of
 is as follows:
 .TP
 .B Structure alignment
-This structure is aligned on multiples of 32 bytes.
+This structure is aligned on 32-byte boundary.
 .TP
 .B Structure size
 This structure is extensible. Its size is passed as parameter to the
@@ -106,6 +105,24 @@ Optimistic cache of the CPU number on which the current thread is
 running. Its value is guaranteed to always be a possible CPU number,
 even when rseq is not initialized. The value it contains should always
 be confirmed by reading the cpu_id field.
+
+This field is an optimistic cache in the sense that it is always
+guaranteed to hold a valid CPU number in the range [ 0 ..
+nr_possible_cpus - 1 ]. It can therefore be loaded by user-space and
+used as an offset in per-cpu data structures without having to
+check whether its value is within the valid bounds compared to the
+number of possible CPUs in the system.
+
+For user-space applications executed on a kernel without rseq support,
+the cpu_id_start field stays initialized at 0, which is indeed a valid
+CPU number. It is therefore valid to use it as an offset in per-cpu data
+structures, and only validate whether it's actually the current CPU
+number by comparing it with the cpu_id field within the rseq critical
+section. If the kernel does not provide rseq support, that cpu_id field
+stays initialized at -1, so the comparison always fails, as intended.
+
+It is then up to user-space to use a fall-back mechanism, considering
+that rseq is not available.
 .in
 .TP
 .in +4n
@@ -140,7 +157,7 @@ The layout of
 version 0 is as follows:
 .TP
 .B Structure alignment
-This structure is aligned on multiples of 32 bytes.
+This structure is aligned on 32-byte boundary.
 .TP
 .B Structure size
 This structure has a fixed size of 32 bytes.
@@ -156,7 +173,7 @@ Version of this structure.
 .in +4n
 .I flags
 Flags indicating the restart behavior of this structure. Can be
-either:
+a combination of:
 .IP \[bu]
 RSEQ_CS_FLAG_NO_RESTART_ON_PREEMPT
 .IP \[bu]
@@ -215,6 +232,14 @@ field should be initialized to a possible CPU value (typically 0).
 Each thread is responsible for registering and unregistering its rseq
 structure. No more than one rseq structure address can be registered
 per thread at a given time.
+
+.PP
+Memory of a registered rseq object must not be freed before the thread
+exits. Reclaim of rseq object's memory must only be done after either an
+explicit rseq unregistration is performed or after the thread exits. Keep
+in mind that the implementation of the Thread-Local Storage (C language
+__thread) lifetime does not guarantee existence of the TLS area up until
+the thread exits.
 
 .PP
 In a typical usage scenario, the thread registering the rseq
