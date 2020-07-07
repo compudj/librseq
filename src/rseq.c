@@ -36,16 +36,6 @@ __thread struct rseq __rseq_abi = {
 	.cpu_id = RSEQ_CPU_ID_UNINITIALIZED,
 };
 
-/*
- * Shared with other libraries. This library may take rseq ownership if it is
- * still 0 when executing the library constructor. Set to 1 by library
- * constructor when handling rseq. Set to 0 in destructor if handling rseq.
- */
-int __rseq_handled;
-
-/* Whether this library have ownership of rseq registration. */
-static int rseq_ownership;
-
 static __thread uint32_t __rseq_refcount;
 
 static int sys_rseq(struct rseq *rseq_abi, uint32_t rseq_len,
@@ -93,27 +83,42 @@ static void signal_restore(sigset_t oldset)
 
 int rseq_register_current_thread(void)
 {
-	int rc, ret = 0;
+	int rc, ret = 0, cpu_id;
 	sigset_t oldset;
 
-	if (!rseq_ownership)
-		return 0;
 	signal_off_save(&oldset);
-	if (__rseq_refcount == UINT_MAX) {
+	cpu_id = rseq_current_cpu_raw();
+	if (cpu_id == RSEQ_CPU_ID_REGISTRATION_FAILED) {
+		errno = EPERM;
 		ret = -1;
 		goto end;
 	}
-	if (__rseq_refcount++)
-		goto end;
-	rc = sys_rseq(&__rseq_abi, sizeof(struct rseq), 0, RSEQ_SIG);
-	if (!rc) {
+	/*
+	 * If cpu_id >= 0, rseq is already successfully registered either by
+	 * libc (__rseq_refcount == 0) or by another user library
+	 * (__rseq_refcount > 0) for this thread.
+	 */
+	if (cpu_id >= 0) {
+		/* Treat libc's ownership as a successful registration. */
+		if (__rseq_refcount == 0)
+			goto end;
+		if (__rseq_refcount == UINT_MAX) {
+			errno = EOVERFLOW;
+			ret = -1;
+			goto end;
+		}
+	} else {
+		assert(__rseq_refcount == 0);
+		rc = sys_rseq(&__rseq_abi, sizeof(struct rseq), 0, RSEQ_SIG);
+		if (rc) {
+			assert(errno != EBUSY);
+			__rseq_abi.cpu_id = RSEQ_CPU_ID_REGISTRATION_FAILED;
+			ret = -1;
+			goto end;
+		}
 		assert(rseq_current_cpu_raw() >= 0);
-		goto end;
 	}
-	if (errno != EBUSY)
-		__rseq_abi.cpu_id = RSEQ_CPU_ID_REGISTRATION_FAILED;
-	ret = -1;
-	__rseq_refcount--;
+	__rseq_refcount++;
 end:
 	signal_restore(oldset);
 	return ret;
@@ -121,24 +126,36 @@ end:
 
 int rseq_unregister_current_thread(void)
 {
-	int rc, ret = 0;
+	int rc, ret = 0, cpu_id;
 	sigset_t oldset;
 
-	if (!rseq_ownership)
-		return 0;
 	signal_off_save(&oldset);
-	if (!__rseq_refcount) {
+	cpu_id = rseq_current_cpu_raw();
+	/* cpu_id < 0 means rseq is either uninitialized or registration failed. */
+	if (cpu_id < 0) {
+		errno = EPERM;
 		ret = -1;
 		goto end;
 	}
-	if (--__rseq_refcount)
+	/*
+	 * If cpu_id >= 0, rseq is currently successfully registered either by
+	 * libc (__rseq_refcount == 0) or by another user library
+	 * (__rseq_refcount > 0) for this thread.
+	 *
+	 * Treat libc's ownership as a successful unregistration.
+	 */
+	if (__rseq_refcount == 0) {
 		goto end;
-	rc = sys_rseq(&__rseq_abi, sizeof(struct rseq),
-		      RSEQ_FLAG_UNREGISTER, RSEQ_SIG);
-	if (!rc)
-		goto end;
-	__rseq_refcount = 1;
-	ret = -1;
+	}
+	if (__rseq_refcount == 1) {
+		rc = sys_rseq(&__rseq_abi, sizeof(struct rseq),
+			      RSEQ_FLAG_UNREGISTER, RSEQ_SIG);
+		if (rc) {
+			ret = -1;
+			goto end;
+		}
+	}
+	__rseq_refcount--;
 end:
 	signal_restore(oldset);
 	return ret;
@@ -154,21 +171,4 @@ int32_t rseq_fallback_current_cpu(void)
 		abort();
 	}
 	return cpu;
-}
-
-void __attribute__((constructor)) rseq_init(void)
-{
-	/* Check whether rseq is handled by another library. */
-	if (__rseq_handled)
-		return;
-	__rseq_handled = 1;
-	rseq_ownership = 1;
-}
-
-void __attribute__((destructor)) rseq_fini(void)
-{
-	if (!rseq_ownership)
-		return;
-	__rseq_handled = 0;
-	rseq_ownership = 0;
 }
