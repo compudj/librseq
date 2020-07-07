@@ -9,3 +9,5 @@ noinst_PROGRAMS = basic_percpu_ops_test
 
 basic_percpu_ops_test_SOURCES = basic_percpu_ops_test.c
 basic_percpu_ops_test_LDADD = $(top_builddir)/src/librseq.la
+
+TESTS = basic_percpu_ops_test
