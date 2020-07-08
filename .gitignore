@@ -53,6 +53,7 @@ dkms.conf
 
 /src/librseq.pc
 /tests/basic_percpu_ops_test
+/tests/basic_test
 
 #automake
 /include/config.h
