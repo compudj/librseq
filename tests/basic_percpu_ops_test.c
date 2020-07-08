@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LGPL-2.1
+// SPDX-License-Identifier: LGPL-2.1-only
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -12,6 +12,10 @@
 #include <stddef.h>
 
 #include <rseq/rseq.h>
+
+#include "tap.h"
+
+#define NR_TESTS 2
 
 #define ARRAY_SIZE(arr)	(sizeof(arr) / sizeof((arr)[0]))
 
@@ -117,6 +121,8 @@ void test_percpu_spinlock(void)
 	pthread_t test_threads[num_threads];
 	struct spinlock_test_data data;
 
+	diag("spinlock");
+
 	memset(&data, 0, sizeof(data));
 	data.reps = 5000;
 
@@ -131,7 +137,7 @@ void test_percpu_spinlock(void)
 	for (i = 0; i < CPU_SETSIZE; i++)
 		sum += data.c[i].count;
 
-	assert(sum == (uint64_t)data.reps * num_threads);
+	ok(sum == (uint64_t)data.reps * num_threads, "sum");
 }
 
 void this_cpu_list_push(struct percpu_list *list,
@@ -244,6 +250,8 @@ void test_percpu_list(void)
 	pthread_t test_threads[200];
 	cpu_set_t allowed_cpus;
 
+	diag("percpu_list");
+
 	memset(&list, 0, sizeof(list));
 
 	/* Generate list entries for every usable cpu. */
@@ -288,27 +296,30 @@ void test_percpu_list(void)
 	 * actor is interfering with our allowed affinity while this
 	 * test is running).
 	 */
-	assert(sum == expected_sum);
+	ok(sum == expected_sum, "sum");
 }
 
 int main(void)
 {
+	plan_tests(NR_TESTS);
+
 	if (rseq_register_current_thread()) {
 		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
 			errno, strerror(errno));
 		goto error;
 	}
-	printf("spinlock\n");
+
 	test_percpu_spinlock();
-	printf("percpu_list\n");
 	test_percpu_list();
+
 	if (rseq_unregister_current_thread()) {
 		fprintf(stderr, "Error: rseq_unregister_current_thread(...) failed(%d): %s\n",
 			errno, strerror(errno));
 		goto error;
 	}
-	return 0;
+
+	exit(EXIT_SUCCESS);
 
 error:
-	return -1;
+	exit(EXIT_FAILURE);
 }

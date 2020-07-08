@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LGPL-2.1
+// SPDX-License-Identifier: LGPL-2.1-only
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -1102,7 +1102,8 @@ void test_percpu_memcpy_buffer(void)
 	assert(sum == expected_sum);
 }
 
-static void test_signal_interrupt_handler(int signo)
+
+static void test_signal_interrupt_handler(__attribute__ ((unused)) int signo)
 {
 	signals_delivered++;
 }
@@ -1133,7 +1134,7 @@ static int set_signal_handler(void)
 	return ret;
 }
 
-static void show_usage(int argc, char **argv)
+static void show_usage(char **argv)
 {
 	printf("Usage : %s <OPTIONS>\n",
 		argv[0]);
@@ -1180,7 +1181,7 @@ int main(int argc, char **argv)
 		case '8':
 		case '9':
 			if (argc < i + 2) {
-				show_usage(argc, argv);
+				show_usage(argv);
 				goto error;
 			}
 			loop_cnt[argv[i][1] - '0'] = atol(argv[i + 1]);
@@ -1188,24 +1189,24 @@ int main(int argc, char **argv)
 			break;
 		case 'm':
 			if (argc < i + 2) {
-				show_usage(argc, argv);
+				show_usage(argv);
 				goto error;
 			}
 			opt_modulo = atol(argv[i + 1]);
 			if (opt_modulo < 0) {
-				show_usage(argc, argv);
+				show_usage(argv);
 				goto error;
 			}
 			i++;
 			break;
 		case 's':
 			if (argc < i + 2) {
-				show_usage(argc, argv);
+				show_usage(argv);
 				goto error;
 			}
 			opt_sleep = atol(argv[i + 1]);
 			if (opt_sleep < 0) {
-				show_usage(argc, argv);
+				show_usage(argv);
 				goto error;
 			}
 			i++;
@@ -1221,46 +1222,46 @@ int main(int argc, char **argv)
 			break;
 		case 'D':
 			if (argc < i + 2) {
-				show_usage(argc, argv);
+				show_usage(argv);
 				goto error;
 			}
 			opt_disable_mod = atol(argv[i + 1]);
 			if (opt_disable_mod < 0) {
-				show_usage(argc, argv);
+				show_usage(argv);
 				goto error;
 			}
 			i++;
 			break;
 		case 't':
 			if (argc < i + 2) {
-				show_usage(argc, argv);
+				show_usage(argv);
 				goto error;
 			}
 			opt_threads = atol(argv[i + 1]);
 			if (opt_threads < 0) {
-				show_usage(argc, argv);
+				show_usage(argv);
 				goto error;
 			}
 			i++;
 			break;
 		case 'r':
 			if (argc < i + 2) {
-				show_usage(argc, argv);
+				show_usage(argv);
 				goto error;
 			}
 			opt_reps = atoll(argv[i + 1]);
 			if (opt_reps < 0) {
-				show_usage(argc, argv);
+				show_usage(argv);
 				goto error;
 			}
 			i++;
 			break;
 		case 'h':
-			show_usage(argc, argv);
+			show_usage(argv);
 			goto end;
 		case 'T':
 			if (argc < i + 2) {
-				show_usage(argc, argv);
+				show_usage(argv);
 				goto error;
 			}
 			opt_test = *argv[i + 1];
@@ -1272,7 +1273,7 @@ int main(int argc, char **argv)
 			case 'm':
 				break;
 			default:
-				show_usage(argc, argv);
+				show_usage(argv);
 				goto error;
 			}
 			i++;
@@ -1284,7 +1285,7 @@ int main(int argc, char **argv)
 			opt_mb = 1;
 			break;
 		default:
-			show_usage(argc, argv);
+			show_usage(argv);
 			goto error;
 		}
 	}
