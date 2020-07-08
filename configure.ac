@@ -23,8 +23,6 @@ AM_MAINTAINER_MODE([enable])
 # Enable silent rules if available (Introduced in AM 1.11)
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-AC_REQUIRE_AUX_FILE([tap-driver.sh])
-
 # Checks for C compiler
 AC_USE_SYSTEM_EXTENSIONS
 AC_PROG_CC
@@ -92,6 +90,7 @@ AC_CONFIG_FILES([
 	src/Makefile
 	src/librseq.pc
 	tests/Makefile
+	tests/utils/Makefile
 ])
 
 AC_OUTPUT

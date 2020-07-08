@@ -52,8 +52,8 @@ Mkfile.old
 dkms.conf
 
 /src/librseq.pc
-/tests/basic_percpu_ops_test
-/tests/basic_test
+/tests/basic_percpu_ops_test.tap
+/tests/basic_test.tap
 /tests/param_test
 /tests/param_test_benchmark
 /tests/param_test_compare_twice
