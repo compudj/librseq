@@ -54,6 +54,9 @@ dkms.conf
 /src/librseq.pc
 /tests/basic_percpu_ops_test
 /tests/basic_test
+/tests/param_test
+/tests/param_test_benchmark
+/tests/param_test_compare_twice
 
 #automake
 /include/config.h
