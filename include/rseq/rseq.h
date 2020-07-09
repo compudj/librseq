@@ -49,7 +49,6 @@ extern "C" {
 #endif
 
 extern __thread struct rseq __rseq_abi;
-extern int __rseq_handled;
 
 #ifdef __cplusplus
 }
