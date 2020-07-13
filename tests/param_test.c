@@ -1158,6 +1158,7 @@ static void show_usage(char **argv)
 	printf("	[-D M] Disable rseq for each M threads\n");
 	printf("	[-T test] Choose test: (s)pinlock, (l)ist, (b)uffer, (m)emcpy, (i)ncrement\n");
 	printf("	[-M] Push into buffer and memcpy buffer with memory barriers.\n");
+	printf("	[-c] Check if the rseq syscall is available.\n");
 	printf("	[-v] Verbose output.\n");
 	printf("	[-h] Show this help.\n");
 	printf("\n");
@@ -1284,6 +1285,14 @@ int main(int argc, char **argv)
 		case 'M':
 			opt_mb = 1;
 			break;
+		case 'c':
+			if (rseq_available()) {
+				printf_verbose("The rseq syscall is available.\n");
+				goto end;
+			} else {
+				printf_verbose("The rseq syscall is unavailable.\n");
+				goto no_rseq;
+			}
 		default:
 			show_usage(argv);
 			goto error;
@@ -1331,4 +1340,7 @@ end:
 
 error:
 	return -1;
+
+no_rseq:
+	return 2;
 }

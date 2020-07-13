@@ -15,7 +15,7 @@
 
 #include "tap.h"
 
-#define NR_TESTS 2
+#define NR_TESTS 4
 
 #define ARRAY_SIZE(arr)	(sizeof(arr) / sizeof((arr)[0]))
 
@@ -303,23 +303,30 @@ int main(void)
 {
 	plan_tests(NR_TESTS);
 
+	if(!rseq_available()) {
+		skip(NR_TESTS, "The rseq syscall is unavailable");
+		goto end;
+	}
+
 	if (rseq_register_current_thread()) {
-		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
+		fail("rseq_register_current_thread(...) failed(%d): %s\n",
 			errno, strerror(errno));
-		goto error;
+		goto end;
+	} else {
+		pass("Registered current thread with rseq");
 	}
 
 	test_percpu_spinlock();
 	test_percpu_list();
 
 	if (rseq_unregister_current_thread()) {
-		fprintf(stderr, "Error: rseq_unregister_current_thread(...) failed(%d): %s\n",
+		fail("rseq_unregister_current_thread(...) failed(%d): %s\n",
 			errno, strerror(errno));
-		goto error;
+		goto end;
+	} else {
+		pass("Unregistered current thread with rseq");
 	}
 
-	exit(EXIT_SUCCESS);
-
-error:
-	exit(EXIT_FAILURE);
+end:
+	exit(exit_status());
 }
