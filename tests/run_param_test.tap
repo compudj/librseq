@@ -71,7 +71,12 @@ function do_tests_inject()
 }
 
 
-plan_tests $(( 2 * 7 * 37 ))
+"$RSEQ_TESTS_BUILDDIR"/param_test -c
+if [[ $? == 2 ]]; then
+	plan_skip_all "The rseq syscall is unavailable"
+else
+	plan_tests $(( 2 * 7 * 37 ))
+fi
 
 diag "Default parameters"
 do_tests

@@ -22,8 +22,6 @@ void test_cpu_pointer(void)
 	cpu_set_t affinity, test_affinity;
 	int ret, i;
 
-	diag("testing current cpu");
-
 	ret = sched_getaffinity(0, sizeof(affinity), &affinity);
 	ok(ret == 0, "Get current thread affinity mask");
 
@@ -51,25 +49,33 @@ void test_cpu_pointer(void)
 
 int main(void)
 {
-
-	plan_no_plan();
+	/*
+	 * Skip all tests if the rseq syscall is unavailable
+	 */
+	if (rseq_available()) {
+		plan_no_plan();
+	} else {
+		plan_skip_all("The rseq syscall is unavailable");
+	}
 
 	if (rseq_register_current_thread()) {
-		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
+		fail("rseq_register_current_thread(...) failed(%d): %s\n",
 			errno, strerror(errno));
-		goto init_thread_error;
+		goto end;
+	} else {
+		pass("Registered current thread with rseq");
 	}
 
 	test_cpu_pointer();
 
 	if (rseq_unregister_current_thread()) {
-		fprintf(stderr, "Error: rseq_unregister_current_thread(...) failed(%d): %s\n",
+		fail("rseq_unregister_current_thread(...) failed(%d): %s\n",
 			errno, strerror(errno));
-		goto init_thread_error;
+		goto end;
+	} else {
+		pass("Unregistered current thread with rseq");
 	}
 
-	exit(EXIT_SUCCESS);
-
-init_thread_error:
-	exit(EXIT_FAILURE);;
+end:
+	exit(exit_status());
 }
