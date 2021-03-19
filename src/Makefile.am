@@ -3,8 +3,6 @@
 # Copyright (C) 2019 Michael Jeanson <mjeanson@efficios.com>
 #
 
-AM_CPPFLAGS += -I$(top_srcdir)/include -I$(top_builddir)/include
-
 lib_LTLIBRARIES = librseq.la
 
 librseq_la_SOURCES = \

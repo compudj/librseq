@@ -3,7 +3,7 @@
 # Copyright (C) 2020 Michael Jeanson <mjeanson@efficios.com>
 #
 
-AM_CFLAGS += -I$(top_srcdir)/include -I$(top_builddir)/include -I$(top_srcdir)/tests/utils
+AM_CPPFLAGS += -I$(top_srcdir)/tests/utils
 
 SUBDIRS = utils
 
@@ -28,11 +28,11 @@ param_test_SOURCES = param_test.c
 param_test_LDADD = $(top_builddir)/src/librseq.la
 
 param_test_benchmark_SOURCES = param_test.c
-param_test_benchmark_CPPFLAGS = -DBENCHMARK
+param_test_benchmark_CPPFLAGS = $(AM_CPPFLAGS) -DBENCHMARK
 param_test_benchmark_LDADD = $(top_builddir)/src/librseq.la
 
 param_test_compare_twice_SOURCES = param_test.c
-param_test_compare_twice_CPPFLAGS = -DRSEQ_COMPARE_TWICE
+param_test_compare_twice_CPPFLAGS = $(AM_CPPFLAGS) -DRSEQ_COMPARE_TWICE
 param_test_compare_twice_LDADD = $(top_builddir)/src/librseq.la
 
 TESTS = basic_percpu_ops_test.tap basic_test.tap run_param_test.tap

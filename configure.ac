@@ -1,14 +1,31 @@
-# SPDX-License-Identifier: MIT
-#
-# Copyright (C) 2019 Michael Jeanson <mjeanson@efficios.com>
-#
+dnl SPDX-License-Identifier: MIT
+dnl
+dnl Copyright (C) 2021 EfficiOS, Inc.
+dnl
+dnl Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.59)
-AC_INIT([librseq],[0.1.0-pre],[mathieu dot desnoyers at efficios dot com], [], [https://github.com/compudj/librseq/])
+# Project version information
+m4_define([rseq_version_major], [0])
+m4_define([rseq_version_minor], [1])
+m4_define([rseq_version_patch], [0])
+m4_define([rseq_version_dev_stage], [-pre])
+m4_define([rseq_version], rseq_version_major[.]rseq_version_minor[.]rseq_version_patch[]rseq_version_dev_stage)
 
+# Library version information of "librseq"
 # Following the numbering scheme proposed by libtool for the library version
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
-AC_SUBST([RSEQ_LIBRARY_VERSION], [0:0:0])
+m4_define([rseq_lib_version_current], [0])
+m4_define([rseq_lib_version_revision], [0])
+m4_define([rseq_lib_version_age], [0])
+m4_define([rseq_lib_version], rseq_lib_version_current[:]rseq_lib_version_revision[:]rseq_lib_version_age)
+
+
+##                     ##
+## Autoconf base setup ##
+##                     ##
+
+AC_PREREQ([2.69])
+AC_INIT([librseq],[rseq_version],[mathieu dot desnoyers at efficios dot com],[],[https://github.com/compudj/librseq/])
 
 AC_CONFIG_HEADERS([include/config.h])
 AC_CONFIG_AUX_DIR([config])
@@ -17,26 +34,45 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_TARGET
 AC_CANONICAL_HOST
 
-AM_INIT_AUTOMAKE([foreign dist-bzip2 no-dist-gzip nostdinc])
+
+##                     ##
+## Automake base setup ##
+##                     ##
+
+AM_INIT_AUTOMAKE([1.12 foreign dist-bzip2 no-dist-gzip nostdinc -Wall -Werror])
 AM_MAINTAINER_MODE([enable])
 
-# Enable silent rules if available (Introduced in AM 1.11)
-m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+# Enable silent rules by default
+AM_SILENT_RULES([yes])
 
-# Checks for C compiler
-AC_USE_SYSTEM_EXTENSIONS
+
+##                   ##
+## C compiler checks ##
+##                   ##
+
+# Choose the C compiler
 AC_PROG_CC
-AC_PROG_CC_STDC
-AC_PROG_CXX
+# AC_PROG_CC_STDC was merged in AC_PROG_CC in autoconf 2.70
+m4_version_prereq([2.70], [], [AC_PROG_CC_STDC])
 
-# Checks for programs.
-AC_PROG_AWK
-AC_PROG_MAKE_SET
+# Make sure the C compiler supports C99
+AS_IF([test "$ac_cv_prog_cc_c99" = "no"], [AC_MSG_ERROR([The compiler does not support C99])])
 
-LT_INIT
+# Enable available system extensions and LFS support
+AC_USE_SYSTEM_EXTENSIONS
+AC_SYS_LARGEFILE
+
+# Make sure the C compiler supports __attribute__
+AX_C___ATTRIBUTE__
+AS_IF([test "x$ax_cv___attribute__" != "xyes"],
+  [AC_MSG_ERROR([The compiler does not support __attribute__ extensions])])
+
+# Make sure we have pthread support
+AX_PTHREAD([], [AC_MSG_ERROR([Could not configure pthread support])])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_INLINE
+AC_C_TYPEOF
 AC_TYPE_INT32_T
 AC_TYPE_INT64_T
 AC_TYPE_OFF_T
@@ -44,19 +80,44 @@ AC_TYPE_SIZE_T
 AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 
-AX_C___ATTRIBUTE__
-AS_IF([test "x$ax_cv___attribute__" = "xyes"],
-	[:],
-	[AC_MSG_ERROR([The compiler does not support __attribute__ extensions])])
 
-AX_PTHREAD(,[AC_MSG_ERROR([Could not configure pthreads support])])
+##               ##
+## Header checks ##
+##               ##
 
-AM_CFLAGS="$AM_CFLAGS $PTHREAD_CFLAGS"
+AC_HEADER_STDBOOL
+AC_CHECK_HEADERS([ \
+	limits.h \
+	stddef.h \
+	sys/time.h \
+])
+
+AC_CHECK_HEADER([linux/rseq.h], [],
+	[AC_MSG_ERROR([Cannot find 'linux/rseq.h'.])
+])
+
+
+##                 ##
+## Programs checks ##
+##                 ##
+
+AM_PROG_AR
+AC_PROG_AWK
+AC_PROG_MAKE_SET
+
+# Initialize and configure libtool
+LT_INIT
+
+
+##                ##
+## Library checks ##
+##                ##
 
 # Checks for library functions.
 AC_FUNC_MMAP
 AC_FUNC_FORK
 AC_CHECK_FUNCS([ \
+	atexit \
 	memset \
 	strerror \
 ])
@@ -64,23 +125,27 @@ AC_CHECK_FUNCS([ \
 # AC_FUNC_MALLOC causes problems when cross-compiling.
 #AC_FUNC_MALLOC
 
-# Check for headers
-AC_HEADER_STDBOOL
-AC_CHECK_HEADERS([ \
-	limits.h \
-	stddef.h \
-])
 
-AC_CHECK_HEADER([linux/rseq.h])
-AS_IF([test "x${ac_cv_header_linux_rseq_h}" != "xyes"], [
-	AC_MSG_ERROR([Cannot find 'linux/rseq.h'.])
-])
+##                                             ##
+## Substitute variables for use in Makefile.am ##
+##                                             ##
 
-AM_CPPFLAGS="-include config.h"
+# Library versions for libtool
+AC_SUBST([RSEQ_LIBRARY_VERSION], [rseq_lib_version])
+
+# The order in which the include folders are searched is important.
+# The top_builddir should always be searched first in the event that a build
+# time generated file is included.
+AM_CPPFLAGS="-I\$(top_builddir)/include -I\$(top_srcdir)/include -include config.h"
 AC_SUBST(AM_CPPFLAGS)
 
-AM_CFLAGS="-Wall -Wextra $AM_CFLAGS"
+AM_CFLAGS="-Wall -Wextra $PTHREAD_CFLAGS"
 AC_SUBST(AM_CFLAGS)
+
+
+##                                     ##
+## Output files generated by configure ##
+##                                     ##
 
 AC_CONFIG_FILES([
 	Makefile
@@ -94,6 +159,7 @@ AC_CONFIG_FILES([
 ])
 
 AC_OUTPUT
+
 
 #
 # Mini-report on what will be built.
