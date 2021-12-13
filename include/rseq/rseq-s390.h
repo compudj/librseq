@@ -579,11 +579,4 @@ int rseq_cmpeqv_trymemcpy_storev_release(intptr_t *v, intptr_t expect,
 					    newv, cpu);
 }
 
-/* TODO. */
-static inline __attribute__((always_inline))
-int rseq_deref_loadoffp(void *p, off_t voffp, intptr_t *load, int cpu)
-{
-	return -1;
-}
-
 #endif /* !RSEQ_SKIP_FASTPATH */

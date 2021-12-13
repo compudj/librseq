@@ -747,13 +747,6 @@ error2:
 #endif
 }
 
-/* TODO. */
-static inline __attribute__((always_inline))
-int rseq_deref_loadoffp(void *p, off_t voffp, intptr_t *load, int cpu)
-{
-	return -1;
-}
-
 #undef RSEQ_STORE_LONG
 #undef RSEQ_LOAD_LONG
 #undef RSEQ_LOADX_LONG
