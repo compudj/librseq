@@ -48,7 +48,13 @@
 extern "C" {
 #endif
 
-extern __thread struct rseq __rseq_abi;
+/* Offset from the thread pointer to the rseq area.  */
+extern int rseq_offset;
+/* Size of the registered rseq area.  0 if the registration was
+   unsuccessful.  */
+extern unsigned int rseq_size;
+/* Flags used during rseq registration.  */
+extern unsigned int rseq_flags;
 
 #ifdef __cplusplus
 }
@@ -74,6 +80,23 @@ extern __thread struct rseq __rseq_abi;
 		rseq_log(fmt, ##args);	\
 		abort();		\
 	} while (0)
+
+#if defined(__x86_64__) || defined(__i386__)
+#include <rseq/rseq-x86-thread-pointer.h>
+#elif defined(__PPC__)
+#include <rseq/rseq-ppc-thread-pointer.h>
+#else
+/* Use gcc builtin thread pointer. */
+static inline void *rseq_thread_pointer(void)
+{
+	return __builtin_thread_pointer();
+}
+#endif
+
+static inline struct rseq *rseq_get_abi(void)
+{
+	return (struct rseq *) (rseq_thread_pointer() + rseq_offset);
+}
 
 #if defined(__x86_64__) || defined(__i386__)
 #include <rseq/rseq-x86.h>
@@ -122,7 +145,7 @@ int rseq_available(void);
  */
 static inline int32_t rseq_current_cpu_raw(void)
 {
-	return RSEQ_READ_ONCE(__rseq_abi.cpu_id);
+	return RSEQ_READ_ONCE(rseq_get_abi()->cpu_id);
 }
 
 /*
@@ -138,7 +161,7 @@ static inline int32_t rseq_current_cpu_raw(void)
  */
 static inline uint32_t rseq_cpu_start(void)
 {
-	return RSEQ_READ_ONCE(__rseq_abi.cpu_id_start);
+	return RSEQ_READ_ONCE(rseq_get_abi()->cpu_id_start);
 }
 
 static inline uint32_t rseq_current_cpu(void)
@@ -154,9 +177,9 @@ static inline uint32_t rseq_current_cpu(void)
 static inline void rseq_clear_rseq_cs(void)
 {
 #ifdef __LP64__
-	RSEQ_WRITE_ONCE(__rseq_abi.rseq_cs.ptr, 0);
+	RSEQ_WRITE_ONCE(rseq_get_abi()->rseq_cs.ptr, 0);
 #else
-	RSEQ_WRITE_ONCE(__rseq_abi.rseq_cs.ptr.ptr32, 0);
+	RSEQ_WRITE_ONCE(rseq_get_abi()->rseq_cs.ptr.ptr32, 0);
 #endif
 }
 

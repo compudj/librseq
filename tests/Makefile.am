@@ -19,20 +19,20 @@ noinst_PROGRAMS = basic_percpu_ops_test.tap basic_test.tap param_test \
 dist_noinst_SCRIPTS = run_param_test.tap
 
 basic_percpu_ops_test_tap_SOURCES = basic_percpu_ops_test.c
-basic_percpu_ops_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la
+basic_percpu_ops_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
 basic_test_tap_SOURCES = basic_test.c
-basic_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la
+basic_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
 param_test_SOURCES = param_test.c
-param_test_LDADD = $(top_builddir)/src/librseq.la
+param_test_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
 
 param_test_benchmark_SOURCES = param_test.c
 param_test_benchmark_CPPFLAGS = $(AM_CPPFLAGS) -DBENCHMARK
-param_test_benchmark_LDADD = $(top_builddir)/src/librseq.la
+param_test_benchmark_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
 
 param_test_compare_twice_SOURCES = param_test.c
 param_test_compare_twice_CPPFLAGS = $(AM_CPPFLAGS) -DRSEQ_COMPARE_TWICE
-param_test_compare_twice_LDADD = $(top_builddir)/src/librseq.la
+param_test_compare_twice_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
 
 TESTS = basic_percpu_ops_test.tap basic_test.tap run_param_test.tap

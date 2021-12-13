@@ -125,6 +125,20 @@ AC_CHECK_FUNCS([ \
 # AC_FUNC_MALLOC causes problems when cross-compiling.
 #AC_FUNC_MALLOC
 
+# Check dor dlopen() in -ldl or -lc
+AC_CHECK_LIB([dl], [dlopen], [
+  libdl_name=dl
+  DL_LIBS="-ldl"
+], [
+  # dlopen not found in libdl, check in libc
+  AC_CHECK_LIB([c], [dlopen], [
+    libdl_name=c
+    DL_LIBS="-lc"
+  ], [
+    AC_MSG_ERROR([Cannot find dlopen in libdl nor libc. Use [LDFLAGS]=-Ldir to specify their location.])
+  ])
+])
+AC_SUBST(DL_LIBS)
 
 ##                                             ##
 ## Substitute variables for use in Makefile.am ##

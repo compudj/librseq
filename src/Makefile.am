@@ -9,6 +9,7 @@ librseq_la_SOURCES = \
 	rseq.c
 
 librseq_la_LDFLAGS = -no-undefined -version-info $(RSEQ_LIBRARY_VERSION)
+librseq_la_LIBADD = $(DL_LIBS)
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = librseq.pc
