@@ -10,4 +10,7 @@ nobase_include_HEADERS = \
 	rseq/rseq-ppc.h \
 	rseq/rseq-s390.h \
 	rseq/rseq-skip.h \
-	rseq/rseq-x86.h
+	rseq/rseq-x86.h \
+	rseq/rseq-ppc-thread-pointer.h \
+	rseq/rseq-x86-thread-pointer.h \
+	rseq/rseq-thread-pointer.h
