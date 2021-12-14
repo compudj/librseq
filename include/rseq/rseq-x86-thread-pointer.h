@@ -10,6 +10,10 @@
 
 #include <features.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if __GNUC_PREREQ (11, 1)
 static inline void *rseq_thread_pointer(void)
 {
@@ -28,5 +32,9 @@ static inline void *rseq_thread_pointer(void)
 	return __result;
 }
 #endif /* !GCC 11 */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

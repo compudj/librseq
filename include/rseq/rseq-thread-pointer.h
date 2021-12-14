@@ -8,6 +8,10 @@
 #ifndef _RSEQ_THREAD_POINTER
 #define _RSEQ_THREAD_POINTER
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if defined(__x86_64__) || defined(__i386__)
 #include <rseq/rseq-x86-thread-pointer.h>
 #elif defined(__PPC__)
@@ -17,6 +21,10 @@
 static inline void *rseq_thread_pointer(void)
 {
 	return __builtin_thread_pointer();
+}
+#endif
+
+#ifdef __cplusplus
 }
 #endif
 
