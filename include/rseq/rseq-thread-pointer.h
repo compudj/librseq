@@ -17,11 +17,7 @@ extern "C" {
 #elif defined(__PPC__)
 #include <rseq/rseq-ppc-thread-pointer.h>
 #else
-/* Use gcc builtin thread pointer. */
-static inline void *rseq_thread_pointer(void)
-{
-	return __builtin_thread_pointer();
-}
+#include <rseq/rseq-generic-thread-pointer.h>
 #endif
 
 #ifdef __cplusplus
