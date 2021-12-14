@@ -44,9 +44,19 @@
 #define RSEQ_INJECT_FAILED
 #endif
 
-#ifdef __cplusplus
+
+/*
+ * User code can define RSEQ_GET_ABI_OVERRIDE to override the
+ * rseq_get_abi() implementation, for instance to use glibc's symbols
+ * directly.
+ */
+#ifndef RSEQ_GET_ABI_OVERRIDE
+
+# include <rseq/rseq-thread-pointer.h>
+
+# ifdef __cplusplus
 extern "C" {
-#endif
+# endif
 
 /* Offset from the thread pointer to the rseq area.  */
 extern int rseq_offset;
@@ -56,9 +66,16 @@ extern unsigned int rseq_size;
 /* Flags used during rseq registration.  */
 extern unsigned int rseq_flags;
 
-#ifdef __cplusplus
+static inline struct rseq *rseq_get_abi(void)
+{
+	return (struct rseq *) (rseq_thread_pointer() + rseq_offset);
 }
-#endif
+
+# ifdef __cplusplus
+}
+# endif
+
+#endif /* RSEQ_GET_ABI_OVERRIDE */
 
 #define rseq_likely(x)		__builtin_expect(!!(x), 1)
 #define rseq_unlikely(x)	__builtin_expect(!!(x), 0)
@@ -80,13 +97,6 @@ extern unsigned int rseq_flags;
 		rseq_log(fmt, ##args);	\
 		abort();		\
 	} while (0)
-
-#include <rseq/rseq-thread-pointer.h>
-
-static inline struct rseq *rseq_get_abi(void)
-{
-	return (struct rseq *) (rseq_thread_pointer() + rseq_offset);
-}
 
 #if defined(__x86_64__) || defined(__i386__)
 #include <rseq/rseq-x86.h>
