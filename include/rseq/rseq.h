@@ -81,17 +81,7 @@ extern unsigned int rseq_flags;
 		abort();		\
 	} while (0)
 
-#if defined(__x86_64__) || defined(__i386__)
-#include <rseq/rseq-x86-thread-pointer.h>
-#elif defined(__PPC__)
-#include <rseq/rseq-ppc-thread-pointer.h>
-#else
-/* Use gcc builtin thread pointer. */
-static inline void *rseq_thread_pointer(void)
-{
-	return __builtin_thread_pointer();
-}
-#endif
+#include <rseq/rseq-thread-pointer.h>
 
 static inline struct rseq *rseq_get_abi(void)
 {
