@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <sched.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -117,7 +118,7 @@ static void test_percpu_spinlock(void)
 {
 	const int num_threads = 200;
 	int i;
-	uint64_t sum;
+	uint64_t sum, expected_sum;
 	pthread_t test_threads[num_threads];
 	struct spinlock_test_data data;
 
@@ -137,7 +138,9 @@ static void test_percpu_spinlock(void)
 	for (i = 0; i < CPU_SETSIZE; i++)
 		sum += data.c[i].count;
 
-	ok(sum == (uint64_t)data.reps * num_threads, "sum");
+	expected_sum = (uint64_t)data.reps * num_threads;
+
+	ok(sum == expected_sum, "spinlock - sum (%" PRIu64 " == %" PRIu64 ")", sum, expected_sum);
 }
 
 static void this_cpu_list_push(struct percpu_list *list,
@@ -296,7 +299,7 @@ static void test_percpu_list(void)
 	 * actor is interfering with our allowed affinity while this
 	 * test is running).
 	 */
-	ok(sum == expected_sum, "sum");
+	ok(sum == expected_sum, "percpu_list - sum (%" PRIu64 " == %" PRIu64 ")", sum, expected_sum);
 }
 
 int main(void)
