@@ -19,6 +19,7 @@ static inline void *rseq_thread_pointer(void)
 #else
 	register void *__result asm ("r2");
 #endif
+	asm ("" : "=r" (__result));
 	return __result;
 }
 
