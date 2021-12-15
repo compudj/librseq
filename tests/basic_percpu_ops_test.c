@@ -85,7 +85,7 @@ void rseq_percpu_unlock(struct percpu_lock *lock, int cpu)
 
 void *test_percpu_spinlock_thread(void *arg)
 {
-	struct spinlock_test_data *data = arg;
+	struct spinlock_test_data *data = (struct spinlock_test_data *) arg;
 	int i, cpu;
 
 	if (rseq_register_current_thread()) {
@@ -264,7 +264,7 @@ void test_percpu_list(void)
 
 			expected_sum += j;
 
-			node = malloc(sizeof(*node));
+			node = (struct percpu_list_node *) malloc(sizeof(*node));
 			assert(node);
 			node->data = j;
 			node->next = list.c[i].head;

@@ -68,7 +68,7 @@ extern unsigned int rseq_flags;
 
 static inline struct rseq *rseq_get_abi(void)
 {
-	return (struct rseq *) (rseq_thread_pointer() + rseq_offset);
+	return (struct rseq *) ((uintptr_t) rseq_thread_pointer() + rseq_offset);
 }
 
 # ifdef __cplusplus

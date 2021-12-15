@@ -81,6 +81,14 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 
 
+##                     ##
+## C++ compiler checks ##
+##                     ##
+
+# Require a C++11 compiler without GNU extensions (-std=c++11)
+AX_CXX_COMPILE_STDCXX([11], [noext], [mandatory])
+
+
 ##               ##
 ## Header checks ##
 ##               ##
@@ -155,6 +163,9 @@ AC_SUBST(AM_CPPFLAGS)
 
 AM_CFLAGS="-Wall -Wextra $PTHREAD_CFLAGS"
 AC_SUBST(AM_CFLAGS)
+
+AM_CXXFLAGS="-Wall -Wextra $PTHREAD_CFLAGS"
+AC_SUBST(AM_CXXFLAGS)
 
 
 ##                                     ##

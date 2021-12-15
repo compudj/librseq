@@ -359,7 +359,7 @@ static void rseq_percpu_unlock(struct percpu_lock *lock, int cpu)
 
 void *test_percpu_spinlock_thread(void *arg)
 {
-	struct spinlock_thread_test_data *thread_data = arg;
+	struct spinlock_thread_test_data *thread_data = (struct spinlock_thread_test_data *) arg;
 	struct spinlock_test_data *data = thread_data->data;
 	long long i, reps;
 
@@ -438,7 +438,7 @@ void test_percpu_spinlock(void)
 
 void *test_percpu_inc_thread(void *arg)
 {
-	struct inc_thread_test_data *thread_data = arg;
+	struct inc_thread_test_data *thread_data = (struct inc_thread_test_data *) arg;
 	struct inc_test_data *data = thread_data->data;
 	long long i, reps;
 
@@ -638,7 +638,7 @@ void test_percpu_list(void)
 
 			expected_sum += j;
 
-			node = malloc(sizeof(*node));
+			node = (struct percpu_list_node *) malloc(sizeof(*node));
 			assert(node);
 			node->data = j;
 			node->next = list.c[i].head;
@@ -826,6 +826,7 @@ void test_percpu_buffer(void)
 			continue;
 		/* Worse-case is every item in same CPU. */
 		buffer.c[i].array =
+			(struct percpu_buffer_node **)
 			malloc(sizeof(*buffer.c[i].array) * CPU_SETSIZE *
 			       BUFFER_ITEM_PER_CPU);
 		assert(buffer.c[i].array);
@@ -842,7 +843,7 @@ void test_percpu_buffer(void)
 			 * within a single word, so allocate an object
 			 * for each node.
 			 */
-			node = malloc(sizeof(*node));
+			node = (struct percpu_buffer_node *) malloc(sizeof(*node));
 			assert(node);
 			node->data = j;
 			buffer.c[i].array[j - 1] = node;
@@ -1041,6 +1042,7 @@ void test_percpu_memcpy_buffer(void)
 			continue;
 		/* Worse-case is every item in same CPU. */
 		buffer.c[i].array =
+			(struct percpu_memcpy_buffer_node *)
 			malloc(sizeof(*buffer.c[i].array) * CPU_SETSIZE *
 			       MEMCPY_BUFFER_ITEM_PER_CPU);
 		assert(buffer.c[i].array);

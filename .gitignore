@@ -53,10 +53,15 @@ dkms.conf
 
 /src/librseq.pc
 /tests/basic_percpu_ops_test.tap
+/tests/basic_percpu_ops_test_cxx.tap
 /tests/basic_test.tap
+/tests/basic_test_cxx.tap
 /tests/param_test
+/tests/param_test_cxx
 /tests/param_test_benchmark
+/tests/param_test_benchmark_cxx
 /tests/param_test_compare_twice
+/tests/param_test_compare_twice_cxx
 
 #automake
 /include/config.h
@@ -90,6 +95,7 @@ Makefile
 /libtool
 /include/stamp-h1
 /include/config.h.in
+/include/config.h.in~
 /config.status
 /autom4te.cache/
 /config
