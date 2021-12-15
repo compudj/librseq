@@ -80,6 +80,44 @@ AC_TYPE_SIZE_T
 AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 
+# Detect warning flags supported by the C compiler and append them to
+# WARN_CFLAGS.
+m4_define([WARN_FLAGS_LIST], [ dnl
+  -Wall dnl
+  -Wextra dnl
+  -Wmissing-prototypes dnl
+  -Wmissing-declarations dnl
+  -Wnull-dereference dnl
+  -Wundef dnl
+  -Wshadow dnl
+  -Wjump-misses-init dnl
+  -Wsuggest-attribute=format dnl
+  -Wtautological-constant-out-of-range-compare dnl
+  -Wnested-externs dnl
+  -Wwrite-strings dnl
+  -Wformat=2 dnl
+  -Wstrict-aliasing dnl
+  -Wmissing-noreturn dnl
+  -Winit-self dnl
+  -Wduplicated-cond dnl
+  -Wduplicated-branches dnl
+  -Wlogical-op dnl
+  -Wredundant-decls dnl
+])
+
+# Pass -Werror as an extra flag during the test: this is needed to make the
+# -Wunknown-warning-option diagnostic fatal with clang.
+AC_LANG_PUSH([C])
+AX_APPEND_COMPILE_FLAGS([WARN_FLAGS_LIST], [WARN_CFLAGS], [-Werror])
+AC_LANG_POP([C])
+
+AC_LANG_PUSH([C++])
+AX_APPEND_COMPILE_FLAGS([WARN_FLAGS_LIST], [WARN_CXXFLAGS], [-Werror])
+AC_LANG_POP([C++])
+
+AE_IF_FEATURE_ENABLED([Werror], [WARN_CFLAGS="${WARN_CFLAGS} -Werror"])
+AE_IF_FEATURE_ENABLED([Werror], [WARN_CXXFLAGS="${WARN_CXXFLAGS} -Werror"])
+
 
 ##                     ##
 ## C++ compiler checks ##
@@ -148,6 +186,17 @@ AC_CHECK_LIB([dl], [dlopen], [
 ])
 AC_SUBST(DL_LIBS)
 
+
+##                             ##
+## Optional features selection ##
+##                             ##
+
+# When given, add -Werror to WARN_CFLAGS and WARN_CXXFLAGS.
+# Disabled by default
+AE_FEATURE_DEFAULT_DISABLE
+AE_FEATURE([Werror], [Treat compiler warnings as errors.])
+
+
 ##                                             ##
 ## Substitute variables for use in Makefile.am ##
 ##                                             ##
@@ -161,10 +210,10 @@ AC_SUBST([RSEQ_LIBRARY_VERSION], [rseq_lib_version])
 AM_CPPFLAGS="-I\$(top_builddir)/include -I\$(top_srcdir)/include -include config.h"
 AC_SUBST(AM_CPPFLAGS)
 
-AM_CFLAGS="-Wall -Wextra $PTHREAD_CFLAGS"
+AM_CFLAGS="$WARN_CFLAGS $PTHREAD_CFLAGS"
 AC_SUBST(AM_CFLAGS)
 
-AM_CXXFLAGS="-Wall -Wextra $PTHREAD_CFLAGS"
+AM_CXXFLAGS="$WARN_CXXFLAGS $PTHREAD_CFLAGS"
 AC_SUBST(AM_CXXFLAGS)
 
 

@@ -357,7 +357,7 @@ static void rseq_percpu_unlock(struct percpu_lock *lock, int cpu)
 	rseq_smp_store_release(&lock->c[cpu].v, 0);
 }
 
-void *test_percpu_spinlock_thread(void *arg)
+static void *test_percpu_spinlock_thread(void *arg)
 {
 	struct spinlock_thread_test_data *thread_data = (struct spinlock_thread_test_data *) arg;
 	struct spinlock_test_data *data = thread_data->data;
@@ -393,7 +393,7 @@ void *test_percpu_spinlock_thread(void *arg)
  * per-cpu increment; however, this is reasonable for a test and the
  * lock can be extended to synchronize more complicated operations.
  */
-void test_percpu_spinlock(void)
+static void test_percpu_spinlock(void)
 {
 	const int num_threads = opt_threads;
 	int i, ret;
@@ -436,7 +436,7 @@ void test_percpu_spinlock(void)
 	assert(sum == (uint64_t)opt_reps * num_threads);
 }
 
-void *test_percpu_inc_thread(void *arg)
+static void *test_percpu_inc_thread(void *arg)
 {
 	struct inc_thread_test_data *thread_data = (struct inc_thread_test_data *) arg;
 	struct inc_test_data *data = thread_data->data;
@@ -469,7 +469,7 @@ void *test_percpu_inc_thread(void *arg)
 	return NULL;
 }
 
-void test_percpu_inc(void)
+static void test_percpu_inc(void)
 {
 	const int num_threads = opt_threads;
 	int i, ret;
@@ -512,7 +512,7 @@ void test_percpu_inc(void)
 	assert(sum == (uint64_t)opt_reps * num_threads);
 }
 
-void this_cpu_list_push(struct percpu_list *list,
+static void this_cpu_list_push(struct percpu_list *list,
 			struct percpu_list_node *node,
 			int *_cpu)
 {
@@ -542,7 +542,7 @@ void this_cpu_list_push(struct percpu_list *list,
  * rseq primitive allows us to implement pop without concerns over
  * ABA-type races.
  */
-struct percpu_list_node *this_cpu_list_pop(struct percpu_list *list,
+static struct percpu_list_node *this_cpu_list_pop(struct percpu_list *list,
 					   int *_cpu)
 {
 	struct percpu_list_node *node = NULL;
@@ -578,7 +578,7 @@ struct percpu_list_node *this_cpu_list_pop(struct percpu_list *list,
  * __percpu_list_pop is not safe against concurrent accesses. Should
  * only be used on lists that are not concurrently modified.
  */
-struct percpu_list_node *__percpu_list_pop(struct percpu_list *list, int cpu)
+static struct percpu_list_node *__percpu_list_pop(struct percpu_list *list, int cpu)
 {
 	struct percpu_list_node *node;
 
@@ -589,7 +589,7 @@ struct percpu_list_node *__percpu_list_pop(struct percpu_list *list, int cpu)
 	return node;
 }
 
-void *test_percpu_list_thread(void *arg)
+static void *test_percpu_list_thread(void *arg)
 {
 	long long i, reps;
 	struct percpu_list *list = (struct percpu_list *)arg;
@@ -617,7 +617,7 @@ void *test_percpu_list_thread(void *arg)
 }
 
 /* Simultaneous modification to a per-cpu linked list from many threads.  */
-void test_percpu_list(void)
+static void test_percpu_list(void)
 {
 	const int num_threads = opt_threads;
 	int i, j, ret;
@@ -685,7 +685,7 @@ void test_percpu_list(void)
 	assert(sum == expected_sum);
 }
 
-bool this_cpu_buffer_push(struct percpu_buffer *buffer,
+static bool this_cpu_buffer_push(struct percpu_buffer *buffer,
 			  struct percpu_buffer_node *node,
 			  int *_cpu)
 {
@@ -725,7 +725,7 @@ bool this_cpu_buffer_push(struct percpu_buffer *buffer,
 	return result;
 }
 
-struct percpu_buffer_node *this_cpu_buffer_pop(struct percpu_buffer *buffer,
+static struct percpu_buffer_node *this_cpu_buffer_pop(struct percpu_buffer *buffer,
 					       int *_cpu)
 {
 	struct percpu_buffer_node *head;
@@ -762,7 +762,7 @@ struct percpu_buffer_node *this_cpu_buffer_pop(struct percpu_buffer *buffer,
  * __percpu_buffer_pop is not safe against concurrent accesses. Should
  * only be used on buffers that are not concurrently modified.
  */
-struct percpu_buffer_node *__percpu_buffer_pop(struct percpu_buffer *buffer,
+static struct percpu_buffer_node *__percpu_buffer_pop(struct percpu_buffer *buffer,
 					       int cpu)
 {
 	struct percpu_buffer_node *head;
@@ -776,7 +776,7 @@ struct percpu_buffer_node *__percpu_buffer_pop(struct percpu_buffer *buffer,
 	return head;
 }
 
-void *test_percpu_buffer_thread(void *arg)
+static void *test_percpu_buffer_thread(void *arg)
 {
 	long long i, reps;
 	struct percpu_buffer *buffer = (struct percpu_buffer *)arg;
@@ -808,7 +808,7 @@ void *test_percpu_buffer_thread(void *arg)
 }
 
 /* Simultaneous modification to a per-cpu buffer from many threads.  */
-void test_percpu_buffer(void)
+static void test_percpu_buffer(void)
 {
 	const int num_threads = opt_threads;
 	int i, j, ret;
@@ -891,7 +891,7 @@ void test_percpu_buffer(void)
 	assert(sum == expected_sum);
 }
 
-bool this_cpu_memcpy_buffer_push(struct percpu_memcpy_buffer *buffer,
+static bool this_cpu_memcpy_buffer_push(struct percpu_memcpy_buffer *buffer,
 				 struct percpu_memcpy_buffer_node item,
 				 int *_cpu)
 {
@@ -935,7 +935,7 @@ bool this_cpu_memcpy_buffer_push(struct percpu_memcpy_buffer *buffer,
 	return result;
 }
 
-bool this_cpu_memcpy_buffer_pop(struct percpu_memcpy_buffer *buffer,
+static bool this_cpu_memcpy_buffer_pop(struct percpu_memcpy_buffer *buffer,
 				struct percpu_memcpy_buffer_node *item,
 				int *_cpu)
 {
@@ -977,7 +977,7 @@ bool this_cpu_memcpy_buffer_pop(struct percpu_memcpy_buffer *buffer,
  * __percpu_memcpy_buffer_pop is not safe against concurrent accesses. Should
  * only be used on buffers that are not concurrently modified.
  */
-bool __percpu_memcpy_buffer_pop(struct percpu_memcpy_buffer *buffer,
+static bool __percpu_memcpy_buffer_pop(struct percpu_memcpy_buffer *buffer,
 				struct percpu_memcpy_buffer_node *item,
 				int cpu)
 {
@@ -991,7 +991,7 @@ bool __percpu_memcpy_buffer_pop(struct percpu_memcpy_buffer *buffer,
 	return true;
 }
 
-void *test_percpu_memcpy_buffer_thread(void *arg)
+static void *test_percpu_memcpy_buffer_thread(void *arg)
 {
 	long long i, reps;
 	struct percpu_memcpy_buffer *buffer = (struct percpu_memcpy_buffer *)arg;
@@ -1024,7 +1024,7 @@ void *test_percpu_memcpy_buffer_thread(void *arg)
 }
 
 /* Simultaneous modification to a per-cpu buffer from many threads.  */
-void test_percpu_memcpy_buffer(void)
+static void test_percpu_memcpy_buffer(void)
 {
 	const int num_threads = opt_threads;
 	int i, j, ret;

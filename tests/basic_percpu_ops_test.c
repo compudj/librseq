@@ -51,7 +51,7 @@ struct percpu_list {
 };
 
 /* A simple percpu spinlock.  Returns the cpu lock was acquired on. */
-int rseq_this_cpu_lock(struct percpu_lock *lock)
+static int rseq_this_cpu_lock(struct percpu_lock *lock)
 {
 	int cpu;
 
@@ -73,7 +73,7 @@ int rseq_this_cpu_lock(struct percpu_lock *lock)
 	return cpu;
 }
 
-void rseq_percpu_unlock(struct percpu_lock *lock, int cpu)
+static void rseq_percpu_unlock(struct percpu_lock *lock, int cpu)
 {
 	assert(lock->c[cpu].v == 1);
 	/*
@@ -83,7 +83,7 @@ void rseq_percpu_unlock(struct percpu_lock *lock, int cpu)
 	rseq_smp_store_release(&lock->c[cpu].v, 0);
 }
 
-void *test_percpu_spinlock_thread(void *arg)
+static void *test_percpu_spinlock_thread(void *arg)
 {
 	struct spinlock_test_data *data = (struct spinlock_test_data *) arg;
 	int i, cpu;
@@ -113,7 +113,7 @@ void *test_percpu_spinlock_thread(void *arg)
  * per-cpu increment; however, this is reasonable for a test and the
  * lock can be extended to synchronize more complicated operations.
  */
-void test_percpu_spinlock(void)
+static void test_percpu_spinlock(void)
 {
 	const int num_threads = 200;
 	int i;
@@ -140,7 +140,7 @@ void test_percpu_spinlock(void)
 	ok(sum == (uint64_t)data.reps * num_threads, "sum");
 }
 
-void this_cpu_list_push(struct percpu_list *list,
+static void this_cpu_list_push(struct percpu_list *list,
 			struct percpu_list_node *node,
 			int *_cpu)
 {
@@ -170,7 +170,7 @@ void this_cpu_list_push(struct percpu_list *list,
  * rseq primitive allows us to implement pop without concerns over
  * ABA-type races.
  */
-struct percpu_list_node *this_cpu_list_pop(struct percpu_list *list,
+static struct percpu_list_node *this_cpu_list_pop(struct percpu_list *list,
 					   int *_cpu)
 {
 	for (;;) {
@@ -201,7 +201,7 @@ struct percpu_list_node *this_cpu_list_pop(struct percpu_list *list,
  * __percpu_list_pop is not safe against concurrent accesses. Should
  * only be used on lists that are not concurrently modified.
  */
-struct percpu_list_node *__percpu_list_pop(struct percpu_list *list, int cpu)
+static struct percpu_list_node *__percpu_list_pop(struct percpu_list *list, int cpu)
 {
 	struct percpu_list_node *node;
 
@@ -212,7 +212,7 @@ struct percpu_list_node *__percpu_list_pop(struct percpu_list *list, int cpu)
 	return node;
 }
 
-void *test_percpu_list_thread(void *arg)
+static void *test_percpu_list_thread(void *arg)
 {
 	int i;
 	struct percpu_list *list = (struct percpu_list *)arg;
@@ -242,7 +242,7 @@ void *test_percpu_list_thread(void *arg)
 }
 
 /* Simultaneous modification to a per-cpu linked list from many threads.  */
-void test_percpu_list(void)
+static void test_percpu_list(void)
 {
 	int i, j;
 	uint64_t sum = 0, expected_sum = 0;

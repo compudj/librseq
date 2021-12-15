@@ -17,7 +17,7 @@
 
 #include "tap.h"
 
-void test_cpu_pointer(void)
+static void test_cpu_pointer(void)
 {
 	cpu_set_t affinity, test_affinity;
 	int ret, i;
