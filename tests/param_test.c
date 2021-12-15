@@ -17,11 +17,6 @@
 #include <errno.h>
 #include <stddef.h>
 
-static inline pid_t rseq_gettid(void)
-{
-	return syscall(__NR_gettid);
-}
-
 #define NR_INJECT	9
 static int loop_cnt[NR_INJECT + 1];
 
@@ -48,6 +43,11 @@ static __thread __attribute__((tls_model("initial-exec")))
 unsigned int signals_delivered;
 
 #ifndef BENCHMARK
+
+static inline pid_t rseq_gettid(void)
+{
+	return syscall(__NR_gettid);
+}
 
 static __thread __attribute__((tls_model("initial-exec"), unused))
 int yield_mod_cnt, nr_abort;
