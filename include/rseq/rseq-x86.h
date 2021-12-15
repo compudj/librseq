@@ -201,6 +201,7 @@ int rseq_cmpnev_storeoffp_load(intptr_t *v, intptr_t expectnot,
 		"movq %%rbx, %[load]\n\t"
 		"addq %[voffp], %%rbx\n\t"
 		"movq (%%rbx), %%rbx\n\t"
+		"ud2\n\t"
 		/* final store */
 		"movq %%rbx, %[v]\n\t"
 		"2:\n\t"
@@ -221,6 +222,8 @@ int rseq_cmpnev_storeoffp_load(intptr_t *v, intptr_t expectnot,
 		  , error1, error2
 #endif
 	);
+	//TODO: uncommenting this asm fixes things with clang-12/13/14 in O2.
+	//asm ("");
 	return 0;
 abort:
 	RSEQ_INJECT_FAILED
