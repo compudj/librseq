@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <sched.h>
 #include <linux/rseq.h>
+#include <rseq/compiler.h>
 
 /*
  * Empty code injection macros, override when testing.

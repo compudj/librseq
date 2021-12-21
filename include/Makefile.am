@@ -4,6 +4,7 @@
 #
 
 nobase_include_HEADERS = \
+	rseq/compiler.h \
 	rseq/rseq.h \
 	rseq/rseq-arm.h \
 	rseq/rseq-mips.h \
