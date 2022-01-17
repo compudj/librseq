@@ -44,6 +44,7 @@ function do_tests()
 	do_test "memcpy" -T m "${@}"
 	do_test "memcpy with barrier" -T m -M "${@}"
 	do_test "increment" -T i "${@}"
+	do_test "membarrier" -T r "${@}"
 }
 
 function do_tests_loops()
@@ -75,7 +76,7 @@ function do_tests_inject()
 if [[ $? == 2 ]]; then
 	plan_skip_all "The rseq syscall is unavailable"
 else
-	plan_tests $(( 2 * 7 * 37 ))
+	plan_tests $(( 2 * 8 * 37 ))
 fi
 
 diag "Default parameters"
