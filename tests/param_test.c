@@ -1311,6 +1311,20 @@ void *test_membarrier_manager_thread(void *arg)
 }
 
 static
+bool membarrier_private_expedited_rseq_available(void)
+{
+	int status = sys_membarrier(MEMBARRIER_CMD_QUERY, 0, 0);
+
+	if (status < 0) {
+		perror("membarrier");
+		return false;
+	}
+	if (!(status & MEMBARRIER_CMD_PRIVATE_EXPEDITED_RSEQ))
+		return false;
+	return true;
+}
+
+static
 void test_membarrier(void)
 {
 	const int num_threads = opt_threads;
@@ -1319,6 +1333,11 @@ void test_membarrier(void)
 	pthread_t manager_thread;
 	int i, ret;
 
+	if (!membarrier_private_expedited_rseq_available()) {
+		fprintf(stderr, "Membarrier private expedited rseq not available. "
+				"Skipping membarrier test.\n");
+		return;
+	}
 	if (sys_membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_RSEQ, 0, 0)) {
 		perror("sys_membarrier");
 		abort();
@@ -1366,6 +1385,11 @@ void test_membarrier(void)
 static
 void test_membarrier(void)
 {
+	if (!membarrier_private_expedited_rseq_available()) {
+		fprintf(stderr, "Membarrier private expedited rseq not available. "
+				"Skipping membarrier test.\n");
+		return;
+	}
 	fprintf(stderr, "rseq_offset_deref_addv is not implemented on this architecture. "
 			"Skipping membarrier test.\n");
 }
