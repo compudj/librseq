@@ -3,6 +3,7 @@
 #define _GNU_SOURCE
 #endif
 #include <assert.h>
+#include <linux/version.h>
 #include <linux/membarrier.h>
 #include <pthread.h>
 #include <sched.h>
@@ -17,6 +18,17 @@
 #include <signal.h>
 #include <errno.h>
 #include <stddef.h>
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0)
+enum {
+	MEMBARRIER_CMD_PRIVATE_EXPEDITED_RSEQ			= (1 << 7),
+	MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_RSEQ		= (1 << 8),
+};
+
+enum {
+	MEMBARRIER_CMD_FLAG_CPU		= (1 << 0),
+};
+#endif
 
 #define NR_INJECT	9
 static int loop_cnt[NR_INJECT + 1];
