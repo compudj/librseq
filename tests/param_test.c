@@ -1147,6 +1147,26 @@ static int set_signal_handler(void)
 	return ret;
 }
 
+static
+int sys_membarrier(int cmd, int flags, int cpu_id)
+{
+	return syscall(__NR_membarrier, cmd, flags, cpu_id);
+}
+
+static
+bool membarrier_private_expedited_rseq_available(void)
+{
+	int status = sys_membarrier(MEMBARRIER_CMD_QUERY, 0, 0);
+
+	if (status < 0) {
+		perror("membarrier");
+		return false;
+	}
+	if (!(status & MEMBARRIER_CMD_PRIVATE_EXPEDITED_RSEQ))
+		return false;
+	return true;
+}
+
 /* Test MEMBARRIER_CMD_PRIVATE_RESTART_RSEQ_ON_CPU membarrier command. */
 #ifdef RSEQ_ARCH_HAS_OFFSET_DEREF_ADDV
 struct test_membarrier_thread_args {
@@ -1215,12 +1235,6 @@ void test_membarrier_free_percpu_list(struct percpu_list *list)
 
 	for (i = 0; i < CPU_SETSIZE; i++)
 		free(list->c[i].head);
-}
-
-static
-int sys_membarrier(int cmd, int flags, int cpu_id)
-{
-	return syscall(__NR_membarrier, cmd, flags, cpu_id);
 }
 
 /*
@@ -1308,20 +1322,6 @@ void *test_membarrier_manager_thread(void *arg)
 		abort();
 	}
 	return NULL;
-}
-
-static
-bool membarrier_private_expedited_rseq_available(void)
-{
-	int status = sys_membarrier(MEMBARRIER_CMD_QUERY, 0, 0);
-
-	if (status < 0) {
-		perror("membarrier");
-		return false;
-	}
-	if (!(status & MEMBARRIER_CMD_PRIVATE_EXPEDITED_RSEQ))
-		return false;
-	return true;
 }
 
 static
