@@ -71,7 +71,7 @@ do {									\
 
 #elif __s390__
 
-#define RSEQ_CS_PTR		rseq_cs.ptr.ptr32
+#define RSEQ_CS_PTR		RSEQ_CS_PTR32
 
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,			\
 				start_ip, post_commit_offset, abort_ip)	\

@@ -83,7 +83,7 @@ do {									\
 # else
 #  define U32_U64_PAD(x)	x ", 0x0"
 # endif
-# define RSEQ_CS_PTR		rseq_cs.ptr.ptr32
+# define RSEQ_CS_PTR		RSEQ_CS_PTR32
 #else
 # error unsupported _MIPS_SZLONG
 #endif
