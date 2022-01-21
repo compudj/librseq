@@ -792,9 +792,4 @@ error2:
 #endif
 }
 
-#undef RSEQ_STORE_LONG
-#undef RSEQ_LOAD_LONG
-#undef RSEQ_LOADX_LONG
-#undef RSEQ_CMP_LONG
-
 #endif /* !RSEQ_SKIP_FASTPATH */
