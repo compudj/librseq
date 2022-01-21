@@ -71,6 +71,7 @@ do {									\
 # define LONG_S			"sd"
 # define LONG_ADDI		"daddiu"
 # define U32_U64_PAD(x)		x
+# define RSEQ_CS_PTR		rseq_cs.ptr
 #elif _MIPS_SZLONG == 32
 # define LONG			".word"
 # define LONG_LA		"la"
@@ -82,6 +83,7 @@ do {									\
 # else
 #  define U32_U64_PAD(x)	x ", 0x0"
 # endif
+# define RSEQ_CS_PTR		rseq_cs.ptr.ptr32
 #else
 # error unsupported _MIPS_SZLONG
 #endif
@@ -188,7 +190,7 @@ int rseq_cmpeqv_storev(intptr_t *v, intptr_t expect, intptr_t newv, int cpu)
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [current_cpu_id]	"m" (rseq_get_abi()->cpu_id),
-		  [rseq_cs]		"m" (rseq_get_abi()->rseq_cs),
+		  [rseq_cs]		"m" (rseq_get_abi()->RSEQ_CS_PTR),
 		  [v]			"m" (*v),
 		  [expect]		"r" (expect),
 		  [newv]		"r" (newv)
@@ -252,7 +254,7 @@ int rseq_cmpnev_storeoffp_load(intptr_t *v, intptr_t expectnot,
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [current_cpu_id]	"m" (rseq_get_abi()->cpu_id),
-		  [rseq_cs]		"m" (rseq_get_abi()->rseq_cs),
+		  [rseq_cs]		"m" (rseq_get_abi()->RSEQ_CS_PTR),
 		  /* final store input */
 		  [v]			"m" (*v),
 		  [expectnot]		"r" (expectnot),
@@ -309,7 +311,7 @@ int rseq_addv(intptr_t *v, intptr_t count, int cpu)
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [current_cpu_id]	"m" (rseq_get_abi()->cpu_id),
-		  [rseq_cs]		"m" (rseq_get_abi()->rseq_cs),
+		  [rseq_cs]		"m" (rseq_get_abi()->RSEQ_CS_PTR),
 		  [v]			"m" (*v),
 		  [count]		"Ir" (count)
 		  RSEQ_INJECT_INPUT
@@ -369,7 +371,7 @@ int rseq_cmpeqv_trystorev_storev(intptr_t *v, intptr_t expect,
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [current_cpu_id]	"m" (rseq_get_abi()->cpu_id),
-		  [rseq_cs]		"m" (rseq_get_abi()->rseq_cs),
+		  [rseq_cs]		"m" (rseq_get_abi()->RSEQ_CS_PTR),
 		  /* try store input */
 		  [v2]			"m" (*v2),
 		  [newv2]		"r" (newv2),
@@ -439,7 +441,7 @@ int rseq_cmpeqv_trystorev_storev_release(intptr_t *v, intptr_t expect,
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [current_cpu_id]	"m" (rseq_get_abi()->cpu_id),
-		  [rseq_cs]		"m" (rseq_get_abi()->rseq_cs),
+		  [rseq_cs]		"m" (rseq_get_abi()->RSEQ_CS_PTR),
 		  /* try store input */
 		  [v2]			"m" (*v2),
 		  [newv2]		"r" (newv2),
@@ -511,7 +513,7 @@ int rseq_cmpeqv_cmpeqv_storev(intptr_t *v, intptr_t expect,
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [current_cpu_id]	"m" (rseq_get_abi()->cpu_id),
-		  [rseq_cs]		"m" (rseq_get_abi()->rseq_cs),
+		  [rseq_cs]		"m" (rseq_get_abi()->RSEQ_CS_PTR),
 		  /* cmp2 input */
 		  [v2]			"m" (*v2),
 		  [expect2]		"r" (expect2),
@@ -624,7 +626,7 @@ int rseq_cmpeqv_trymemcpy_storev(intptr_t *v, intptr_t expect,
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [current_cpu_id]	"m" (rseq_get_abi()->cpu_id),
-		  [rseq_cs]		"m" (rseq_get_abi()->rseq_cs),
+		  [rseq_cs]		"m" (rseq_get_abi()->RSEQ_CS_PTR),
 		  /* final store input */
 		  [v]			"m" (*v),
 		  [expect]		"r" (expect),
@@ -740,7 +742,7 @@ int rseq_cmpeqv_trymemcpy_storev_release(intptr_t *v, intptr_t expect,
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [current_cpu_id]	"m" (rseq_get_abi()->cpu_id),
-		  [rseq_cs]		"m" (rseq_get_abi()->rseq_cs),
+		  [rseq_cs]		"m" (rseq_get_abi()->RSEQ_CS_PTR),
 		  /* final store input */
 		  [v]			"m" (*v),
 		  [expect]		"r" (expect),
