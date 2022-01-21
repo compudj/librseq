@@ -562,8 +562,7 @@ static struct percpu_list_node *this_cpu_list_pop(struct percpu_list *list,
 	for (;;) {
 		struct percpu_list_node *head;
 		intptr_t *targetptr, expectnot, *load;
-		off_t offset;
-		int ret;
+		int offset, ret;
 
 		cpu = rseq_cpu_start();
 		targetptr = (intptr_t *)&list->c[cpu].head;

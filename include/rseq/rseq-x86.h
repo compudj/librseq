@@ -178,7 +178,7 @@ error2:
  */
 static inline __attribute__((always_inline))
 int rseq_cmpnev_storeoffp_load(intptr_t *v, intptr_t expectnot,
-			       off_t voffp, intptr_t *load, int cpu)
+			       int voffp, intptr_t *load, int cpu)
 {
 	RSEQ_INJECT_C(9)
 
@@ -300,7 +300,7 @@ error1:
  *  *pval += inc;
  */
 static inline __attribute__((always_inline))
-int rseq_offset_deref_addv(intptr_t *ptr, off_t off, intptr_t inc, int cpu)
+int rseq_offset_deref_addv(intptr_t *ptr, int off, intptr_t inc, int cpu)
 {
 	RSEQ_INJECT_C(9)
 
@@ -636,7 +636,7 @@ int rseq_cmpeqv_trymemcpy_storev_release(intptr_t *v, intptr_t expect,
  * into @load.
  */
 static inline __attribute__((always_inline))
-int rseq_deref_loadoffp(intptr_t *p, off_t voffp, intptr_t *load, int cpu)
+int rseq_deref_loadoffp(intptr_t *p, int voffp, intptr_t *load, int cpu)
 {
 	RSEQ_INJECT_C(9)
 
@@ -844,7 +844,7 @@ error2:
  */
 static inline __attribute__((always_inline))
 int rseq_cmpnev_storeoffp_load(intptr_t *v, intptr_t expectnot,
-			       off_t voffp, intptr_t *load, int cpu)
+			       int voffp, intptr_t *load, int cpu)
 {
 	RSEQ_INJECT_C(9)
 
@@ -1421,7 +1421,7 @@ error2:
  * into @load.
  */
 static inline __attribute__((always_inline))
-int rseq_deref_loadoffp(intptr_t *p, off_t voffp, intptr_t *load, int cpu)
+int rseq_deref_loadoffp(intptr_t *p, int voffp, intptr_t *load, int cpu)
 {
 	RSEQ_INJECT_C(9)
 
