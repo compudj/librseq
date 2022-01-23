@@ -50,11 +50,11 @@ unsigned int rseq_flags;
 static int rseq_ownership;
 
 static
-__thread struct rseq __rseq_abi __attribute__((tls_model("initial-exec"))) = {
-	.cpu_id = RSEQ_CPU_ID_UNINITIALIZED,
+__thread struct rseq_abi __rseq_abi __attribute__((tls_model("initial-exec"))) = {
+	.cpu_id = RSEQ_ABI_CPU_ID_UNINITIALIZED,
 };
 
-static int sys_rseq(struct rseq *rseq_abi, uint32_t rseq_len,
+static int sys_rseq(struct rseq_abi *rseq_abi, uint32_t rseq_len,
 		    int flags, uint32_t sig)
 {
 	return syscall(__NR_rseq, rseq_abi, rseq_len, flags, sig);
@@ -85,7 +85,7 @@ int rseq_register_current_thread(void)
 		/* Treat libc's ownership as a successful registration. */
 		return 0;
 	}
-	rc = sys_rseq(&__rseq_abi, sizeof(struct rseq), 0, RSEQ_SIG);
+	rc = sys_rseq(&__rseq_abi, sizeof(struct rseq_abi), 0, RSEQ_SIG);
 	if (rc)
 		return -1;
 	assert(rseq_current_cpu_raw() >= 0);
@@ -100,7 +100,7 @@ int rseq_unregister_current_thread(void)
 		/* Treat libc's ownership as a successful unregistration. */
 		return 0;
 	}
-	rc = sys_rseq(&__rseq_abi, sizeof(struct rseq), RSEQ_FLAG_UNREGISTER, RSEQ_SIG);
+	rc = sys_rseq(&__rseq_abi, sizeof(struct rseq_abi), RSEQ_ABI_FLAG_UNREGISTER, RSEQ_SIG);
 	if (rc)
 		return -1;
 	return 0;
@@ -123,7 +123,7 @@ void rseq_init(void)
 		return;
 	rseq_ownership = 1;
 	rseq_offset = (void *)&__rseq_abi - rseq_thread_pointer();
-	rseq_size = sizeof(struct rseq);
+	rseq_size = sizeof(struct rseq_abi);
 	rseq_flags = 0;
 }
 

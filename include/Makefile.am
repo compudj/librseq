@@ -6,6 +6,7 @@
 nobase_include_HEADERS = \
 	rseq/compiler.h \
 	rseq/rseq.h \
+	rseq/rseq-abi.h \
 	rseq/rseq-arm.h \
 	rseq/rseq-mips.h \
 	rseq/rseq-ppc.h \

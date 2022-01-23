@@ -1,9 +1,0 @@
-Kernel headers for test builds. Do not use for production builds.
-
-- linux/rseq.h
-
-  It is a copy from the upstream Linux v5.0 kernel uapi.
-
-  It also contains definitive system call number definitions for the rseq
-  system call, in case the kernel uapi headers are not recent enough
-  to define them.

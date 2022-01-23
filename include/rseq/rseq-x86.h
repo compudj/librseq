@@ -23,7 +23,7 @@
  * (TODO: revisit after migration to glibc's ABI)
  */
 
-/* Offset of cpu_id and rseq_cs fields in struct rseq. */
+/* Offset of cpu_id and rseq_cs fields in struct rseq_abi. */
 #define RSEQ_CPU_ID_OFFSET	4
 #define RSEQ_CS_OFFSET		8
 
