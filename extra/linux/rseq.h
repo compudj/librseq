@@ -108,6 +108,12 @@ struct rseq {
 	 */
 	union {
 		__u64 ptr64;
+
+		/*
+		 * The "ptr" field layout is broken on little-endian
+		 * 32-bit architectures due to wrong preprocessor logic.
+		 * DO NOT USE.
+		 */
 #ifdef __LP64__
 		__u64 ptr;
 #else
@@ -121,6 +127,23 @@ struct rseq {
 #endif /* ENDIAN */
 		} ptr;
 #endif
+
+		/*
+		 * The "arch" field provides architecture accessor for
+		 * the ptr field based on architecture pointer size and
+		 * endianness.
+		 */
+		struct {
+#ifdef __LP64__
+			__u64 ptr;
+#elif defined(__BYTE_ORDER) ? (__BYTE_ORDER == __BIG_ENDIAN) : defined(__BIG_ENDIAN)
+			__u32 padding;		/* Initialized to zero. */
+			__u32 ptr;
+#else
+			__u32 ptr;
+			__u32 padding;		/* Initialized to zero. */
+#endif
+		} arch;
 	} rseq_cs;
 
 	/*

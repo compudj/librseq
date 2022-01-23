@@ -60,7 +60,7 @@
 #define RSEQ_SIG    0xe7f5def3      /* udf    #24035    ; 0x5de3 */
 #endif
 
-#define RSEQ_CS_PTR	RSEQ_CS_PTR32
+#define RSEQ_CS_PTR	rseq_cs.arch.ptr
 
 #define rseq_smp_mb()	__asm__ __volatile__ ("dmb" ::: "memory", "cc")
 #define rseq_smp_rmb()	__asm__ __volatile__ ("dmb" ::: "memory", "cc")

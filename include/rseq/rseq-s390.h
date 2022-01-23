@@ -32,9 +32,9 @@ do {									\
 #include "rseq-skip.h"
 #else /* !RSEQ_SKIP_FASTPATH */
 
-#ifdef __s390x__
+#define RSEQ_CS_PTR		rseq_cs.arch.ptr
 
-#define RSEQ_CS_PTR		rseq_cs.ptr
+#ifdef __s390x__
 
 #define LONG_L			"lg"
 #define LONG_S			"stg"
@@ -70,8 +70,6 @@ do {									\
 		".popsection\n\t"
 
 #elif __s390__
-
-#define RSEQ_CS_PTR		RSEQ_CS_PTR32
 
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,			\
 				start_ip, post_commit_offset, abort_ip)	\

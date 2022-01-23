@@ -20,18 +20,6 @@
 #include <linux/rseq.h>
 #include <rseq/compiler.h>
 
-/* Work-around rseq.h uapi bug wrt endianness on little endian. */
-#if !(defined(__BYTE_ORDER) ? __BYTE_ORDER == __BIG_ENDIAN : defined(__BIG_ENDIAN))
-# if (defined(__BYTE_ORDER) && (__BYTE_ORDER == __BIG_ENDIAN)) || defined(__BIG_ENDIAN)
-/* Kernel uapi mistakenly orders padding vs ptr32. */
-#  define RSEQ_CS_PTR32	rseq_cs.ptr.padding
-# endif
-#endif
-
-#ifndef RSEQ_CS_PTR32
-# define RSEQ_CS_PTR32	rseq_cs.ptr.ptr32
-#endif
-
 /*
  * Empty code injection macros, override when testing.
  * It is important to consider that the ASM injection macros need to be
@@ -189,11 +177,7 @@ static inline uint32_t rseq_current_cpu(void)
 
 static inline void rseq_clear_rseq_cs(void)
 {
-#ifdef __LP64__
-	RSEQ_WRITE_ONCE(rseq_get_abi()->rseq_cs.ptr, 0);
-#else
-	RSEQ_WRITE_ONCE(rseq_get_abi()->RSEQ_CS_PTR32, 0);
-#endif
+	RSEQ_WRITE_ONCE(rseq_get_abi()->rseq_cs.arch.ptr, 0);
 }
 
 /*

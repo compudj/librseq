@@ -40,6 +40,8 @@ do {									\
 #include "rseq-skip.h"
 #else /* !RSEQ_SKIP_FASTPATH */
 
+#define RSEQ_CS_PTR		rseq_cs.arch.ptr
+
 /*
  * The __rseq_cs_ptr_array and __rseq_cs sections can be used by debuggers to
  * better handle single-stepping through the restartable critical sections.
@@ -54,8 +56,6 @@ do {									\
 #define RSEQ_LOADX_LONG		"ldx "							/* From base register ("b" constraint) */
 #define RSEQ_CMP_LONG		"cmpd "
 #define RSEQ_CMP_LONG_INT	"cmpdi "
-
-#define RSEQ_CS_PTR		rseq_cs.ptr
 
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,				\
 			start_ip, post_commit_offset, abort_ip)			\
@@ -101,8 +101,6 @@ do {									\
 #define RSEQ_LOADX_LONG		"lwzx "							/* From base register ("b" constraint) */
 #define RSEQ_CMP_LONG		"cmpw "
 #define RSEQ_CMP_LONG_INT	"cmpwi "
-
-#define RSEQ_CS_PTR		RSEQ_CS_PTR32
 
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,				\
 			start_ip, post_commit_offset, abort_ip)			\

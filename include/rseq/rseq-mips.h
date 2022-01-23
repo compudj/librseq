@@ -64,6 +64,8 @@ do {									\
 #include "rseq-skip.h"
 #else /* !RSEQ_SKIP_FASTPATH */
 
+#define RSEQ_CS_PTR		rseq_cs.arch.ptr
+
 #if _MIPS_SZLONG == 64
 # define LONG			".dword"
 # define LONG_LA		"dla"
@@ -71,7 +73,6 @@ do {									\
 # define LONG_S			"sd"
 # define LONG_ADDI		"daddiu"
 # define U32_U64_PAD(x)		x
-# define RSEQ_CS_PTR		rseq_cs.ptr
 #elif _MIPS_SZLONG == 32
 # define LONG			".word"
 # define LONG_LA		"la"
@@ -83,7 +84,6 @@ do {									\
 # else
 #  define U32_U64_PAD(x)	x ", 0x0"
 # endif
-# define RSEQ_CS_PTR		RSEQ_CS_PTR32
 #else
 # error unsupported _MIPS_SZLONG
 #endif
