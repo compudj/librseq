@@ -7,7 +7,7 @@
  *
  * Restartable sequences system call API
  *
- * Copyright (c) 2015-2018 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+ * Copyright (c) 2015-2022 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  */
 
 #include <linux/types.h>
