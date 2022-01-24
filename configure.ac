@@ -138,10 +138,6 @@ AC_CHECK_HEADERS([ \
 	sys/time.h \
 ])
 
-AC_CHECK_HEADER([linux/rseq.h], [],
-	[AC_MSG_ERROR([Cannot find 'linux/rseq.h'.])
-])
-
 
 ##                 ##
 ## Programs checks ##
