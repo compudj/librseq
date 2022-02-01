@@ -16,13 +16,6 @@
  */
 #define RSEQ_SIG	0x53053053
 
-/*
- * Due to a compiler optimization bug in gcc-8 with asm goto and TLS asm input
- * operands, we cannot use "m" input operands, and rather pass the __rseq_abi
- * address through a "r" input operand.
- * (TODO: revisit after migration to glibc's ABI)
- */
-
 /* Offset of cpu_id and rseq_cs fields in struct rseq_abi. */
 #define RSEQ_CPU_ID_OFFSET	4
 #define RSEQ_CS_OFFSET		8
