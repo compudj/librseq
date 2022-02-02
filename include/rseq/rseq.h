@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sched.h>
+#include <stddef.h>
 #include <rseq/rseq-abi.h>
 #include <rseq/compiler.h>
 
@@ -60,7 +61,7 @@ extern "C" {
 # endif
 
 /* Offset from the thread pointer to the rseq area.  */
-extern int rseq_offset;
+extern ptrdiff_t rseq_offset;
 /* Size of the registered rseq area.  0 if the registration was
    unsuccessful.  */
 extern unsigned int rseq_size;
