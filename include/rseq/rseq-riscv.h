@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: MIT */
+/* SPDX-FileCopyrightText: 2022 Vincent Chen <vincent.chen@sifive.com> */
+
 /*
  * Select the instruction "csrw mhartid, x0" as the RSEQ_SIG. Unlike
  * other architectures, the ebreak instruction has no immediate field for

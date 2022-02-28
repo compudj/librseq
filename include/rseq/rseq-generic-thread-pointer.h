@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: MIT */
+/* SPDX-FileCopyrightText: 2021 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
+
 /*
  * rseq-generic-thread-pointer.h
- *
- * (C) Copyright 2021 - Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  */
 
 #ifndef _RSEQ_GENERIC_THREAD_POINTER

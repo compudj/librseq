@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: MIT
-#
-# Copyright (C) 2019 Michael Jeanson <mjeanson@efficios.com>
-#
+# SPDX-FileCopyrightText: 2022 EfficiOS Inc.
 
 lib_LTLIBRARIES = librseq.la
 

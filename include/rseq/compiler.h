@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: MIT */
+/* SPDX-FileCopyrightText: 2021 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
+
 /*
  * rseq/compiler.h
  *
  * Work-around asm goto compiler bugs.
- *
- * (C) Copyright 2021 - Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  */
 
 #ifndef RSEQ_COMPILER_H

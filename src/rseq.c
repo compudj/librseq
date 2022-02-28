@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
-/*
- * rseq.c
- *
- * Copyright (C) 2016 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- */
+// SPDX-FileCopyrightText: 2016 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif

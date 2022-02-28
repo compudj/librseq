@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: MIT */
+/* SPDX-FileCopyrightText: 2018 MIPS Tech LLC */
+/* SPDX-FileCopyrightText: 2016-2018 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
+
 /*
  * Author: Paul Burton <paul.burton@mips.com>
- * (C) Copyright 2018 MIPS Tech LLC
- *
- * Based on rseq-arm.h:
- * (C) Copyright 2016-2018 - Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  */
 
 /*

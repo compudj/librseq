@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 #
-# Copyright (c) 2020 Michael Jeanson <mjeanson@efficios.com>
+# SPDX-FileCopyrightText: 2020 Michael Jeanson <mjeanson@efficios.com>
 #
 
 # This file is meant to be sourced at the start of shell script-based tests.

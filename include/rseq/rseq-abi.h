@@ -1,14 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0+ WITH Linux-syscall-note */
-#ifndef _RSEQ_ABI_H
-#define _RSEQ_ABI_H
+/* SPDX-License-Identifier: GPL-2.0-or-later WITH Linux-syscall-note */
+/* SPDX-FileCopyrightText: 2015-2022 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
 
 /*
  * rseq/rseq-abi.h
  *
  * Restartable sequences system call API
- *
- * Copyright (c) 2015-2022 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  */
+
+#ifndef _RSEQ_ABI_H
+#define _RSEQ_ABI_H
 
 #include <linux/types.h>
 #include <asm/byteorder.h>

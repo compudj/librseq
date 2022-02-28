@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2018-2022 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
