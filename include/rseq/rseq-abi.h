@@ -188,6 +188,12 @@ struct rseq_abi {
 #define __NR_rseq		383
 #endif
 
+#elif defined(__riscv)
+
+#ifndef __NR_rseq
+#define __NR_rseq		293
+#endif
+
 #endif
 
 #endif /* _RSEQ_ABI_H */

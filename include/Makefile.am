@@ -10,6 +10,7 @@ nobase_include_HEADERS = \
 	rseq/rseq-arm.h \
 	rseq/rseq-mips.h \
 	rseq/rseq-ppc.h \
+	rseq/rseq-riscv.h \
 	rseq/rseq-s390.h \
 	rseq/rseq-skip.h \
 	rseq/rseq-x86.h \

@@ -112,6 +112,8 @@ static inline struct rseq_abi *rseq_get_abi(void)
 #include <rseq/rseq-mips.h>
 #elif defined(__s390__)
 #include <rseq/rseq-s390.h>
+#elif defined(__riscv)
+#include <rseq/rseq-riscv.h>
 #else
 #error unsupported target
 #endif
