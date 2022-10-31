@@ -306,7 +306,7 @@ int main(void)
 {
 	plan_tests(NR_TESTS);
 
-	if (!rseq_available()) {
+	if (!rseq_available(RSEQ_AVAILABLE_QUERY_KERNEL)) {
 		skip(NR_TESTS, "The rseq syscall is unavailable");
 		goto end;
 	}

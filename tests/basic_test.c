@@ -52,7 +52,7 @@ int main(void)
 	/*
 	 * Skip all tests if the rseq syscall is unavailable
 	 */
-	if (rseq_available()) {
+	if (rseq_available(RSEQ_AVAILABLE_QUERY_KERNEL)) {
 		plan_no_plan();
 	} else {
 		plan_skip_all("The rseq syscall is unavailable");

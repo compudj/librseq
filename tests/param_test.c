@@ -1571,7 +1571,7 @@ int main(int argc, char **argv)
 			opt_mb = 1;
 			break;
 		case 'c':
-			if (rseq_available()) {
+			if (rseq_available(RSEQ_AVAILABLE_QUERY_KERNEL)) {
 				printf_verbose("The rseq syscall is available.\n");
 				goto end;
 			} else {

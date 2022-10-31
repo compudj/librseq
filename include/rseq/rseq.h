@@ -141,7 +141,15 @@ int rseq_unregister_current_thread(void);
  */
 int32_t rseq_fallback_current_cpu(void);
 
-int rseq_available(void);
+enum rseq_available_query {
+	RSEQ_AVAILABLE_QUERY_KERNEL = 0,
+	RSEQ_AVAILABLE_QUERY_LIBC = 1,
+};
+
+/*
+ * Returns true if rseq is supported.
+ */
+bool rseq_available(unsigned int query);
 
 /*
  * Values returned can be either the current CPU number, -1 (rseq is

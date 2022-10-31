@@ -59,21 +59,31 @@ static int sys_rseq(struct rseq_abi *rseq_abi, uint32_t rseq_len,
 	return syscall(__NR_rseq, rseq_abi, rseq_len, flags, sig);
 }
 
-int rseq_available(void)
+bool rseq_available(unsigned int query)
 {
 	int rc;
 
-	rc = sys_rseq(NULL, 0, 0, 0);
-	if (rc != -1)
-		abort();
-	switch (errno) {
-	case ENOSYS:
-		return 0;
-	case EINVAL:
-		return 1;
+	switch (query) {
+	case RSEQ_AVAILABLE_QUERY_KERNEL:
+		rc = sys_rseq(NULL, 0, 0, 0);
+		if (rc != -1)
+			abort();
+		switch (errno) {
+		case ENOSYS:
+		default:
+			break;
+		case EINVAL:
+			return true;
+		}
+		break;
+	case RSEQ_AVAILABLE_QUERY_LIBC:
+		if (rseq_size && !rseq_ownership)
+			return true;
+		break;
 	default:
-		abort();
+		break;
 	}
+	return false;
 }
 
 int rseq_register_current_thread(void)
@@ -119,7 +129,7 @@ void rseq_init(void)
 		rseq_flags = *libc_rseq_flags_p;
 		return;
 	}
-	if (!rseq_available())
+	if (!rseq_available(RSEQ_AVAILABLE_QUERY_KERNEL))
 		return;
 	rseq_ownership = 1;
 	rseq_offset = (void *)&__rseq_abi - rseq_thread_pointer();
