@@ -1,141 +1,145 @@
-.\" Copyright 2015-2020 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+'\" t
+.\" Copyright 2015-2023 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
 .\"
-.\" %%%LICENSE_START(VERBATIM)
-.\" Permission is granted to make and distribute verbatim copies of this
-.\" manual provided the copyright notice and this permission notice are
-.\" preserved on all copies.
+.\" SPDX-License-Identifier: Linux-man-pages-copyleft
 .\"
-.\" Permission is granted to copy and distribute modified versions of this
-.\" manual under the conditions for verbatim copying, provided that the
-.\" entire resulting derived work is distributed under the terms of a
-.\" permission notice identical to this one.
-.\"
-.\" Since the Linux kernel and libraries are constantly changing, this
-.\" manual page may be incorrect or out-of-date.  The author(s) assume no
-.\" responsibility for errors or omissions, or for damages resulting from
-.\" the use of the information contained herein.  The author(s) may not
-.\" have taken the same level of care in the production of this manual,
-.\" which is licensed free of charge, as they might when working
-.\" professionally.
-.\"
-.\" Formatted or processed versions of this manual, if unaccompanied by
-.\" the source, must acknowledge the copyright and authors of this work.
-.\" %%%LICENSE_END
-.\"
-.TH RSEQ 2 2020-06-05 "Linux" "Linux Programmer's Manual"
+.TH rseq 2 (date) "Linux man-pages (unreleased)"
 .SH NAME
-rseq \- Restartable sequences system call
+rseq \- restartable sequences system call
 .SH SYNOPSIS
 .nf
-.B #include <linux/rseq.h>
-.sp
-.BI "int rseq(struct rseq * " rseq ", uint32_t " rseq_len ", int " flags ", uint32_t " sig ");
-.sp
+.PP
+.BR "#include <linux/rseq.h>" \
+" /* Definition of " RSEQ_* " constants and rseq types */"
+.BR "#include #include <sys/syscall.h>" "	* Definition of " SYS_* " constants */"
+.B #include <unistd.h>
+.PP
+.BI "int syscall(SYS_rseq, struct rseq *_Nullable " rseq ", uint32_t " rseq_len \
+", int " flags ", uint32_t " sig ");
+.fi
+.PP
+.IR Note :
+glibc provides no wrapper for
+.BR rseq (),
+necessitating the use of
+.BR syscall (2).
 .SH DESCRIPTION
-
+.PP
 The
 .BR rseq ()
 ABI accelerates specific user-space operations by registering a
-per-thread data structure shared between kernel and user-space. This
-data structure can be read from or written to by user-space to skip
+per-thread data structure shared between kernel and user-space.
+This data structure can be read from or written to by user-space to skip
 otherwise expensive system calls.
-
+.PP
 A restartable sequence is a sequence of instructions guaranteed to be executed
 atomically with respect to other threads and signal handlers on the current
-CPU. If its execution does not complete atomically, the kernel changes the
-execution flow by jumping to an abort handler defined by user-space for that
-restartable sequence.
-
+CPU.
+If its execution does not complete atomically, the kernel changes the
+execution flow by jumping to an abort handler defined by user-space for
+that restartable sequence.
+.PP
 Using restartable sequences requires to register a
-rseq ABI per-thread data structure (struct rseq) through the
+rseq ABI per-thread data structure (
+.B struct rseq
+) through the
 .BR rseq ()
-system call. Only one rseq ABI can be registered per thread, so
-user-space libraries and applications must follow a user-space ABI
-defining how to share this resource. The ABI defining how to share this
-resource between applications and libraries is defined by the C library.
+system call.
+Only one rseq ABI can be registered per thread, so user-space libraries
+and applications must follow a user-space ABI defining how to share this
+resource.
+The ABI defining how to share this resource between applications and
+libraries is defined by the C library.
 Allocation of the per-thread rseq ABI and its registration to the kernel
 is handled by glibc since version 2.35.
-
+.PP
 The rseq ABI per-thread data structure contains a
 .I rseq_cs
-field which points to the currently executing critical section. For each
-thread, a single rseq critical section can run at any given point. Each
-critical section need to be implemented in assembly.
-
+field which points to the currently executing critical section.
+For each thread, a single rseq critical section can run at any given
+point.
+Each critical section need to be implemented in assembly.
+.PP
 The
 .BR rseq ()
 ABI accelerates user-space operations on per-cpu data by defining a
 shared data structure ABI between each user-space thread and the kernel.
-
+.PP
 It allows user-space to perform update operations on per-cpu data
 without requiring heavy-weight atomic operations.
-
+.PP
 The term CPU used in this documentation refers to a hardware execution
-context. For instance, each CPU number returned by
+context.
+For instance, each CPU number returned by
 .BR sched_getcpu ()
-is a CPU. The current CPU means to the CPU on which the registered thread is
+is a CPU.
+The current CPU means to the CPU on which the registered thread is
 running.
-
+.PP
 Restartable sequences are atomic with respect to preemption (making it
-atomic with respect to other threads running on the same CPU), as well
-as signal delivery (user-space execution contexts nested over the same
-thread). They either complete atomically with respect to preemption on
-the current CPU and signal delivery, or they are aborted.
-
+atomic with respect to other threads running on the same CPU),
+as well as signal delivery (user-space execution contexts nested over
+the same thread).
+They either complete atomically with respect to preemption on the
+current CPU and signal delivery, or they are aborted.
+.PP
 Restartable sequences are suited for update operations on per-cpu data.
-
+.PP
 Restartable sequences can be used on data structures shared between threads
-within a process, and on data structures shared between threads across
-different processes.
-
+within a process,
+and on data structures shared between threads across different
+processes.
 .PP
-Some examples of operations that can be accelerated or improved
-by this ABI:
-.IP \[bu] 2
+Some examples of operations that can be accelerated or improved by this ABI:
+.IP \(bu 3
 Memory allocator per-cpu free-lists,
-.IP \[bu] 2
+.IP \(bu 3
 Querying the current CPU number,
-.IP \[bu] 2
+.IP \(bu 3
 Incrementing per-CPU counters,
-.IP \[bu] 2
+.IP \(bu 3
 Modifying data protected by per-CPU spinlocks,
-.IP \[bu] 2
+.IP \(bu 3
 Inserting/removing elements in per-CPU linked-lists,
-.IP \[bu] 2
+.IP \(bu 3
 Writing/reading per-CPU ring buffers content.
-.IP \[bu] 2
-Accurately reading performance monitoring unit counters
-with respect to thread migration.
-
+.IP \(bu 3
+Accurately reading performance monitoring unit counters with respect to
+thread migration.
 .PP
-Restartable sequences must not perform system calls. Doing so may result
-in termination of the process by a segmentation fault.
-
+Restartable sequences must not perform system calls.
+Doing so may result in termination of the process by a segmentation
+fault.
 .PP
 The
 .I rseq
 argument is a pointer to the thread-local rseq structure to be shared
 between kernel and user-space.
-
 .PP
 The structure
 .B struct rseq
-is an extensible structure. Additional feature fields can be added in
-future kernel versions. Its layout is as follows:
+is an extensible structure.
+Additional feature fields can be added in future kernel versions.
+Its layout is as follows:
 .TP
 .B Structure alignment
-This structure is aligned on either 32-byte boundary, or on the
-alignment value returned by
-.I getauxval(AT_RSEQ_ALIGN)
+This structure is aligned on either 32-byte boundary,
+or on the alignment value returned by
+.I getauxval(
+.B AT_RSEQ_ALIGN
+)
 if the structure size differs from 32 bytes.
 .TP
 .B Structure size
-This structure size needs to be at least 32 bytes. It can be either
-32 bytes, or it needs to be large enough to hold the result of
-.I getauxval(AT_RSEQ_FEATURE_SIZE) .
+This structure size needs to be at least 32 bytes.
+It can be either 32 bytes,
+or it needs to be large enough to hold the result of
+.I getauxval(
+.B AT_RSEQ_FEATURE_SIZE
+) .
 Its size is passed as parameter to the rseq system call.
+.RS
 .PP
-.in +8n
 .EX
 struct rseq {
     __u32 cpu_id_start;
@@ -148,119 +152,149 @@ struct rseq {
     __u32 mm_cid;
 } __attribute__((aligned(32)));
 .EE
+.RE
 .TP
 .B Fields
-
-.TP
-.in +4n
+.RS
 .I cpu_id_start
+.RS
 Always-updated value of the CPU number on which the registered thread is
-running. Its value is guaranteed to always be a possible CPU number,
-even when rseq is not registered. Its value should always be confirmed by
-reading the cpu_id field before user-space performs any side-effect (e.g.
-storing to memory).
-
+running.
+Its value is guaranteed to always be a possible CPU number,
+even when rseq is not registered.
+Its value should always be confirmed by reading the cpu_id field before
+user-space performs any side-effect
+(e.g. storing to memory).
+.PP
 This field is always guaranteed to hold a valid CPU number in the range
-[ 0 ..  nr_possible_cpus - 1 ]. It can therefore be loaded by user-space
-and used as an offset in per-cpu data structures without having to check
-whether its value is within the valid bounds compared to the number of
-possible CPUs in the system.
-
-Initialized by user-space to a possible CPU number (e.g., 0), updated
-by the kernel for threads registered with rseq.
-
+[ 0 ..  nr_possible_cpus - 1 ].
+It can therefore be loaded by user-space and used as an offset in
+per-cpu data structures without having to check whether its value is
+within the valid bounds compared to the number of possible CPUs in the
+system.
+.PP
+Initialized by user-space to a possible CPU number (e.g., 0),
+updated by the kernel for threads registered with rseq.
+.PP
 For user-space applications executed on a kernel without rseq support,
 the cpu_id_start field stays initialized at 0, which is indeed a valid
-CPU number. It is therefore valid to use it as an offset in per-cpu data
-structures, and only validate whether it's actually the current CPU
-number by comparing it with the cpu_id field within the rseq critical
-section. If the kernel does not provide rseq support, that cpu_id field
-stays initialized at -1, so the comparison always fails, as intended.
-
+CPU number.
+It is therefore valid to use it as an offset in per-cpu data structures,
+and only validate whether it's actually the current CPU number by
+comparing it with the cpu_id field within the rseq critical section.
+If the kernel does not provide rseq support, that cpu_id field stays
+initialized at -1,
+so the comparison always fails, as intended.
+.PP
 This field should only be read by the thread which registered this data
-structure. Aligned on 32-bit.
-
+structure.
+Aligned on 32-bit.
+.PP
 It is up to user-space to implement a fall-back mechanism for scenarios where
 rseq is not available.
-.in
-.TP
-.in +4n
+.RE
+.PP
 .I cpu_id
+.RS
 Always-updated value of the CPU number on which the registered thread is
-running. Initialized by user-space to -1, updated by the kernel for
-threads registered with rseq.
-
+running.
+Initialized by user-space to -1,
+updated by the kernel for threads registered with rseq.
+.PP
 This field should only be read by the thread which registered this data
-structure. Aligned on 32-bit.
-.in
-.TP
-.in +4n
+structure.
+Aligned on 32-bit.
+.RE
+.PP
 .I rseq_cs
-The rseq_cs field is a pointer to a struct rseq_cs. Is is NULL when no
-rseq assembly block critical section is active for the registered thread.
-Setting it to point to a critical section descriptor (struct rseq_cs)
-marks the beginning of the critical section.
-
+.RS
+The rseq_cs field is a pointer to a
+.B struct rseq_cs .
+Is is NULL when no rseq assembly block critical section is active for
+the registered thread.
+Setting it to point to a critical section descriptor (
+.B struct rseq_cs
+) marks the beginning of the critical section.
+.PP
 Initialized by user-space to NULL.
-
+.PP
 Updated by user-space, which sets the address of the currently
 active rseq_cs at the beginning of assembly instruction sequence
-block, and set to NULL by the kernel when it restarts an assembly
-instruction sequence block, as well as when the kernel detects that
-it is preempting or delivering a signal outside of the range
-targeted by the rseq_cs. Also needs to be set to NULL by user-space
-before reclaiming memory that contains the targeted struct rseq_cs.
-
+block,
+and set to NULL by the kernel when it restarts an assembly instruction
+sequence block,
+as well as when the kernel detects that it is preempting or delivering a
+signal outside of the range targeted by the rseq_cs.
+Also needs to be set to NULL by user-space before reclaiming memory that
+contains the targeted
+.B struct rseq_cs .
+.PP
 Read and set by the kernel.
-
+.PP
 This field should only be updated by the thread which registered this
-data structure. Aligned on 64-bit.
-.in
-.TP
-.in +4n
+data structure.
+Aligned on 64-bit.
+.RE
+.PP
 .I flags
-Flags indicating the restart behavior for the registered thread. This is
-mainly used for debugging purposes. Can be a combination of:
-.IP \[bu]
-RSEQ_CS_FLAG_NO_RESTART_ON_PREEMPT: Inhibit instruction sequence block restart
-on preemption for this thread. This flag is deprecated since kernel 6.1.
-.IP \[bu]
-RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL: Inhibit instruction sequence block restart
-on signal delivery for this thread. This flag is deprecated since kernel 6.1.
-.IP \[bu]
-RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE: Inhibit instruction sequence block restart
-on migration for this thread. This flag is deprecated since kernel 6.1.
-
+.RS
+Flags indicating the restart behavior for the registered thread.
+This is mainly used for debugging purposes.
+Can be a combination of:
+.TP
+.B RSEQ_CS_FLAG_NO_RESTART_ON_PREEMPT
+Inhibit instruction sequence block restart on preemption for this
+thread.
+This flag is deprecated since kernel 6.1.
+.TP
+.B RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL
+Inhibit instruction sequence block restart on signal delivery for this
+thread.
+This flag is deprecated since kernel 6.1.
+.TP
+.B RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE
+Inhibit instruction sequence block restart on migration for this thread.
+This flag is deprecated since kernel 6.1.
+.PP
 Initialized by user-space, used by the kernel.
-.in
-.TP
-.in +4n
+.RE
+.PP
 .I node_id
+.RS
 Always-updated value of the current NUMA node ID.
-
+.PP
 Initialized by user-space to 0.
-
-Updated by the kernel. Read by user-space with single-copy atomicity
-semantics. This field should only be read by the thread which registered
-this data structure. Aligned on 32-bit.
-.in
-.TP
-.in +4n
+.PP
+Updated by the kernel.
+Read by user-space with single-copy atomicity semantics.
+This field should only be read by the thread which registered
+this data structure.
+Aligned on 32-bit.
+.RE
+.PP
 .I mm_cid
-Contains the current thread's concurrency ID (allocated uniquely within
-a memory map).
-
-Updated by the kernel. Read by user-space with single-copy atomicity
-semantics. This field should only be read by the thread which registered
-this data structure. Aligned on 32-bit.
-
-This concurrency ID is within the possible cpus range, and is
-temporarily (and uniquely) assigned while threads are actively running
-within a memory map. If a memory map has fewer threads than cores, or is
-limited to run on few cores concurrently through sched affinity or
-cgroup cpusets, the concurrency IDs will be values close to 0, thus
-allowing efficient use of user-space memory for per-cpu data structures.
-
+.RS
+Contains the current thread's concurrency ID
+(allocated uniquely within a memory map).
+.PP
+Updated by the kernel.
+Read by user-space with single-copy atomicity semantics.
+This field should only be read by the thread which registered this data
+structure.
+Aligned on 32-bit.
+.PP
+This concurrency ID is within the possible cpus range,
+and is temporarily (and uniquely) assigned while threads are actively
+running within a memory map.
+If a memory map has fewer threads than cores,
+or is limited to run on few cores concurrently through sched affinity or
+cgroup cpusets,
+the concurrency IDs will be values close to 0,
+thus allowing efficient use of user-space memory for per-cpu data
+structures.
+.RE
+.RE
+.RE
 .PP
 The layout of
 .B struct rseq_cs
@@ -271,8 +305,7 @@ This structure is aligned on 32-byte boundary.
 .TP
 .B Structure size
 This structure has a fixed size of 32 bytes.
-.PP
-.in +8n
+.RS
 .EX
 struct rseq_cs {
     __u32   version;
@@ -282,70 +315,72 @@ struct rseq_cs {
     __u64   abort_ip;
 } __attribute__((aligned(32)));
 .EE
-.TP
+.RE
+.PP
 .B Fields
-
-.TP
-.in +4n
+.RS
 .I version
-Version of this structure. Should be initialized to 0.
-.in
-.TP
-.in +4n
+.RS
+Version of this structure.
+Should be initialized to 0.
+.RE
+.PP
 .I flags
-Flags indicating the restart behavior of this structure. Can be a combination
-of:
-.IP \[bu]
-RSEQ_CS_FLAG_NO_RESTART_ON_PREEMPT: Inhibit instruction sequence block restart
-on preemption for this critical section. This flag is deprecated since kernel
-6.1.
-.IP \[bu]
-RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL: Inhibit instruction sequence block restart
-on signal delivery for this critical section. This flag is deprecated since
-kernel 6.1.
-.IP \[bu]
-RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE: Inhibit instruction sequence block restart
-on migration for this critical section. This flag is deprecated since kernel
-6.1.
+.RS
+Flags indicating the restart behavior of this structure.
+Can be a combination of:
 .TP
-.in +4n
+.B RSEQ_CS_FLAG_NO_RESTART_ON_PREEMPT
+Inhibit instruction sequence block restart on preemption for this
+critical section.
+This flag is deprecated since kernel 6.1.
+.TP
+.B RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL
+Inhibit instruction sequence block restart on signal delivery for this
+critical section.
+This flag is deprecated since kernel 6.1.
+.TP
+.B RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE
+Inhibit instruction sequence block restart on migration for this
+critical section.
+This flag is deprecated since kernel 6.1.
+.RE
+.PP
 .I start_ip
+.RS
 Instruction pointer address of the first instruction of the sequence of
 consecutive assembly instructions.
-.in
-.TP
-.in +4n
+.RE
+.PP
 .I post_commit_offset
+.RS
 Offset (from start_ip address) of the address after the last instruction
 of the sequence of consecutive assembly instructions.
-.in
-.TP
-.in +4n
+.RE
+.PP
 .I abort_ip
+.RS
 Instruction pointer address where to move the execution flow in case of
 abort of the sequence of consecutive assembly instructions.
-.in
-
+.RE
+.RE
 .PP
 The
 .I rseq_len
 argument is the size of the
-.I struct rseq
+.B struct rseq
 to register.
-
 .PP
 The
 .I flags
 argument is 0 for registration, and
-.IR RSEQ_FLAG_UNREGISTER
+.B RSEQ_FLAG_UNREGISTER
 for unregistration.
-
 .PP
 The
 .I sig
 argument is the 32-bit signature to be expected before the abort
 handler code.
-
 .PP
 A single library per process should keep the rseq structure in a
 per-thread data structure.
@@ -354,30 +389,30 @@ The
 field should be initialized to -1, and the
 .I cpu_id_start
 field should be initialized to a possible CPU value (typically 0).
-
 .PP
 Each thread is responsible for registering and unregistering its rseq
-structure. No more than one rseq structure address can be registered
-per thread at a given time.
-
+structure.
+No more than one rseq structure address can be registered per thread at
+a given time.
 .PP
 Reclaim of rseq object's memory must only be done after either an
 explicit rseq unregistration is performed or after the thread exits.
-
 .PP
 In a typical usage scenario, the thread registering the rseq
-structure will be performing loads and stores from/to that structure. It
-is however also allowed to read that structure from other threads.
+structure will be performing loads and stores from/to that structure.
+It is however also allowed to read that structure from other threads.
 The rseq field updates performed by the kernel provide relaxed atomicity
-semantics (atomic store, without memory ordering), which guarantee that other
-threads performing relaxed atomic reads (atomic load, without memory ordering)
-of the cpu number fields will always observe a consistent value.
-
+semantics (atomic store, without memory ordering),
+which guarantee that other threads performing relaxed atomic reads
+(atomic load, without memory ordering) of the cpu number fields will
+always observe a consistent value.
+.PP
 .SH RETURN VALUE
-A return value of 0 indicates success. On error, \-1 is returned, and
+A return value of 0 indicates success.
+On error, \-1 is returned, and
 .I errno
 is set appropriately.
-
+.PP
 .SH ERRORS
 .TP
 .B EINVAL
@@ -406,17 +441,16 @@ The
 .I sig
 argument on unregistration does not match the signature received
 on registration.
-
+.PP
 .SH VERSIONS
 The
 .BR rseq ()
 system call was added in Linux 4.18.
-
-.SH CONFORMING TO
+.PP
+.SH STANDARDS
 .BR rseq ()
 is Linux-specific.
-
-.in
+.PP
 .SH SEE ALSO
 .BR sched_getcpu (3) ,
 .BR membarrier (2) ,
