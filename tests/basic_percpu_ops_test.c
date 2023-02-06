@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LGPL-2.1-only
+// SPDX-License-Identifier: MIT
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif

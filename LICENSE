@@ -1,15 +1,6 @@
 This library is provided under:
 
-	SPDX-License-Identifier: LGPL-2.1-only
-
-Being under the terms of the GNU Lesser General Public License version 2.1
-only, according with:
-
-	LICENSES/LGPL-2.1-only
-
-The header files in 'include' are dual licensed under:
-
-	SPDX-License-Identifier: LGPL-2.1-only AND MIT
+	SPDX-License-Identifier: MIT
 
 According with:
 

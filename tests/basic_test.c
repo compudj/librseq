@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LGPL-2.1-only
+// SPDX-License-Identifier: MIT
 /*
  * Basic test coverage for critical regions and rseq_current_cpu().
  */

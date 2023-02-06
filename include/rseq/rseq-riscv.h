@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1-only OR MIT */
+/* SPDX-License-Identifier: MIT */
 /*
  * Select the instruction "csrw mhartid, x0" as the RSEQ_SIG. Unlike
  * other architectures, the ebreak instruction has no immediate field for

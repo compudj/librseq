@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1-only OR MIT */
+/* SPDX-License-Identifier: MIT */
 /*
  * rseq-arm.h
  *
