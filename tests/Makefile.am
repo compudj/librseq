@@ -3,7 +3,7 @@
 
 AM_CPPFLAGS += -I$(top_srcdir)/tests/utils
 
-SUBDIRS = utils
+SUBDIRS = utils unit
 
 TEST_EXTENSIONS = .tap
 TAP_LOG_DRIVER_FLAGS = --merge --comments

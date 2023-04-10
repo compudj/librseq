@@ -27,4 +27,12 @@
  */
 #define rseq_after_asm_goto()	asm volatile ("" : : : "memory")
 
+#if defined(__SIZEOF_LONG__)
+#define RSEQ_BITS_PER_LONG	(__SIZEOF_LONG__ * 8)
+#elif defined(_LP64)
+#define RSEQ_BITS_PER_LONG	64
+#else
+#define RSEQ_BITS_PER_LONG	32
+#endif
+
 #endif  /* RSEQ_COMPILER_H_ */
