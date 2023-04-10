@@ -226,6 +226,7 @@ AC_CONFIG_FILES([
 	src/librseq.pc
 	tests/Makefile
 	tests/utils/Makefile
+	tests/unit/Makefile
 ])
 
 AC_OUTPUT
