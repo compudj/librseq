@@ -90,13 +90,13 @@ static inline struct rseq_abi *rseq_get_abi(void)
 #define __rseq_str_1(x)	#x
 #define __rseq_str(x)		__rseq_str_1(x)
 
-#define rseq_log(fmt, args...)						       \
+#define rseq_log(fmt, ...)						       \
 	fprintf(stderr, fmt "(in %s() at " __FILE__ ":" __rseq_str(__LINE__)"\n", \
-		## args, __func__)
+		## __VA_ARGS__, __func__)
 
-#define rseq_bug(fmt, args...)		\
+#define rseq_bug(fmt, ...)		\
 	do {				\
-		rseq_log(fmt, ##args);	\
+		rseq_log(fmt, ##__VA_ARGS__);	\
 		abort();		\
 	} while (0)
 
