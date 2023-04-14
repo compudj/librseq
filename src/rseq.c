@@ -19,6 +19,12 @@
 
 #include <rseq/rseq.h>
 
+static __attribute__((constructor))
+void rseq_init(void);
+
+static pthread_mutex_t init_lock = PTHREAD_MUTEX_INITIALIZER;
+static int init_done;
+
 static const ptrdiff_t *libc_rseq_offset_p;
 static const unsigned int *libc_rseq_size_p;
 static const unsigned int *libc_rseq_flags_p;
@@ -77,6 +83,8 @@ int rseq_register_current_thread(void)
 {
 	int rc;
 
+	rseq_init();
+
 	if (!rseq_ownership) {
 		/* Treat libc's ownership as a successful registration. */
 		return 0;
@@ -102,9 +110,16 @@ int rseq_unregister_current_thread(void)
 	return 0;
 }
 
-static __attribute__((constructor))
+static
 void rseq_init(void)
 {
+	if (RSEQ_READ_ONCE(init_done))
+		return;
+
+	pthread_mutex_lock(&init_lock);
+	if (init_done)
+		goto unlock;
+	RSEQ_WRITE_ONCE(init_done, 1);
 	libc_rseq_offset_p = dlsym(RTLD_NEXT, "__rseq_offset");
 	libc_rseq_size_p = dlsym(RTLD_NEXT, "__rseq_size");
 	libc_rseq_flags_p = dlsym(RTLD_NEXT, "__rseq_flags");
@@ -114,14 +129,16 @@ void rseq_init(void)
 		rseq_offset = *libc_rseq_offset_p;
 		rseq_size = *libc_rseq_size_p;
 		rseq_flags = *libc_rseq_flags_p;
-		return;
+		goto unlock;
 	}
 	if (!rseq_available(RSEQ_AVAILABLE_QUERY_KERNEL))
-		return;
+		goto unlock;
 	rseq_ownership = 1;
 	rseq_offset = (void *)&__rseq_abi - rseq_thread_pointer();
 	rseq_size = sizeof(struct rseq_abi);
 	rseq_flags = 0;
+unlock:
+	pthread_mutex_unlock(&init_lock);
 }
 
 static __attribute__((destructor))
