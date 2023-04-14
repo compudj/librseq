@@ -1,6 +1,6 @@
 dnl SPDX-License-Identifier: MIT
 dnl
-dnl Copyright (C) 2021 EfficiOS, Inc.
+dnl SPDX-FileCopyrightText: 2021 EfficiOS, Inc.
 dnl
 dnl Process this file with autoconf to produce a configure script.
 

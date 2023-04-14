@@ -1,19 +1,10 @@
 This library is provided under:
 
-	SPDX-License-Identifier: LGPL-2.1-only
-
-Being under the terms of the GNU Lesser General Public License version 2.1
-only, according with:
-
-	LICENSES/LGPL-2.1-only
-
-The header files in 'include' are dual licensed under:
-
-	SPDX-License-Identifier: LGPL-2.1-only AND MIT
+	SPDX-License-Identifier: MIT
 
 According with:
 
-	LICENSES/MIT
+	LICENSES/MIT.txt
 
 
 The C TAP test libraries are provided under the terms of the BSD 2-Clause
@@ -23,7 +14,7 @@ The C TAP test libraries are provided under the terms of the BSD 2-Clause
 
 According with:
 
-	LICENSES/BSD-2-Clause
+	LICENSES/BSD-2-Clause.txt
 
 They are only used when running the tests in the source tree. This applies
 to:
@@ -39,7 +30,7 @@ License v3.0 or later:
 
 According with:
 
-	LICENSES/GPL-3.0
+	LICENSES/GPL-3.0-or-later.txt
 
 It's only used when running the tests in the source tree. This applies to:
 

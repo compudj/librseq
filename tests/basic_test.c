@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: LGPL-2.1-only
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2020 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
 /*
  * Basic test coverage for critical regions and rseq_current_cpu().
  */

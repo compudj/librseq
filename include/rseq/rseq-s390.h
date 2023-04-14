@@ -1,4 +1,5 @@
-/* SPDX-License-Identifier: LGPL-2.1-only OR MIT */
+/* SPDX-License-Identifier: MIT */
+/* SPDX-FileCopyrightText: 2018 Vasily Gorbik <gor@linux.ibm.com> */
 
 /*
  * RSEQ_SIG uses the trap4 instruction. As Linux does not make use of the

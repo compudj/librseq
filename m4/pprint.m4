@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-or-later WITH LicenseRef-Autoconf-exception-macro
+# SPDX-FileCopyrightText: 2019 Philippe Proulx <pproulx@efficios.com>
 # Pretty printing macros.
 #
 # Author: Philippe Proulx <pproulx@efficios.com>

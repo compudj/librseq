@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2022 EfficiOS Inc.
+
+SPDX-License-Identifier: MIT
+-->
+
 Library for Restartable Sequences
 =================================
 

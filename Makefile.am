@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: MIT
-#
-# Copyright (C) 2019 Michael Jeanson <mjeanson@efficios.com>
-#
+# SPDX-FileCopyrightText: 2022 EfficiOS Inc.
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -15,8 +13,10 @@ dist_doc_DATA = README.md
 
 EXTRA_DIST = \
 	LICENSE \
-	LICENSES/BSD-2-Clause \
-	LICENSES/GPL-2.0 \
-	LICENSES/GPL-3.0 \
-	LICENSES/LGPL-2.1-only \
-	LICENSES/MIT
+	LICENSES/LicenseRef-Autoconf-exception-macro.txt \
+	LICENSES/BSD-2-Clause.txt \
+	LICENSES/FSFAP.txt \
+	LICENSES/GPL-2.0-or-later.txt \
+	LICENSES/GPL-3.0-or-later.txt \
+	LICENSES/Linux-syscall-note.txt \
+	LICENSES/MIT.txt

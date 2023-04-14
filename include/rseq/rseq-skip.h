@@ -1,8 +1,8 @@
-/* SPDX-License-Identifier: LGPL-2.1-only OR MIT */
+/* SPDX-License-Identifier: MIT */
+/* SPDX-FileCopyrightText: 2017-2018 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
+
 /*
  * rseq-skip.h
- *
- * (C) Copyright 2017-2018 - Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  */
 
 static inline __attribute__((always_inline))

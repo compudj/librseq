@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: MIT
-#
-# Copyright (C) 2020 Michael Jeanson <mjeanson@efficios.com>
-#
+# SPDX-FileCopyrightText: 2022 EfficiOS Inc.
 
 AM_CPPFLAGS += -I$(top_srcdir)/tests/utils
 

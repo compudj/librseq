@@ -1,5 +1,8 @@
 #!/bin/sh
+#
 # SPDX-License-Identifier: MIT
+#
+# SPDX-FileCopyrightText: 2022 EfficiOS Inc.
 
 set -x
 if [ ! -d "config" ]; then

@@ -1,9 +1,9 @@
-/* SPDX-License-Identifier: LGPL-2.1-only OR MIT */
+/* SPDX-License-Identifier: MIT */
+/* SPDX-FileCopyrightText: 2016-2018 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
+/* SPDX-FileCopyrightText: 2016-2018 Boqun Feng <boqun.feng@gmail.com> */
+
 /*
  * rseq-ppc.h
- *
- * (C) Copyright 2016-2018 - Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- * (C) Copyright 2016-2018 - Boqun Feng <boqun.feng@gmail.com>
  */
 
 /*
