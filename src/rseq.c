@@ -16,6 +16,7 @@
 #include <limits.h>
 #include <dlfcn.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include <rseq/rseq.h>
 
@@ -134,7 +135,7 @@ void rseq_init(void)
 	if (!rseq_available(RSEQ_AVAILABLE_QUERY_KERNEL))
 		goto unlock;
 	rseq_ownership = 1;
-	rseq_offset = (void *)&__rseq_abi - rseq_thread_pointer();
+	rseq_offset = (uintptr_t)&__rseq_abi - (uintptr_t)rseq_thread_pointer();
 	rseq_size = sizeof(struct rseq_abi);
 	rseq_flags = 0;
 unlock:
