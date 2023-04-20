@@ -25,7 +25,7 @@
  * label target.  Emit this for all compilers in case other similar
  * issues are found in the future.
  */
-#define rseq_after_asm_goto()	asm volatile ("" : : : "memory")
+#define rseq_after_asm_goto()	__asm__ __volatile__ ("" : : : "memory")
 
 #if defined(__SIZEOF_LONG__)
 #define RSEQ_BITS_PER_LONG	(__SIZEOF_LONG__ * 8)
