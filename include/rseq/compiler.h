@@ -10,6 +10,10 @@
 #ifndef RSEQ_COMPILER_H
 #define RSEQ_COMPILER_H
 
+#if defined __cplusplus
+# include <type_traits>	/* for std::remove_cv */
+#endif
+
 /*
  * gcc prior to 4.8.2 miscompiles asm goto.
  * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58670
@@ -33,6 +37,33 @@
 #define RSEQ_BITS_PER_LONG	64
 #else
 #define RSEQ_BITS_PER_LONG	32
+#endif
+
+#ifdef __cplusplus
+#define rseq_unqual_scalar_typeof(x)					\
+	__typeof__(reinterpret_cast<std::remove_cv<__typeof__(x)>::type>((__typeof__(x))0))
+#else
+/*
+ * Use C11 _Generic to express unqualified type from expression. This removes
+ * volatile qualifier from expression type.
+ */
+#define rseq_unqual_scalar_typeof(x)					\
+	__typeof__(							\
+		_Generic((x),						\
+			char: (char)0,					\
+			unsigned char: (unsigned char)0,		\
+			signed char: (signed char)0,			\
+			unsigned short: (unsigned short)0,		\
+			signed short: (signed short)0,			\
+			unsigned int: (unsigned int)0,			\
+			signed int: (signed int)0,			\
+			unsigned long: (unsigned long)0,		\
+			signed long: (signed long)0,			\
+			unsigned long long: (unsigned long long)0,	\
+			signed long long: (signed long long)0,		\
+			default: (x)					\
+		)							\
+	)
 #endif
 
 #endif  /* RSEQ_COMPILER_H_ */
