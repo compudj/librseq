@@ -48,7 +48,7 @@ __extension__ ({							\
 #define rseq_smp_store_release(p, v)					\
 do {									\
 	RISCV_FENCE(rw, w);						\
-	RSEQ_WRITE_ONCE(*(p), v);						\
+	RSEQ_WRITE_ONCE(*(p), v);					\
 } while (0)
 
 #ifdef RSEQ_SKIP_FASTPATH
