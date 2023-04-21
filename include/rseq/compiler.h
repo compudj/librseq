@@ -41,7 +41,7 @@
 
 #ifdef __cplusplus
 #define rseq_unqual_scalar_typeof(x)					\
-	std::remove_cv<__typeof__(x)>::type>
+	std::remove_cv<decltype(x)>::type>
 #else
 /*
  * Use C11 _Generic to express unqualified type from expression. This removes
