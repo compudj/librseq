@@ -50,7 +50,7 @@ __extension__ ({								\
 			: "Q" (*(p)) : "memory");				\
 		break;								\
 	}									\
-	(__typeof__(*(p)))__u.__val;						\
+	(rseq_unqual_scalar_typeof(*(p)))__u.__val;				\
 })
 
 #define rseq_smp_acquire__after_ctrl_dep()	rseq_smp_rmb()
