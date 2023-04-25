@@ -58,6 +58,8 @@ dkms.conf
 /src/librseq.pc
 /tests/basic_percpu_ops_test.tap
 /tests/basic_percpu_ops_test_cxx.tap
+/tests/basic_percpu_ops_mm_cid_test.tap
+/tests/basic_percpu_ops_mm_cid_test_cxx.tap
 /tests/basic_test.tap
 /tests/basic_test_cxx.tap
 /tests/param_test
