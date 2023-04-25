@@ -31,6 +31,12 @@
  */
 #define rseq_after_asm_goto()	__asm__ __volatile__ ("" : : : "memory")
 
+/* Combine two tokens. */
+#define RSEQ__COMBINE_TOKENS(_tokena, _tokenb)	\
+	_tokena##_tokenb
+#define RSEQ_COMBINE_TOKENS(_tokena, _tokenb)	\
+	RSEQ__COMBINE_TOKENS(_tokena, _tokenb)
+
 #if defined(__SIZEOF_LONG__)
 #define RSEQ_BITS_PER_LONG	(__SIZEOF_LONG__ * 8)
 #elif defined(_LP64)
