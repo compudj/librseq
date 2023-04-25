@@ -21,10 +21,16 @@ noinst_PROGRAMS = \
 	basic_test_cxx.tap \
 	param_test \
 	param_test_cxx \
+	param_test_mm_cid \
+	param_test_mm_cid_cxx \
 	param_test_benchmark \
 	param_test_benchmark_cxx \
+	param_test_mm_cid_benchmark \
+	param_test_mm_cid_benchmark_cxx \
 	param_test_compare_twice \
-	param_test_compare_twice_cxx
+	param_test_compare_twice_cxx \
+	param_test_mm_cid_compare_twice \
+	param_test_mm_cid_compare_twice_cxx
 
 dist_noinst_SCRIPTS = \
 	run_param_test.tap \
@@ -56,6 +62,14 @@ param_test_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
 param_test_cxx_SOURCES = param_test_cxx.cpp
 param_test_cxx_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
 
+param_test_mm_cid_SOURCES = param_test.c
+param_test_mm_cid_CPPFLAGS = $(AM_CPPFLAGS) -DBUILDOPT_RSEQ_PERCPU_MM_CID
+param_test_mm_cid_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
+
+param_test_mm_cid_cxx_SOURCES = param_test_cxx.cpp
+param_test_mm_cid_cxx_CPPFLAGS = $(AM_CPPFLAGS) -DBUILDOPT_RSEQ_PERCPU_MM_CID
+param_test_mm_cid_cxx_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
+
 param_test_benchmark_SOURCES = param_test.c
 param_test_benchmark_CPPFLAGS = $(AM_CPPFLAGS) -DBENCHMARK
 param_test_benchmark_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
@@ -64,6 +78,14 @@ param_test_benchmark_cxx_SOURCES = param_test_cxx.cpp
 param_test_benchmark_cxx_CPPFLAGS = $(AM_CPPFLAGS) -DBENCHMARK
 param_test_benchmark_cxx_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
 
+param_test_mm_cid_benchmark_SOURCES = param_test.c
+param_test_mm_cid_benchmark_CPPFLAGS = $(AM_CPPFLAGS) -DBENCHMARK -DBUILDOPT_RSEQ_PERCPU_MM_CID
+param_test_mm_cid_benchmark_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
+
+param_test_mm_cid_benchmark_cxx_SOURCES = param_test_cxx.cpp
+param_test_mm_cid_benchmark_cxx_CPPFLAGS = $(AM_CPPFLAGS) -DBENCHMARK -DBUILDOPT_RSEQ_PERCPU_MM_CID
+param_test_mm_cid_benchmark_cxx_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
+
 param_test_compare_twice_SOURCES = param_test.c
 param_test_compare_twice_CPPFLAGS = $(AM_CPPFLAGS) -DRSEQ_COMPARE_TWICE
 param_test_compare_twice_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
@@ -71,6 +93,14 @@ param_test_compare_twice_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
 param_test_compare_twice_cxx_SOURCES = param_test_cxx.cpp
 param_test_compare_twice_cxx_CPPFLAGS = $(AM_CPPFLAGS) -DRSEQ_COMPARE_TWICE
 param_test_compare_twice_cxx_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
+
+param_test_mm_cid_compare_twice_SOURCES = param_test.c
+param_test_mm_cid_compare_twice_CPPFLAGS = $(AM_CPPFLAGS) -DRSEQ_COMPARE_TWICE -DBUILDOPT_RSEQ_PERCPU_MM_CID
+param_test_mm_cid_compare_twice_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
+
+param_test_mm_cid_compare_twice_cxx_SOURCES = param_test_cxx.cpp
+param_test_mm_cid_compare_twice_cxx_CPPFLAGS = $(AM_CPPFLAGS) -DRSEQ_COMPARE_TWICE -DBUILDOPT_RSEQ_PERCPU_MM_CID
+param_test_mm_cid_compare_twice_cxx_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
 
 TESTS = \
 	basic_percpu_ops_test.tap \

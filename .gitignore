@@ -68,6 +68,12 @@ dkms.conf
 /tests/param_test_benchmark_cxx
 /tests/param_test_compare_twice
 /tests/param_test_compare_twice_cxx
+/tests/param_test_mm_cid
+/tests/param_test_mm_cid_cxx
+/tests/param_test_mm_cid_benchmark
+/tests/param_test_mm_cid_benchmark_cxx
+/tests/param_test_mm_cid_compare_twice
+/tests/param_test_mm_cid_compare_twice_cxx
 
 #automake
 /include/config.h

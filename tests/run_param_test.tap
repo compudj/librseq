@@ -32,6 +32,12 @@ function do_test()
 
 	"$RSEQ_TESTS_BUILDDIR"/param_test_compare_twice "${args[@]}" -r ${REPS} -t ${NR_THREADS} "${EXTRA_ARGS[@]}"
 	ok $? "Running compare-twice test ${test_name}"
+
+	"$RSEQ_TESTS_BUILDDIR"/param_test_mm_cid "${args[@]}" -r ${REPS} -t ${NR_THREADS} "${EXTRA_ARGS[@]}"
+	ok $? "Running mm_cid test ${test_name}"
+
+	"$RSEQ_TESTS_BUILDDIR"/param_test_mm_cid_compare_twice "${args[@]}" -r ${REPS} -t ${NR_THREADS} "${EXTRA_ARGS[@]}"
+	ok $? "Running compare-twice mm_cid test ${test_name}"
 }
 
 function do_tests()
@@ -77,7 +83,7 @@ function do_tests_inject()
 if [[ $? == 2 ]]; then
 	plan_skip_all "The rseq syscall is unavailable"
 else
-	plan_tests $(( 2 * 8 * 37 ))
+	plan_tests $(( 4 * 8 * 37 ))
 fi
 
 diag "Default parameters"
