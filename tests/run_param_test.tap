@@ -34,10 +34,16 @@ function do_test()
 	ok $? "Running compare-twice test ${test_name}"
 
 	"$RSEQ_TESTS_BUILDDIR"/param_test_mm_cid "${args[@]}" -r ${REPS} -t ${NR_THREADS} "${EXTRA_ARGS[@]}"
-	ok $? "Running mm_cid test ${test_name}"
+	res=$?
+	skip $(($res != 2 )) "Running mm_cid test ${test_name}" 1 || {
+		ok $res "Running mm_cid test ${test_name}"
+	}
 
 	"$RSEQ_TESTS_BUILDDIR"/param_test_mm_cid_compare_twice "${args[@]}" -r ${REPS} -t ${NR_THREADS} "${EXTRA_ARGS[@]}"
-	ok $? "Running compare-twice mm_cid test ${test_name}"
+	res=$?
+	skip $(($res != 2)) "Running compare-twice mm_cid test ${test_name}" 1 || {
+		ok $res "Running compare-twice mm_cid test ${test_name}"
+	}
 }
 
 function do_tests()

@@ -1646,8 +1646,8 @@ int main(int argc, char **argv)
 	if (!opt_disable_rseq && rseq_register_current_thread())
 		goto error;
 	if (!opt_disable_rseq && !rseq_validate_cpu_id()) {
-		fprintf(stderr, "Error: cpu id getter unavailable\n");
-		goto error;
+		printf_verbose("The rseq cpu id getter is unavailable\n");
+		goto no_rseq;
 	}
 	switch (opt_test) {
 	case 's':
