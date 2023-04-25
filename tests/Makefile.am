@@ -43,11 +43,11 @@ basic_percpu_ops_test_cxx_tap_SOURCES = basic_percpu_ops_test_cxx.cpp
 basic_percpu_ops_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
 basic_percpu_ops_mm_cid_test_tap_SOURCES = basic_percpu_ops_test.c
-basic_percpu_ops_mm_cid_test_tap_CPPFLAGS = $(AM_CPPFLAGS) -DBUILDOPT_RSEQ_PERCPU_MM_CID_ID
+basic_percpu_ops_mm_cid_test_tap_CPPFLAGS = $(AM_CPPFLAGS) -DBUILDOPT_RSEQ_PERCPU_MM_CID
 basic_percpu_ops_mm_cid_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
 basic_percpu_ops_mm_cid_test_cxx_tap_SOURCES = basic_percpu_ops_test_cxx.cpp
-basic_percpu_ops_mm_cid_test_cxx_tap_CPPFLAGS = $(AM_CPPFLAGS) -DBUILDOPT_RSEQ_PERCPU_MM_CID_ID
+basic_percpu_ops_mm_cid_test_cxx_tap_CPPFLAGS = $(AM_CPPFLAGS) -DBUILDOPT_RSEQ_PERCPU_MM_CID
 basic_percpu_ops_mm_cid_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
 basic_test_tap_SOURCES = basic_test.c
@@ -105,6 +105,8 @@ param_test_mm_cid_compare_twice_cxx_LDADD = $(top_builddir)/src/librseq.la $(DL_
 TESTS = \
 	basic_percpu_ops_test.tap \
 	basic_percpu_ops_test_cxx.tap \
+	basic_percpu_ops_mm_cid_test.tap \
+	basic_percpu_ops_mm_cid_test_cxx.tap \
 	basic_test.tap \
 	basic_test_cxx.tap \
 	run_param_test.tap \

@@ -348,7 +348,7 @@ int main(void)
 		pass("Registered current thread with rseq");
 	}
 	if (!rseq_validate_cpu_id()) {
-		skip(NR_TESTS, "Error: cpu id getter unavailable");
+		skip(NR_TESTS - 1, "Error: cpu id getter unavailable");
 		goto end;
 	}
 	test_percpu_spinlock();
