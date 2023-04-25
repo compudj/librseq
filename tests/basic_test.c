@@ -29,6 +29,8 @@ static void test_cpu_pointer(void)
 	CPU_ZERO(&test_affinity);
 	for (i = 0; i < CPU_SETSIZE; i++) {
 		if (CPU_ISSET(i, &affinity)) {
+			int node;
+
 			CPU_SET(i, &test_affinity);
 
 			ret = sched_setaffinity(0, sizeof(test_affinity),
@@ -39,7 +41,8 @@ static void test_cpu_pointer(void)
 			ok(rseq_current_cpu() == (unsigned int) i, "rseq_current_cpu returns CPU %d", i);
 			ok(rseq_current_cpu_raw() == i, "rseq_current_cpu_raw returns CPU %d", i);
 			ok(rseq_cpu_start() == (unsigned int) i, "rseq_cpu_start returns CPU %d", i);
-
+			node = rseq_fallback_current_node();
+			ok(rseq_fallback_current_node() == node, "rseq_fallback_current_node returns node %d", node);
 			CPU_CLR(i, &test_affinity);
 		}
 	}
