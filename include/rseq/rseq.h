@@ -16,10 +16,18 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sched.h>
 #include <stddef.h>
 #include <rseq/rseq-abi.h>
 #include <rseq/compiler.h>
+
+#ifndef rseq_sizeof_field
+#define rseq_sizeof_field(TYPE, MEMBER) sizeof((((TYPE *)0)->MEMBER))
+#endif
+
+#ifndef rseq_offsetofend
+#define rseq_offsetofend(TYPE, MEMBER) \
+	(offsetof(TYPE, MEMBER)	+ rseq_sizeof_field(TYPE, MEMBER))
+#endif
 
 /*
  * Empty code injection macros, override when testing.
@@ -46,7 +54,6 @@
 #define RSEQ_INJECT_FAILED
 #endif
 
-
 /*
  * User code can define RSEQ_GET_ABI_OVERRIDE to override the
  * rseq_get_abi() implementation, for instance to use glibc's symbols
@@ -60,13 +67,23 @@
 extern "C" {
 # endif
 
-/* Offset from the thread pointer to the rseq area.  */
+/* Offset from the thread pointer to the rseq area. */
 extern ptrdiff_t rseq_offset;
-/* Size of the registered rseq area.  0 if the registration was
-   unsuccessful.  */
+
+/*
+ * Size of the registered rseq area. 0 if the registration was
+ * unsuccessful.
+ */
 extern unsigned int rseq_size;
-/* Flags used during rseq registration.  */
+
+/* Flags used during rseq registration. */
 extern unsigned int rseq_flags;
+
+/*
+ * rseq feature size supported by the kernel. 0 if the registration was
+ * unsuccessful.
+ */
+extern unsigned int rseq_feature_size;
 
 static inline struct rseq_abi *rseq_get_abi(void)
 {
@@ -140,6 +157,11 @@ int rseq_unregister_current_thread(void);
  * Restartable sequence fallback for reading the current CPU number.
  */
 int32_t rseq_fallback_current_cpu(void);
+
+/*
+ * Restartable sequence fallback for reading the current node number.
+ */
+int32_t rseq_fallback_current_node(void);
 
 enum rseq_available_query {
 	RSEQ_AVAILABLE_QUERY_KERNEL = 0,
