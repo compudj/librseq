@@ -96,7 +96,7 @@ static inline struct rseq_abi *rseq_get_abi(void)
 
 #define rseq_bug(fmt, ...)		\
 	do {				\
-		rseq_log(fmt, ##__VA_ARGS__);	\
+		rseq_log(fmt, ## __VA_ARGS__); \
 		abort();		\
 	} while (0)
 
