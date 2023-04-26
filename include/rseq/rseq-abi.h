@@ -108,7 +108,26 @@ struct rseq_abi {
 	 * 32-bit architectures should update the low order bits of the
 	 * rseq_cs field, leaving the high order bits initialized to 0.
 	 */
-	__u64 rseq_cs;
+	union {
+		__u64 ptr64;
+
+		/*
+		 * The "arch" field provides architecture accessor for
+		 * the ptr field based on architecture pointer size and
+		 * endianness.
+		 */
+		struct {
+#ifdef __LP64__
+			__u64 ptr;
+#elif defined(__BYTE_ORDER) ? (__BYTE_ORDER == __BIG_ENDIAN) : defined(__BIG_ENDIAN)
+			__u32 padding;		/* Initialized to zero. */
+			__u32 ptr;
+#else
+			__u32 ptr;
+			__u32 padding;		/* Initialized to zero. */
+#endif
+		} arch;
+	} rseq_cs;
 
 	/*
 	 * Restartable sequences flags field.

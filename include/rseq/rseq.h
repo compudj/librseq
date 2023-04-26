@@ -249,7 +249,7 @@ static inline uint32_t rseq_current_mm_cid(void)
 
 static inline void rseq_clear_rseq_cs(void)
 {
-	RSEQ_WRITE_ONCE(rseq_get_abi()->rseq_cs, 0);
+	RSEQ_WRITE_ONCE(rseq_get_abi()->rseq_cs.arch.ptr, 0);
 }
 
 /*
