@@ -369,6 +369,10 @@ int rseq_cmpeqv_trystorev_storev(enum rseq_mo rseq_mo, enum rseq_percpu_mode per
 				default:
 					return -1;
 			}
+		case RSEQ_MO_ACQUIRE:
+		case RSEQ_MO_ACQ_REL:
+		case RSEQ_MO_CONSUME:
+		case RSEQ_MO_SEQ_CST:
 		default:
 			return -1;
 	}
@@ -417,6 +421,10 @@ int rseq_cmpeqv_trymemcpy_storev(enum rseq_mo rseq_mo, enum rseq_percpu_mode per
 				default:
 					return -1;
 			}
+		case RSEQ_MO_ACQUIRE:
+		case RSEQ_MO_ACQ_REL:
+		case RSEQ_MO_CONSUME:
+		case RSEQ_MO_SEQ_CST:
 		default:
 			return -1;
 	}
