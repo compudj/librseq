@@ -49,7 +49,6 @@
 #define rseq_unqual_scalar_typeof(x)					\
 	std::remove_cv<std::remove_reference<decltype(x)>::type>::type
 #else
-
 #define rseq_scalar_type_to_expr(type)					\
 	unsigned type: (unsigned type)0,				\
 	signed type: (signed type)0
