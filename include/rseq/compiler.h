@@ -49,6 +49,11 @@
 #define rseq_unqual_scalar_typeof(x)					\
 	std::remove_cv<std::remove_reference<decltype(x)>::type>::type
 #else
+
+#define rseq_scalar_type_to_expr(type)					\
+	unsigned type: (unsigned type)0,				\
+	signed type: (signed type)0
+
 /*
  * Use C11 _Generic to express unqualified type from expression. This removes
  * volatile qualifier from expression type.
@@ -57,16 +62,11 @@
 	__typeof__(							\
 		_Generic((x),						\
 			char: (char)0,					\
-			unsigned char: (unsigned char)0,		\
-			signed char: (signed char)0,			\
-			unsigned short: (unsigned short)0,		\
-			signed short: (signed short)0,			\
-			unsigned int: (unsigned int)0,			\
-			signed int: (signed int)0,			\
-			unsigned long: (unsigned long)0,		\
-			signed long: (signed long)0,			\
-			unsigned long long: (unsigned long long)0,	\
-			signed long long: (signed long long)0,		\
+			rseq_scalar_type_to_expr(char),			\
+			rseq_scalar_type_to_expr(short),		\
+			rseq_scalar_type_to_expr(int),			\
+			rseq_scalar_type_to_expr(long),			\
+			rseq_scalar_type_to_expr(long long),		\
 			default: (x)					\
 		)							\
 	)
