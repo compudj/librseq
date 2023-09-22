@@ -51,6 +51,7 @@ function do_tests()
 	local args=("$@")
 
 	do_test "spinlock" -T s "${@}"
+	do_test "remote access spinlock" -T a "${@}"
 	do_test "list" -T l "${@}"
 	do_test "buffer" -T b "${@}"
 	do_test "buffer with barrier" -T b -M "${@}"
@@ -89,7 +90,7 @@ function do_tests_inject()
 if [[ $? == 2 ]]; then
 	plan_skip_all "The rseq syscall is unavailable"
 else
-	plan_tests $(( 4 * 8 * 37 ))
+	plan_tests $(( 4 * 9 * 37 ))
 fi
 
 diag "Default parameters"

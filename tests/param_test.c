@@ -336,6 +336,46 @@ int rseq_membarrier_expedited(int cpu)
 # endif /* TEST_MEMBARRIER */
 #endif
 
+/*
+ * RA Lock stands for "RSEQ Remote Access Lock".
+ *
+ * It offers a fast per-cpu rseq spinlock for fast-path (local-lock
+ * operation), allowing threads running on remote CPUs to also grab the
+ * lock (remote-lock).
+ *
+ * Local-lock operation is performed by an RSEQ critical section:
+ * - If @remote_access is 0, load @v, if @v==0, then store @v=1, else
+ *   retry.
+ * - If @remote_access is 1, use CAS to try setting @v=1, expect 0,
+ *   retry if already 1. This synchronizes with remote-lock.
+ *
+ * Local-unlock operation is a store-release of @v=0.
+ *
+ * Remote-lock operation consists of:
+ * - Setting the @remote_access bit to 1,
+ * - Invoking RSEQ-fence. This aborts pre-existing RSEQ critical
+ *   sections, so all Local-lock operations will use CAS.
+ * - Use CAS to try setting @v=1, expect 0, retry if already 1. This
+ *   synchronizes with remote-lock.
+ *
+ * Remote-unlock operation consists of:
+ * - Store-release of @v=0.
+ * - Clear the @remote_access bit.
+ *
+ * Remote locks need to be performed by a single thread. Concurrent
+ * remote locks can be serialized with a pthread mutex across the entire
+ * remote-lock/unlock pair.
+ */
+struct percpu_ra_lock_entry {
+	intptr_t v;
+	intptr_t remote_access;		/* Remote access control bit. */
+	pthread_mutex_t ra_lock;	/* Mutual exclusion between remote accesses. */
+} __attribute__((aligned(128)));
+
+struct percpu_ra_lock {
+	struct percpu_ra_lock_entry c[CPU_SETSIZE];
+};
+
 struct percpu_lock_entry {
 	intptr_t v;
 } __attribute__((aligned(128)));
@@ -355,6 +395,17 @@ struct spinlock_test_data {
 
 struct spinlock_thread_test_data {
 	struct spinlock_test_data *data;
+	long long reps;
+	int reg;
+};
+
+struct ra_spinlock_test_data {
+	struct percpu_ra_lock lock;
+	struct test_data_entry c[CPU_SETSIZE];
+};
+
+struct ra_spinlock_thread_test_data {
+	struct ra_spinlock_test_data *data;
 	long long reps;
 	int reg;
 };
@@ -414,6 +465,20 @@ struct percpu_memcpy_buffer_entry {
 struct percpu_memcpy_buffer {
 	struct percpu_memcpy_buffer_entry c[CPU_SETSIZE];
 };
+
+static
+bool membarrier_private_expedited_rseq_available(void)
+{
+	int status = sys_membarrier(MEMBARRIER_CMD_QUERY, 0, 0);
+
+	if (status < 0) {
+		perror("membarrier");
+		return false;
+	}
+	if (!(status & MEMBARRIER_CMD_PRIVATE_EXPEDITED_RSEQ))
+		return false;
+	return true;
+}
 
 /* A simple percpu spinlock. Grabs lock on current cpu. */
 static int rseq_this_cpu_lock(struct percpu_lock *lock)
@@ -508,6 +573,216 @@ static void test_percpu_spinlock(void)
 		ret = pthread_create(&test_threads[i], NULL,
 				     test_percpu_spinlock_thread,
 				     &thread_data[i]);
+		if (ret) {
+			errno = ret;
+			perror("pthread_create");
+			abort();
+		}
+	}
+
+	for (i = 0; i < num_threads; i++) {
+		ret = pthread_join(test_threads[i], NULL);
+		if (ret) {
+			errno = ret;
+			perror("pthread_join");
+			abort();
+		}
+	}
+
+	sum = 0;
+	for (i = 0; i < CPU_SETSIZE; i++)
+		sum += data.c[i].count;
+
+	assert(sum == (uint64_t)opt_reps * num_threads);
+}
+
+/* local ra_lock. Grabs lock on current cpu. */
+static int rseq_this_cpu_ra_lock(struct percpu_ra_lock *lock)
+{
+	int cpu;
+
+	for (;;) {
+		int ret;
+
+		cpu = get_current_cpu_id();
+		if (cpu < 0) {
+			fprintf(stderr, "pid: %d: tid: %d, cpu: %d: cid: %d\n",
+				getpid(), (int) rseq_gettid(), rseq_current_cpu_raw(), cpu);
+			abort();
+		}
+		ret = rseq_cmpeqv_cmpeqv_storev(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+					 &lock->c[cpu].v, 0,
+					 &lock->c[cpu].remote_access, 0,
+					 1, cpu);
+		switch (ret) {
+		case 0:	/* success */
+			goto end_loop;
+		case 1: /* compare v fail */
+			break;
+		case 2: /* compare remote access fail */
+			ret = rseq_cmpxchg(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+					   &lock->c[cpu].v, 0, 1, cpu);
+			if (rseq_likely(!ret))
+				goto end_loop;
+			break;
+
+		case -1: /* abort */
+			break;
+		default:
+			abort();
+		}
+		/* Retry if comparison fails or rseq aborts. */
+	}
+end_loop:
+	/*
+	 * Acquire semantic when taking lock after control dependency.
+	 * Matches rseq_smp_store_release().
+	 */
+	rseq_smp_acquire__after_ctrl_dep();
+	return cpu;
+}
+
+static void rseq_local_ra_unlock(struct percpu_ra_lock *lock, int cpu)
+{
+	assert(lock->c[cpu].v == 1);
+	/*
+	 * Release lock, with release semantic. Matches
+	 * rseq_smp_acquire__after_ctrl_dep().
+	 */
+	rseq_smp_store_release(&lock->c[cpu].v, 0);
+}
+
+static int rseq_remote_ra_lock(struct percpu_ra_lock *lock, int cpu)
+{
+	pthread_mutex_lock(&lock->c[cpu].ra_lock);
+	RSEQ_WRITE_ONCE(lock->c[cpu].remote_access, 1);
+	if (rseq_membarrier_expedited(cpu) &&
+			errno != ENXIO /* missing CPU */) {
+		perror("sys_membarrier");
+		abort();
+	}
+	for (;;) {
+		bool res;
+		uintptr_t expected = 0;
+
+		res = __atomic_compare_exchange_n(&lock->c[cpu].v,
+				&expected, 1, false,
+				__ATOMIC_RELAXED, __ATOMIC_RELAXED);
+		if (rseq_likely(res))
+			break;
+		/* Retry if comparison fails or rseq aborts. */
+	}
+	/*
+	 * Acquire semantic when taking lock after control dependency.
+	 * Matches rseq_smp_store_release().
+	 */
+	rseq_smp_acquire__after_ctrl_dep();
+	return cpu;
+}
+
+static void rseq_remote_ra_unlock(struct percpu_ra_lock *lock, int cpu)
+{
+	rseq_local_ra_unlock(lock, cpu);
+	RSEQ_WRITE_ONCE(lock->c[cpu].remote_access, 0);
+	pthread_mutex_unlock(&lock->c[cpu].ra_lock);
+}
+
+static void *test_percpu_ra_spinlock_thread(void *arg)
+{
+	struct ra_spinlock_thread_test_data *thread_data = (struct ra_spinlock_thread_test_data *) arg;
+	struct ra_spinlock_test_data *data = thread_data->data;
+	long long i, reps;
+
+	if (!opt_disable_rseq && thread_data->reg &&
+	    rseq_register_current_thread())
+		abort();
+	reps = thread_data->reps;
+	for (i = 0; i < reps; i++) {
+		int cpu = rseq_this_cpu_ra_lock(&data->lock);
+		data->c[cpu].count++;
+		rseq_local_ra_unlock(&data->lock, cpu);
+#ifndef BENCHMARK
+		if (i != 0 && !(i % (reps / 10)))
+			printf_verbose("tid %d: count %lld\n",
+				       (int) rseq_gettid(), i);
+#endif
+	}
+	printf_verbose("tid %d: number of rseq abort: %d, signals delivered: %u\n",
+		       (int) rseq_gettid(), nr_abort, signals_delivered);
+	if (!opt_disable_rseq && thread_data->reg &&
+	    rseq_unregister_current_thread())
+		abort();
+	return NULL;
+}
+
+static void *test_percpu_remote_ra_spinlock_thread(void *arg)
+{
+	struct ra_spinlock_thread_test_data *thread_data = (struct ra_spinlock_thread_test_data *) arg;
+	struct ra_spinlock_test_data *data = thread_data->data;
+	long long i, reps;
+
+	if (!opt_disable_rseq && thread_data->reg &&
+	    rseq_register_current_thread())
+		abort();
+	reps = thread_data->reps;
+	for (i = 0; i < reps; i++) {
+		int cpu = i % CPU_SETSIZE;
+
+		rseq_remote_ra_lock(&data->lock, cpu);
+		data->c[cpu].count++;
+		rseq_remote_ra_unlock(&data->lock, cpu);
+#ifndef BENCHMARK
+		if (i != 0 && !(i % (reps / 10)))
+			printf_verbose("tid %d: count %lld\n",
+				       (int) rseq_gettid(), i);
+#endif
+	}
+	printf_verbose("tid %d: number of rseq abort: %d, signals delivered: %u\n",
+		       (int) rseq_gettid(), nr_abort, signals_delivered);
+	if (!opt_disable_rseq && thread_data->reg &&
+	    rseq_unregister_current_thread())
+		abort();
+	return NULL;
+}
+
+static void test_percpu_ra_spinlock(void)
+{
+	const int num_threads = opt_threads;
+	int i, ret;
+	uint64_t sum;
+	pthread_t test_threads[num_threads];
+	struct ra_spinlock_test_data data;
+	struct ra_spinlock_thread_test_data thread_data[num_threads];
+
+	if (!membarrier_private_expedited_rseq_available()) {
+		fprintf(stderr, "Membarrier private expedited rseq not available. "
+				"Skipping remote-access spinlock test.\n");
+		return;
+	}
+	if (sys_membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_RSEQ, 0, 0)) {
+		perror("sys_membarrier");
+		abort();
+	}
+
+	memset(&data, 0, sizeof(data));
+	for (i = 0; i < CPU_SETSIZE; i++)
+		pthread_mutex_init(&data.lock.c[i].ra_lock, NULL);
+	for (i = 0; i < num_threads; i++) {
+		thread_data[i].reps = opt_reps;
+		if (opt_disable_mod <= 0 || (i % opt_disable_mod))
+			thread_data[i].reg = 1;
+		else
+			thread_data[i].reg = 0;
+		thread_data[i].data = &data;
+		if (i < 2) {
+			ret = pthread_create(&test_threads[i], NULL,
+					     test_percpu_remote_ra_spinlock_thread,
+					     &thread_data[i]);
+		} else {
+			ret = pthread_create(&test_threads[i], NULL,
+					     test_percpu_ra_spinlock_thread,
+					     &thread_data[i]);
+		}
 		if (ret) {
 			errno = ret;
 			perror("pthread_create");
@@ -1226,20 +1501,6 @@ static int set_signal_handler(void)
 	return ret;
 }
 
-static
-bool membarrier_private_expedited_rseq_available(void)
-{
-	int status = sys_membarrier(MEMBARRIER_CMD_QUERY, 0, 0);
-
-	if (status < 0) {
-		perror("membarrier");
-		return false;
-	}
-	if (!(status & MEMBARRIER_CMD_PRIVATE_EXPEDITED_RSEQ))
-		return false;
-	return true;
-}
-
 /* Test MEMBARRIER_CMD_PRIVATE_RESTART_RSEQ_ON_CPU membarrier command. */
 #ifdef TEST_MEMBARRIER
 struct test_membarrier_thread_args {
@@ -1601,6 +1862,7 @@ int main(int argc, char **argv)
 			opt_test = *argv[i + 1];
 			switch (opt_test) {
 			case 's':
+			case 'a':
 			case 'l':
 			case 'i':
 			case 'b':
@@ -1653,6 +1915,10 @@ int main(int argc, char **argv)
 	case 's':
 		printf_verbose("spinlock\n");
 		test_percpu_spinlock();
+		break;
+	case 'a':
+		printf_verbose("remote access spinlock\n");
+		test_percpu_ra_spinlock();
 		break;
 	case 'l':
 		printf_verbose("linked list\n");
