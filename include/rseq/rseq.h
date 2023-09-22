@@ -269,6 +269,24 @@ static inline void rseq_prepare_unload(void)
 }
 
 static inline __attribute__((always_inline))
+int rseq_cmpxchg(enum rseq_mo rseq_mo,
+		 enum rseq_percpu_mode percpu_mode,
+		 intptr_t *v, intptr_t expect,
+		 intptr_t newv, int cpu)
+{
+	if (rseq_mo != RSEQ_MO_RELAXED)
+		return -1;
+	switch (percpu_mode) {
+	case RSEQ_PERCPU_CPU_ID:
+		return rseq_cmpxchg_relaxed_cpu_id(v, expect, newv, cpu);
+	case RSEQ_PERCPU_MM_CID:
+		return rseq_cmpxchg_relaxed_mm_cid(v, expect, newv, cpu);
+	default:
+		return -1;
+	}
+}
+
+static inline __attribute__((always_inline))
 int rseq_cmpeqv_storev(enum rseq_mo rseq_mo, enum rseq_percpu_mode percpu_mode,
 		       intptr_t *v, intptr_t expect,
 		       intptr_t newv, int cpu)
