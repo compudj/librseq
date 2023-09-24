@@ -285,6 +285,16 @@ int rseq_cmpeqv_storev(enum rseq_mo rseq_mo, enum rseq_percpu_mode percpu_mode,
 	}
 }
 
+/* Not per-cpu. */
+static inline __attribute__((always_inline))
+int rseq_cmpeqv1_storev2(enum rseq_mo rseq_mo, intptr_t *v1, intptr_t expect,
+			 intptr_t *v2, intptr_t newv)
+{
+	if (rseq_mo != RSEQ_MO_RELAXED)
+		return -1;
+	return rseq_cmpeqv1_storev2_relaxed(v1, expect, v2, newv);
+}
+
 /*
  * Compare @v against @expectnot. When it does _not_ match, load @v
  * into @load, and store the content of *@v + voffp into @v.

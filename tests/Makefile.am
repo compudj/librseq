@@ -30,7 +30,8 @@ noinst_PROGRAMS = \
 	param_test_compare_twice \
 	param_test_compare_twice_cxx \
 	param_test_mm_cid_compare_twice \
-	param_test_mm_cid_compare_twice_cxx
+	param_test_mm_cid_compare_twice_cxx \
+	test_rseq_biased_lock
 
 dist_noinst_SCRIPTS = \
 	run_param_test.tap \
@@ -101,6 +102,9 @@ param_test_mm_cid_compare_twice_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS
 param_test_mm_cid_compare_twice_cxx_SOURCES = param_test_cxx.cpp
 param_test_mm_cid_compare_twice_cxx_CPPFLAGS = $(AM_CPPFLAGS) -DRSEQ_COMPARE_TWICE -DBUILDOPT_RSEQ_PERCPU_MM_CID
 param_test_mm_cid_compare_twice_cxx_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
+
+test_rseq_biased_lock_SOURCES = rseq_biased_lock.c test_rseq_biased_lock.c rseq_biased_lock.h
+test_rseq_biased_lock_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
 
 TESTS = \
 	basic_percpu_ops_test.tap \

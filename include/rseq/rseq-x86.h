@@ -33,6 +33,8 @@
 
 #ifdef __x86_64__
 
+#define RSEQ_ARCH_TSO		1
+
 #define RSEQ_ASM_TP_SEGMENT	%%fs
 
 #define rseq_smp_mb()	\

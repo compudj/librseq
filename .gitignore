@@ -74,6 +74,7 @@ dkms.conf
 /tests/param_test_mm_cid_benchmark_cxx
 /tests/param_test_mm_cid_compare_twice
 /tests/param_test_mm_cid_compare_twice_cxx
+/tests/test_rseq_biased_lock
 
 #automake
 /include/config.h
