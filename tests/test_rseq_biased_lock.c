@@ -29,6 +29,7 @@ static struct rseq_biased_lock test_lock = {
 	.owner = 0,
 	.state = RSEQ_BIASED_LOCK_STATE_ST,
 	.st_tp = 0,
+	.nest = 0,
 };
 
 static int testvar;

@@ -28,6 +28,7 @@ struct rseq_biased_lock {
 	intptr_t owner;	/* thread_pointer of thread holding the lock. */
 	intptr_t state;	/* enum rseq_biased_lock_state */
 	intptr_t st_tp;	/* thread_pointer of single-thread user. */
+	intptr_t nest;	/* nesting level (recursive lock). */
 };
 
 int sys_membarrier(int cmd, int flags, int cpu_id);
@@ -95,6 +96,10 @@ void rseq_biased_lock(struct rseq_biased_lock *lock)
 {
 	intptr_t tp = (intptr_t) rseq_thread_pointer();
 
+	if (__atomic_load_n(&lock->owner, __ATOMIC_RELAXED) == tp) {
+		lock->nest++;
+		return;
+	}
 	if (rseq_biased_lock_get_fast_thread(lock) == tp)
 		rseq_biased_lock_fast(lock, tp);
 	else
@@ -144,7 +149,14 @@ retry:
 static inline
 void rseq_biased_unlock(struct rseq_biased_lock *lock)
 {
-	if (rseq_biased_lock_get_fast_thread(lock) == rseq_thread_pointer())
+	intptr_t tp = (intptr_t) rseq_thread_pointer();
+
+	assert(lock->owner == tp);
+	if (lock->nest > 0) {
+		lock->nest--;
+		return;
+	}
+	if (rseq_biased_lock_get_fast_thread(lock) == tp)
 		rseq_biased_unlock_fast(lock);
 	else
 		rseq_biased_unlock_store_release(lock);
