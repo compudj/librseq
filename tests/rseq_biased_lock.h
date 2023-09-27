@@ -4,6 +4,7 @@
 #define _RSEQ_BIASED_LOCK_H
 
 #include <assert.h>
+#include <stdbool.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdio.h>
@@ -103,6 +104,52 @@ retry:
 }
 
 static inline
+bool rseq_biased_trylock_mt(struct rseq_biased_lock *lock, intptr_t tp)
+{
+	intptr_t expected = 0;
+
+	if (__atomic_compare_exchange_n(&lock->owner, &expected, tp, false,
+					__ATOMIC_ACQUIRE, __ATOMIC_RELAXED))
+		return true;
+	return false;
+}
+
+static inline
+bool rseq_biased_trylock_mt_remote(struct rseq_biased_lock *lock, intptr_t tp)
+{
+	intptr_t biased_lock_state;
+
+	biased_lock_state = __atomic_load_n(&lock->state, __ATOMIC_RELAXED);
+	if (biased_lock_state != RSEQ_BIASED_LOCK_STATE_MT_READY)
+		rseq_biased_lock_mt_ready_slowpath(lock, biased_lock_state);
+	return rseq_biased_trylock_mt(lock, tp);
+}
+
+static inline
+bool rseq_biased_trylock_fast(struct rseq_biased_lock *lock, intptr_t tp)
+{
+	int ret;
+
+retry:
+	ret = rseq_cmpeqv1_storev2(RSEQ_MO_RELAXED, &lock->state,
+				   RSEQ_BIASED_LOCK_STATE_ST,
+				   &lock->owner, tp);
+	switch (ret) {
+	case 0:	/*
+		 * Success. Enter lock critical section without acquire
+		 * semantic.
+		 */
+		return true;
+	case 1:		/* state != RSEQ_BIASED_LOCK_STATE_ST */
+		return rseq_biased_trylock_mt(lock, tp);
+	case -1:
+		goto retry;
+	default:
+		abort();
+	}
+}
+
+static inline
 intptr_t rseq_biased_lock_get_fast_thread(struct rseq_biased_lock *lock)
 {
 	return __atomic_load_n(&lock->st_tp, __ATOMIC_RELAXED);
@@ -122,6 +169,25 @@ void rseq_biased_lock(struct rseq_biased_lock *lock)
 	else
 		rseq_biased_lock_mt_remote(lock, tp);
 }
+
+/*
+ * Returns true if the lock is acquired, false otherwise.
+ */
+static inline
+bool rseq_biased_trylock(struct rseq_biased_lock *lock)
+{
+	intptr_t tp = (intptr_t) rseq_thread_pointer();
+
+	if (__atomic_load_n(&lock->owner, __ATOMIC_RELAXED) == tp) {
+		lock->nest++;
+		return true;
+	}
+	if (rseq_biased_lock_get_fast_thread(lock) == tp)
+		return rseq_biased_trylock_fast(lock, tp);
+	else
+		return rseq_biased_trylock_mt_remote(lock, tp);
+}
+
 
 static inline
 void rseq_biased_unlock_store_release(struct rseq_biased_lock *lock)

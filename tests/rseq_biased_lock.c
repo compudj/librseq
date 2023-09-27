@@ -146,4 +146,3 @@ void rseq_biased_lock_mt_ready_slowpath(struct rseq_biased_lock *lock, intptr_t 
 		break;
 	}
 }
-
