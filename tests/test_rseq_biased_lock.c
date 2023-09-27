@@ -25,12 +25,7 @@ static int opt_threads = NR_THREADS;
 static int opt_bias = 0;
 static uint64_t opt_reps = NR_REPS;
 
-static struct rseq_biased_lock test_lock = {
-	.owner = 0,
-	.state = RSEQ_BIASED_LOCK_STATE_ST,
-	.st_tp = 0,
-	.nest = 0,
-};
+static DEFINE_RSEQ_BIASED_LOCK(test_lock);
 
 static int testvar;
 

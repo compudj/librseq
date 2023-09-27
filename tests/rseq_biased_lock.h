@@ -40,6 +40,23 @@ void rseq_biased_lock_mt_slowpath(struct rseq_biased_lock *lock, intptr_t tp);
 void rseq_biased_lock_mt_ready_slowpath(struct rseq_biased_lock *lock,
 			intptr_t biased_lock_state);
 
+#define DEFINE_RSEQ_BIASED_LOCK(_lock) \
+	struct rseq_biased_lock _lock = { \
+		.owner = 0, \
+		.state = RSEQ_BIASED_LOCK_STATE_ST, \
+		.st_tp = 0, \
+		.nest = 0, \
+	}
+
+static inline
+void rseq_biased_lock_init(struct rseq_biased_lock *lock)
+{
+	lock->owner = 0;
+	lock->state = RSEQ_BIASED_LOCK_STATE_ST;
+	lock->st_tp = 0;
+	lock->nest = 0;
+}
+
 static inline
 void rseq_biased_lock_mt(struct rseq_biased_lock *lock, intptr_t tp)
 {
