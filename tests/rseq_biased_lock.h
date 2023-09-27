@@ -25,7 +25,7 @@ enum rseq_biased_lock_state {
 };
 
 struct rseq_biased_lock {
-	intptr_t owner;
+	intptr_t owner;	/* thread_pointer of thread holding the lock. */
 	intptr_t state;	/* enum rseq_biased_lock_state */
 	intptr_t st_tp;	/* thread_pointer of single-thread user. */
 };
@@ -35,41 +35,41 @@ bool membarrier_private_expedited_rseq_available(void);
 int rseq_membarrier_expedited(__attribute__ ((unused)) int cpu);
 intptr_t rseq_biased_lock_try_set_fast_thread(struct rseq_biased_lock *lock);
 intptr_t rseq_biased_lock_try_clear_fast_thread(struct rseq_biased_lock *lock);
-void rseq_biased_lock_mt_slowpath(struct rseq_biased_lock *lock);
+void rseq_biased_lock_mt_slowpath(struct rseq_biased_lock *lock, intptr_t tp);
 void rseq_biased_lock_mt_ready_slowpath(struct rseq_biased_lock *lock,
 			intptr_t biased_lock_state);
 
 static inline
-void rseq_biased_lock_mt(struct rseq_biased_lock *lock)
+void rseq_biased_lock_mt(struct rseq_biased_lock *lock, intptr_t tp)
 {
 	intptr_t expected = 0;
 
-	if (__atomic_compare_exchange_n(&lock->owner, &expected, 1, false,
+	if (__atomic_compare_exchange_n(&lock->owner, &expected, tp, false,
 					__ATOMIC_ACQUIRE, __ATOMIC_RELAXED))
 		return;
-	rseq_biased_lock_mt_slowpath(lock);
+	rseq_biased_lock_mt_slowpath(lock, tp);
 }
 
 static inline
-void rseq_biased_lock_mt_remote(struct rseq_biased_lock *lock)
+void rseq_biased_lock_mt_remote(struct rseq_biased_lock *lock, intptr_t tp)
 {
 	intptr_t biased_lock_state;
 
 	biased_lock_state = __atomic_load_n(&lock->state, __ATOMIC_RELAXED);
 	if (biased_lock_state != RSEQ_BIASED_LOCK_STATE_MT_READY)
 		rseq_biased_lock_mt_ready_slowpath(lock, biased_lock_state);
-	rseq_biased_lock_mt(lock);
+	rseq_biased_lock_mt(lock, tp);
 }
 
 static inline
-void rseq_biased_lock_fast(struct rseq_biased_lock *lock)
+void rseq_biased_lock_fast(struct rseq_biased_lock *lock, intptr_t tp)
 {
 	int ret;
 
 retry:
 	ret = rseq_cmpeqv1_storev2(RSEQ_MO_RELAXED, &lock->state,
 				   RSEQ_BIASED_LOCK_STATE_ST,
-				   &lock->owner, 1);
+				   &lock->owner, tp);
 	switch (ret) {
 	case 0:	/*
 		 * Success. Enter lock critical section without acquire
@@ -77,7 +77,7 @@ retry:
 		 */
 		return;
 	case 1:		/* state != RSEQ_BIASED_LOCK_STATE_ST */
-		rseq_biased_lock_mt(lock);
+		rseq_biased_lock_mt(lock, tp);
 		return;
 	case -1:
 		goto retry;
@@ -93,10 +93,12 @@ intptr_t rseq_biased_lock_get_fast_thread(struct rseq_biased_lock *lock)
 static inline
 void rseq_biased_lock(struct rseq_biased_lock *lock)
 {
-	if (rseq_biased_lock_get_fast_thread(lock) == (intptr_t) rseq_thread_pointer())
-		rseq_biased_lock_fast(lock);
+	intptr_t tp = (intptr_t) rseq_thread_pointer();
+
+	if (rseq_biased_lock_get_fast_thread(lock) == tp)
+		rseq_biased_lock_fast(lock, tp);
 	else
-		rseq_biased_lock_mt_remote(lock);
+		rseq_biased_lock_mt_remote(lock, tp);
 }
 
 static inline
@@ -142,7 +144,7 @@ retry:
 static inline
 void rseq_biased_unlock(struct rseq_biased_lock *lock)
 {
-	if (rseq_biased_lock_get_fast_thread(lock) == (intptr_t) rseq_thread_pointer())
+	if (rseq_biased_lock_get_fast_thread(lock) == rseq_thread_pointer())
 		rseq_biased_unlock_fast(lock);
 	else
 		rseq_biased_unlock_store_release(lock);

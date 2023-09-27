@@ -101,14 +101,14 @@ intptr_t rseq_biased_lock_try_clear_fast_thread(struct rseq_biased_lock *lock)
 	return 0;			/* Success. */
 }
 
-void rseq_biased_lock_mt_slowpath(struct rseq_biased_lock *lock)
+void rseq_biased_lock_mt_slowpath(struct rseq_biased_lock *lock, intptr_t tp)
 {
 	int i = 0;
 
 	for (;;) {
 		intptr_t expected = 0;
 
-		if (__atomic_compare_exchange_n(&lock->owner, &expected, 1, false,
+		if (__atomic_compare_exchange_n(&lock->owner, &expected, tp, false,
 						__ATOMIC_ACQUIRE, __ATOMIC_RELAXED))
 			break;
 		if (i < RSEQ_MUTEX_MAX_BUSY_LOOP) {
