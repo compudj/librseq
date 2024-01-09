@@ -9,6 +9,8 @@ nobase_include_HEADERS = \
 	rseq/rseq-bits-reset.h \
 	rseq/rseq-arm.h \
 	rseq/rseq-arm-bits.h \
+	rseq/rseq-arm64.h \
+	rseq/rseq-arm64-bits.h \
 	rseq/rseq-mips.h \
 	rseq/rseq-mips-bits.h \
 	rseq/rseq-ppc.h \
