@@ -302,6 +302,11 @@ bool rseq_validate_cpu_id(void)
 {
 	return rseq_mm_cid_available();
 }
+static
+bool rseq_use_cpu_index(void)
+{
+	return false;	/* Use mm_cid */
+}
 # ifdef TEST_MEMBARRIER
 /*
  * Membarrier does not currently support targeting a mm_cid, so
@@ -325,6 +330,11 @@ static
 bool rseq_validate_cpu_id(void)
 {
 	return rseq_current_cpu_raw() >= 0;
+}
+static
+bool rseq_use_cpu_index(void)
+{
+	return true;	/* Use cpu_id as index. */
 }
 # ifdef TEST_MEMBARRIER
 static
@@ -729,7 +739,7 @@ static void test_percpu_list(void)
 	/* Generate list entries for every usable cpu. */
 	sched_getaffinity(0, sizeof(allowed_cpus), &allowed_cpus);
 	for (i = 0; i < CPU_SETSIZE; i++) {
-		if (!CPU_ISSET(i, &allowed_cpus))
+		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
 			continue;
 		for (j = 1; j <= 100; j++) {
 			struct percpu_list_node *node;
@@ -766,7 +776,7 @@ static void test_percpu_list(void)
 	for (i = 0; i < CPU_SETSIZE; i++) {
 		struct percpu_list_node *node;
 
-		if (!CPU_ISSET(i, &allowed_cpus))
+		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
 			continue;
 
 		while ((node = __percpu_list_pop(&list, i))) {
@@ -916,7 +926,7 @@ static void test_percpu_buffer(void)
 	/* Generate list entries for every usable cpu. */
 	sched_getaffinity(0, sizeof(allowed_cpus), &allowed_cpus);
 	for (i = 0; i < CPU_SETSIZE; i++) {
-		if (!CPU_ISSET(i, &allowed_cpus))
+		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
 			continue;
 		/* Worse-case is every item in same CPU. */
 		buffer.c[i].array =
@@ -967,7 +977,7 @@ static void test_percpu_buffer(void)
 	for (i = 0; i < CPU_SETSIZE; i++) {
 		struct percpu_buffer_node *node;
 
-		if (!CPU_ISSET(i, &allowed_cpus))
+		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
 			continue;
 
 		while ((node = __percpu_buffer_pop(&buffer, i))) {
@@ -1128,7 +1138,7 @@ static void test_percpu_memcpy_buffer(void)
 	/* Generate list entries for every usable cpu. */
 	sched_getaffinity(0, sizeof(allowed_cpus), &allowed_cpus);
 	for (i = 0; i < CPU_SETSIZE; i++) {
-		if (!CPU_ISSET(i, &allowed_cpus))
+		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
 			continue;
 		/* Worse-case is every item in same CPU. */
 		buffer.c[i].array =
@@ -1176,7 +1186,7 @@ static void test_percpu_memcpy_buffer(void)
 	for (i = 0; i < CPU_SETSIZE; i++) {
 		struct percpu_memcpy_buffer_node item;
 
-		if (!CPU_ISSET(i, &allowed_cpus))
+		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
 			continue;
 
 		while (__percpu_memcpy_buffer_pop(&buffer, &item, i)) {
