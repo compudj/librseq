@@ -173,16 +173,31 @@ unsigned int get_rseq_feature_size(void)
 		return ORIG_RSEQ_FEATURE_SIZE;
 }
 
+/*
+ * Initialize the public symbols for the rseq offset, size, feature size and
+ * flags prior to registering threads. If glibc owns the registration, get the
+ * values from its public symbols.
+ */
 static
 void rseq_init(void)
 {
+	/* Ensure initialization is only done once. */
 	if (RSEQ_READ_ONCE(init_done))
 		return;
 
+	/*
+	 * Take the mutex, check the initialization flag again and atomically
+	 * set it to ensure we are the only thread doing the initialization.
+	 */
 	pthread_mutex_lock(&init_lock);
 	if (init_done)
 		goto unlock;
 	RSEQ_WRITE_ONCE(init_done, 1);
+
+	/*
+	 * Check for glibc rseq support, if the 3 public symbols are found and
+	 * the rseq_size is not zero, glibc owns the registration.
+	 */
 	libc_rseq_offset_p = dlsym(RTLD_NEXT, "__rseq_offset");
 	libc_rseq_size_p = dlsym(RTLD_NEXT, "__rseq_size");
 	libc_rseq_flags_p = dlsym(RTLD_NEXT, "__rseq_flags");
@@ -193,18 +208,42 @@ void rseq_init(void)
 		rseq_size = *libc_rseq_size_p;
 		rseq_flags = *libc_rseq_flags_p;
 		rseq_feature_size = get_rseq_feature_size();
+
+		/*
+		 * The registered rseq area could be smaller than the feature
+		 * size reported by the kernel auxval. Cap it to the rseq size
+		 * so we don't try to access features past the end of the rseq
+		 * area.
+		 */
 		if (rseq_feature_size > rseq_size)
 			rseq_feature_size = rseq_size;
 		goto unlock;
 	}
+
+	/* librseq owns the registration */
 	rseq_ownership = 1;
+
+	/*
+	 * Check if the rseq syscall is available, if not set the size and
+	 * feature_size to 0.
+	 */
 	if (!rseq_available(RSEQ_AVAILABLE_QUERY_KERNEL)) {
 		rseq_size = 0;
 		rseq_feature_size = 0;
 		goto unlock;
 	}
+
+	/* Calculate the offset of the rseq area from the thread pointer. */
 	rseq_offset = (uintptr_t)&__rseq_abi - (uintptr_t)rseq_thread_pointer();
+
+	/* rseq flags are deprecated, always set to 0. */
 	rseq_flags = 0;
+
+	/*
+	 * If the feature size matches the original ABI (20), set the size to
+	 * match the original ABI allocation (32), otherwise use the allocated
+	 * size.
+	 */
 	rseq_feature_size = get_rseq_feature_size();
 	if (rseq_feature_size == ORIG_RSEQ_FEATURE_SIZE)
 		rseq_size = ORIG_RSEQ_ALLOC_SIZE;
