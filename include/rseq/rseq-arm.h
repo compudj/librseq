@@ -114,7 +114,7 @@ do {									\
 		"str r0, %[" __rseq_str(rseq_cs) "]\n\t"		\
 		__rseq_str(label) ":\n\t"
 
-#define RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, label)		\
+#define RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, label)		\
 		RSEQ_INJECT_ASM(2)					\
 		"ldr r0, %[" __rseq_str(current_cpu_id) "]\n\t"	\
 		"cmp %[" __rseq_str(cpu_id) "], r0\n\t"		\

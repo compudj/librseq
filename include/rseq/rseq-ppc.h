@@ -136,7 +136,7 @@ do {									\
 		__RSEQ_ASM_DEFINE_TABLE(label, 0x0, 0x0, start_ip,		\
 					(post_commit_ip - start_ip), abort_ip)
 
-#define RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, label)			\
+#define RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, label)			\
 		RSEQ_INJECT_ASM(2)						\
 		RSEQ_LOAD_INT(current_cpu_id) "%%r17, %[" __rseq_str(current_cpu_id) "]\n\t" \
 		"cmpw cr7, %[" __rseq_str(cpu_id) "], %%r17\n\t"		\
@@ -154,12 +154,12 @@ do {									\
  * 	RSEQ_ASM_OP_R_*: has hard-code registers in it
  * 	RSEQ_ASM_OP_* (else): doesn't have hard-code registers(unless cr7)
  */
-#define RSEQ_ASM_OP_CMPEQ(var, expect, label)					\
+#define RSEQ_ASM_OP_CBNE(var, expect, label)					\
 		RSEQ_LOAD_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"		\
 		RSEQ_CMP_LONG "cr7, %%r17, %[" __rseq_str(expect) "]\n\t"		\
 		"bne- cr7, " __rseq_str(label) "\n\t"
 
-#define RSEQ_ASM_OP_CMPNE(var, expectnot, label)				\
+#define RSEQ_ASM_OP_CBEQ(var, expectnot, label)				\
 		RSEQ_LOAD_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"		\
 		RSEQ_CMP_LONG "cr7, %%r17, %[" __rseq_str(expectnot) "]\n\t"		\
 		"beq- cr7, " __rseq_str(label) "\n\t"

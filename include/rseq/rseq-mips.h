@@ -119,7 +119,7 @@ do {									\
 		LONG_S  " $4, %[" __rseq_str(rseq_cs) "]\n\t" \
 		__rseq_str(label) ":\n\t"
 
-#define RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, label) \
+#define RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, label) \
 		RSEQ_INJECT_ASM(2) \
 		"lw  $4, %[" __rseq_str(current_cpu_id) "]\n\t" \
 		"bne $4, %[" __rseq_str(cpu_id) "], " __rseq_str(label) "\n\t"

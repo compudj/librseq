@@ -18,13 +18,13 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpeqv_storev)(intptr_t *v, intptr_t expect, i
 				  RSEQ_ASM_DEFINE_EXIT_POINT(2f, "%l[error2]")
 #endif
 				  RSEQ_ASM_STORE_RSEQ_CS(2, 1b, rseq_cs)
-				  RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, 4f)
+				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, 4f)
 				  RSEQ_INJECT_ASM(3)
-				  RSEQ_ASM_OP_CMPEQ(v, expect, "%l[cmpfail]")
+				  RSEQ_ASM_OP_CBNE(v, expect, "%l[cmpfail]")
 				  RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
-				  RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
-				  RSEQ_ASM_OP_CMPEQ(v, expect, "%l[error2]")
+				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
+				  RSEQ_ASM_OP_CBNE(v, expect, "%l[error2]")
 #endif
 				  RSEQ_ASM_OP_FINAL_STORE(newv, v, 3)
 				  RSEQ_INJECT_ASM(5)
@@ -72,13 +72,13 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpnev_storeoffp_load)(intptr_t *v, intptr_t e
 				  RSEQ_ASM_DEFINE_EXIT_POINT(2f, "%l[error2]")
 #endif
 				  RSEQ_ASM_STORE_RSEQ_CS(2, 1b, rseq_cs)
-				  RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, 4f)
+				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, 4f)
 				  RSEQ_INJECT_ASM(3)
-				  RSEQ_ASM_OP_CMPNE(v, expectnot, "%l[cmpfail]")
+				  RSEQ_ASM_OP_CBEQ(v, expectnot, "%l[cmpfail]")
 				  RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
-				  RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
-				  RSEQ_ASM_OP_CMPNE(v, expectnot, "%l[error2]")
+				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
+				  RSEQ_ASM_OP_CBEQ(v, expectnot, "%l[error2]")
 #endif
 				  RSEQ_ASM_OP_R_LOAD(v)
 				  RSEQ_ASM_OP_R_STORE(load)
@@ -126,10 +126,10 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_addv)(intptr_t *v, intptr_t count, int cpu)
 				  RSEQ_ASM_DEFINE_EXIT_POINT(2f, "%l[error1]")
 #endif
 				  RSEQ_ASM_STORE_RSEQ_CS(2, 1b, rseq_cs)
-				  RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, 4f)
+				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, 4f)
 				  RSEQ_INJECT_ASM(3)
 #ifdef RSEQ_COMPARE_TWICE
-				  RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
+				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
 #endif
 				  RSEQ_ASM_OP_R_LOAD(v)
 				  RSEQ_ASM_OP_R_ADD(count)
@@ -175,16 +175,16 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpeqv_cmpeqv_storev)(intptr_t *v, intptr_t ex
 				  RSEQ_ASM_DEFINE_EXIT_POINT(2f, "%l[error3]")
 #endif
 				  RSEQ_ASM_STORE_RSEQ_CS(2, 1b, rseq_cs)
-				  RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, 4f)
+				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, 4f)
 				  RSEQ_INJECT_ASM(3)
-				  RSEQ_ASM_OP_CMPEQ(v, expect, "%l[cmpfail]")
+				  RSEQ_ASM_OP_CBNE(v, expect, "%l[cmpfail]")
 				  RSEQ_INJECT_ASM(4)
-				  RSEQ_ASM_OP_CMPEQ(v2, expect2, "%l[cmpfail]")
+				  RSEQ_ASM_OP_CBNE(v2, expect2, "%l[cmpfail]")
 				  RSEQ_INJECT_ASM(5)
 #ifdef RSEQ_COMPARE_TWICE
-				  RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
-				  RSEQ_ASM_OP_CMPEQ(v, expect, "%l[error2]")
-				  RSEQ_ASM_OP_CMPEQ(v2, expect2, "%l[error3]")
+				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
+				  RSEQ_ASM_OP_CBNE(v, expect, "%l[error2]")
+				  RSEQ_ASM_OP_CBNE(v2, expect2, "%l[error3]")
 #endif
 				  RSEQ_ASM_OP_FINAL_STORE(newv, v, 3)
 				  RSEQ_INJECT_ASM(6)
@@ -239,10 +239,10 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_offset_deref_addv)(intptr_t *ptr, off_t off, i
 				  RSEQ_ASM_DEFINE_EXIT_POINT(2f, "%l[error1]")
 #endif
 				  RSEQ_ASM_STORE_RSEQ_CS(2, 1b, rseq_cs)
-				  RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, 4f)
+				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, 4f)
 				  RSEQ_INJECT_ASM(3)
 #ifdef RSEQ_COMPARE_TWICE
-				  RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
+				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
 #endif
 				  RSEQ_ASM_OP_R_DEREF_ADDV(ptr, off, 3)
 				  RSEQ_INJECT_ASM(4)
@@ -292,13 +292,13 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpeqv_trystorev_storev)(intptr_t *v, intptr_t
 				  RSEQ_ASM_DEFINE_EXIT_POINT(2f, "%l[error2]")
 #endif
 				  RSEQ_ASM_STORE_RSEQ_CS(2, 1b, rseq_cs)
-				  RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, 4f)
+				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, 4f)
 				  RSEQ_INJECT_ASM(3)
-				  RSEQ_ASM_OP_CMPEQ(v, expect, "%l[cmpfail]")
+				  RSEQ_ASM_OP_CBNE(v, expect, "%l[cmpfail]")
 				  RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
-				  RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
-				  RSEQ_ASM_OP_CMPEQ(v, expect, "%l[error2]")
+				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
+				  RSEQ_ASM_OP_CBNE(v, expect, "%l[error2]")
 #endif
 				  RSEQ_ASM_OP_STORE(newv2, v2)
 				  RSEQ_INJECT_ASM(5)
@@ -354,13 +354,13 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpeqv_trymemcpy_storev)(intptr_t *v, intptr_t
 				  RSEQ_ASM_DEFINE_EXIT_POINT(2f, "%l[error2]")
 #endif
 				  RSEQ_ASM_STORE_RSEQ_CS(2, 1b, rseq_cs)
-				  RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, 4f)
+				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, 4f)
 				  RSEQ_INJECT_ASM(3)
-				  RSEQ_ASM_OP_CMPEQ(v, expect, "%l[cmpfail]")
+				  RSEQ_ASM_OP_CBNE(v, expect, "%l[cmpfail]")
 				  RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
-				  RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
-				  RSEQ_ASM_OP_CMPEQ(v, expect, "%l[error2]")
+				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
+				  RSEQ_ASM_OP_CBNE(v, expect, "%l[error2]")
 #endif
 				  RSEQ_ASM_OP_R_BAD_MEMCPY(dst, src, len)
 				  RSEQ_INJECT_ASM(5)

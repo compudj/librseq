@@ -99,24 +99,24 @@ do {									\
 #define RSEQ_ASM_OP_STORE(value, var)					\
 	REG_S	"%[" __rseq_str(value) "], %[" __rseq_str(var) "]\n"
 
-#define RSEQ_ASM_OP_CMPEQ(var, expect, label)				\
+#define RSEQ_ASM_OP_CBNE(var, expect, label)				\
 	REG_L	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"		\
 	"bne	" RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(expect) "] ,"	\
 		  __rseq_str(label) "\n"
 
-#define RSEQ_ASM_OP_CMPEQ32(var, expect, label)				\
+#define RSEQ_ASM_OP_CBNE32(var, expect, label)				\
 	"lw	" RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"	\
 	"bne	" RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(expect) "] ,"	\
 		  __rseq_str(label) "\n"
 
-#define RSEQ_ASM_OP_CMPNE(var, expect, label)				\
+#define RSEQ_ASM_OP_CBEQ(var, expect, label)				\
 	REG_L	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"		\
 	"beq	" RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(expect) "] ,"	\
 		  __rseq_str(label) "\n"
 
-#define RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, label)		\
+#define RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, label)		\
 	RSEQ_INJECT_ASM(2)						\
-	RSEQ_ASM_OP_CMPEQ32(current_cpu_id, cpu_id, label)
+	RSEQ_ASM_OP_CBNE32(current_cpu_id, cpu_id, label)
 
 #define RSEQ_ASM_OP_R_LOAD(var)						\
 	REG_L	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"

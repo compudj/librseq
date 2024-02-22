@@ -151,27 +151,27 @@ do {										\
 	RSEQ_ASM_OP_STORE_RELEASE(value, var)					\
 	__rseq_str(post_commit_label) ":\n"
 
-#define RSEQ_ASM_OP_CMPEQ(var, expect, label)					\
+#define RSEQ_ASM_OP_CBNE(var, expect, label)					\
 	"	ldr	" RSEQ_ASM_TMP_REG ", %[" __rseq_str(var) "]\n"		\
 	"	sub	" RSEQ_ASM_TMP_REG ", " RSEQ_ASM_TMP_REG		\
 			", %[" __rseq_str(expect) "]\n"				\
 	"	cbnz	" RSEQ_ASM_TMP_REG ", " __rseq_str(label) "\n"
 
-#define RSEQ_ASM_OP_CMPEQ32(var, expect, label)					\
+#define RSEQ_ASM_OP_CBNE32(var, expect, label)					\
 	"	ldr	" RSEQ_ASM_TMP_REG32 ", %[" __rseq_str(var) "]\n"	\
 	"	sub	" RSEQ_ASM_TMP_REG32 ", " RSEQ_ASM_TMP_REG32		\
 			", %w[" __rseq_str(expect) "]\n"			\
 	"	cbnz	" RSEQ_ASM_TMP_REG32 ", " __rseq_str(label) "\n"
 
-#define RSEQ_ASM_OP_CMPNE(var, expect, label)					\
+#define RSEQ_ASM_OP_CBEQ(var, expect, label)					\
 	"	ldr	" RSEQ_ASM_TMP_REG ", %[" __rseq_str(var) "]\n"		\
 	"	sub	" RSEQ_ASM_TMP_REG ", " RSEQ_ASM_TMP_REG		\
 			", %[" __rseq_str(expect) "]\n"				\
 	"	cbz	" RSEQ_ASM_TMP_REG ", " __rseq_str(label) "\n"
 
-#define RSEQ_ASM_CMP_CPU_ID(cpu_id, current_cpu_id, label)			\
+#define RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, label)			\
 	RSEQ_INJECT_ASM(2)							\
-	RSEQ_ASM_OP_CMPEQ32(current_cpu_id, cpu_id, label)
+	RSEQ_ASM_OP_CBNE32(current_cpu_id, cpu_id, label)
 
 #define RSEQ_ASM_OP_R_LOAD(var)							\
 	"	ldr	" RSEQ_ASM_TMP_REG ", %[" __rseq_str(var) "]\n"
