@@ -70,6 +70,12 @@ static int rseq_reg_success;	/* At least one rseq registration has succeded. */
 /* Original struct rseq allocation size is 32 bytes. */
 #define ORIG_RSEQ_ALLOC_SIZE		32
 
+/*
+ * The alignment on RSEQ_THREAD_AREA_ALLOC_SIZE guarantees that the
+ * rseq_abi structure allocated size is at least
+ * RSEQ_THREAD_AREA_ALLOC_SIZE bytes to hold extra space for yet unknown
+ * kernel rseq extensions.
+ */
 static
 __thread struct rseq_abi __rseq_abi __attribute__((tls_model("initial-exec"), aligned(RSEQ_THREAD_AREA_ALLOC_SIZE))) = {
 	.cpu_id = RSEQ_ABI_CPU_ID_UNINITIALIZED,
