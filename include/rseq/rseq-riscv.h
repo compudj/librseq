@@ -88,11 +88,12 @@ do {									\
 	REG_S	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(rseq_cs) "]\n"	\
 	__rseq_str(label) ":\n"
 
-#define RSEQ_ASM_DEFINE_ABORT(label, abort_label)			\
+#define RSEQ_ASM_DEFINE_ABORT(label, teardown, abort_label)		\
 	"j	222f\n"							\
 	".balign	4\n"						\
 	".long "	__rseq_str(RSEQ_SIG) "\n"			\
 	__rseq_str(label) ":\n"						\
+	teardown							\
 	"j	%l[" __rseq_str(abort_label) "]\n"			\
 	"222:\n"
 

@@ -142,10 +142,11 @@ do {									\
 		"cmpw cr7, %[" __rseq_str(cpu_id) "], %%r17\n\t"		\
 		"bne- cr7, " __rseq_str(label) "\n\t"
 
-#define RSEQ_ASM_DEFINE_ABORT(label, abort_label)				\
+#define RSEQ_ASM_DEFINE_ABORT(label, teardown, abort_label)			\
 		".pushsection __rseq_failure, \"ax\"\n\t"			\
 		".long " __rseq_str(RSEQ_SIG) "\n\t"				\
 		__rseq_str(label) ":\n\t"					\
+		teardown							\
 		"b %l[" __rseq_str(abort_label) "]\n\t"				\
 		".popsection\n\t"
 

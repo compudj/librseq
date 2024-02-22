@@ -130,10 +130,11 @@ do {										\
 	"	str	" RSEQ_ASM_TMP_REG ", %[" __rseq_str(rseq_cs) "]\n"	\
 	__rseq_str(label) ":\n"
 
-#define RSEQ_ASM_DEFINE_ABORT(label, abort_label)				\
+#define RSEQ_ASM_DEFINE_ABORT(label, teardown, abort_label)			\
 	"	b	222f\n"							\
 	"	.inst 	"	__rseq_str(RSEQ_SIG_CODE) "\n"			\
 	__rseq_str(label) ":\n"							\
+	teardown								\
 	"	b	%l[" __rseq_str(abort_label) "]\n"			\
 	"222:\n"
 

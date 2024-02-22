@@ -34,7 +34,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpeqv_storev)(intptr_t *v, intptr_t expect, i
 #endif
 		RSEQ_ASM_OP_FINAL_STORE(newv, v, 3)
 		RSEQ_INJECT_ASM(5)
-		RSEQ_ASM_DEFINE_ABORT(4, abort)
+		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [current_cpu_id]	"Qo" (rseq_get_abi()->RSEQ_TEMPLATE_CPU_ID_FIELD),
@@ -95,7 +95,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpnev_storeoffp_load)(intptr_t *v, intptr_t e
 		RSEQ_ASM_OP_R_LOAD_OFF(voffp)
 		RSEQ_ASM_OP_R_FINAL_STORE(v, 3)
 		RSEQ_INJECT_ASM(5)
-		RSEQ_ASM_DEFINE_ABORT(4, abort)
+		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [current_cpu_id]	"Qo" (rseq_get_abi()->RSEQ_TEMPLATE_CPU_ID_FIELD),
@@ -150,7 +150,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_addv)(intptr_t *v, intptr_t count, int cpu)
 		RSEQ_ASM_OP_R_ADD(count)
 		RSEQ_ASM_OP_R_FINAL_STORE(v, 3)
 		RSEQ_INJECT_ASM(4)
-		RSEQ_ASM_DEFINE_ABORT(4, abort)
+		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [current_cpu_id]	"Qo" (rseq_get_abi()->RSEQ_TEMPLATE_CPU_ID_FIELD),
@@ -206,7 +206,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpeqv_cmpeqv_storev)(intptr_t *v, intptr_t ex
 #endif
 		RSEQ_ASM_OP_FINAL_STORE(newv, v, 3)
 		RSEQ_INJECT_ASM(6)
-		RSEQ_ASM_DEFINE_ABORT(4, abort)
+		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [current_cpu_id]	"Qo" (rseq_get_abi()->RSEQ_TEMPLATE_CPU_ID_FIELD),
@@ -282,7 +282,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpeqv_trystorev_storev)(intptr_t *v, intptr_t
 		RSEQ_ASM_OP_FINAL_STORE(newv, v, 3)
 #endif
 		RSEQ_INJECT_ASM(6)
-		RSEQ_ASM_DEFINE_ABORT(4, abort)
+		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [current_cpu_id]	"Qo" (rseq_get_abi()->RSEQ_TEMPLATE_CPU_ID_FIELD),
@@ -349,7 +349,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpeqv_trymemcpy_storev)(intptr_t *v, intptr_t
 		RSEQ_ASM_OP_FINAL_STORE(newv, v, 3)
 #endif
 		RSEQ_INJECT_ASM(6)
-		RSEQ_ASM_DEFINE_ABORT(4, abort)
+		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [current_cpu_id]	"Qo" (rseq_get_abi()->RSEQ_TEMPLATE_CPU_ID_FIELD),
