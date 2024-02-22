@@ -223,6 +223,12 @@ void rseq_init(void)
 	/* librseq owns the registration */
 	rseq_ownership = 1;
 
+	/* Calculate the offset of the rseq area from the thread pointer. */
+	rseq_offset = (uintptr_t)&__rseq_abi - (uintptr_t)rseq_thread_pointer();
+
+	/* rseq flags are deprecated, always set to 0. */
+	rseq_flags = 0;
+
 	/*
 	 * Check if the rseq syscall is available, if not set the size and
 	 * feature_size to 0.
@@ -232,12 +238,6 @@ void rseq_init(void)
 		rseq_feature_size = 0;
 		goto unlock;
 	}
-
-	/* Calculate the offset of the rseq area from the thread pointer. */
-	rseq_offset = (uintptr_t)&__rseq_abi - (uintptr_t)rseq_thread_pointer();
-
-	/* rseq flags are deprecated, always set to 0. */
-	rseq_flags = 0;
 
 	/*
 	 * If the feature size matches the original ABI (20), set the size to
