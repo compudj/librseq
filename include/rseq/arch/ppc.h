@@ -3,8 +3,12 @@
 /* SPDX-FileCopyrightText: 2016-2018 Boqun Feng <boqun.feng@gmail.com> */
 
 /*
- * rseq-ppc.h
+ * rseq/arch/ppc.h
  */
+
+#ifndef _RSEQ_RSEQ_H
+#error "Never use <rseq/arch/ppc.h> directly; include <rseq/rseq.h> instead."
+#endif
 
 /*
  * RSEQ_ASM_*() macro helpers are internal to the librseq headers. Those
@@ -53,7 +57,7 @@ do {									\
 	RSEQ_WRITE_ONCE(*(p), v);					\
 } while (0)
 
-#ifdef __PPC64__
+#ifdef RSEQ_ARCH_PPC64
 
 /* Helpers only used internally in this header. */
 #define RSEQ_ASM_STORE_LONG(arg)	"std%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
@@ -123,7 +127,7 @@ do {									\
 		".quad " __rseq_str(start_ip) ", " __rseq_str(exit_ip) "\n\t" \
 		".popsection\n\t"
 
-#else /* #ifdef __PPC64__ */
+#else /* #ifdef RSEQ_ARCH_PPC64 */
 
 /* Helpers only used internally in this header. */
 #define RSEQ_ASM_STORE_LONG(arg)	"stw%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
@@ -192,7 +196,7 @@ do {									\
 		RSEQ_ASM_STORE_INT(rseq_cs) "%%r17, %[" __rseq_str(rseq_cs) "]\n\t" \
 		__rseq_str(label) ":\n\t"
 
-#endif /* #ifdef __PPC64__ */
+#endif /* #ifdef RSEQ_ARCH_PPC64 */
 
 /*
  * Define an rseq critical section structure of version 0 with no flags.
@@ -314,11 +318,11 @@ do {									\
 
 #define RSEQ_TEMPLATE_INDEX_CPU_ID
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-ppc-bits.h"
+#include "rseq/arch/ppc/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 
 #define RSEQ_TEMPLATE_MO_RELEASE
-#include "rseq-ppc-bits.h"
+#include "rseq/arch/ppc/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELEASE
 #undef RSEQ_TEMPLATE_INDEX_CPU_ID
 
@@ -326,11 +330,11 @@ do {									\
 
 #define RSEQ_TEMPLATE_INDEX_MM_CID
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-ppc-bits.h"
+#include "rseq/arch/ppc/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 
 #define RSEQ_TEMPLATE_MO_RELEASE
-#include "rseq-ppc-bits.h"
+#include "rseq/arch/ppc/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELEASE
 #undef RSEQ_TEMPLATE_INDEX_MM_CID
 
@@ -338,6 +342,6 @@ do {									\
 
 #define RSEQ_TEMPLATE_INDEX_NONE
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-ppc-bits.h"
+#include "rseq/arch/ppc/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 #undef RSEQ_TEMPLATE_INDEX_NONE

@@ -6,6 +6,10 @@
  * Author: Paul Burton <paul.burton@mips.com>
  */
 
+#ifndef _RSEQ_RSEQ_H
+#error "Never use <rseq/arch/mips.h> directly; include <rseq/rseq.h> instead."
+#endif
+
 /*
  * RSEQ_ASM_*() macro helpers are internal to the librseq headers. Those
  * are not part of the public API.
@@ -242,11 +246,11 @@ do {									\
 
 #define RSEQ_TEMPLATE_INDEX_CPU_ID
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-mips-bits.h"
+#include "rseq/arch/mips/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 
 #define RSEQ_TEMPLATE_MO_RELEASE
-#include "rseq-mips-bits.h"
+#include "rseq/arch/mips/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELEASE
 #undef RSEQ_TEMPLATE_INDEX_CPU_ID
 
@@ -254,11 +258,11 @@ do {									\
 
 #define RSEQ_TEMPLATE_INDEX_MM_CID
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-mips-bits.h"
+#include "rseq/arch/mips/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 
 #define RSEQ_TEMPLATE_MO_RELEASE
-#include "rseq-mips-bits.h"
+#include "rseq/arch/mips/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELEASE
 #undef RSEQ_TEMPLATE_INDEX_MM_CID
 
@@ -266,6 +270,6 @@ do {									\
 
 #define RSEQ_TEMPLATE_INDEX_NONE
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-mips-bits.h"
+#include "rseq/arch/mips/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 #undef RSEQ_TEMPLATE_INDEX_NONE

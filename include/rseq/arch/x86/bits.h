@@ -1,16 +1,17 @@
 /* SPDX-License-Identifier: MIT */
 /* SPDX-FileCopyrightText: 2016-2018 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
+
 /*
- * rseq-x86-bits.h
+ * rseq/arch/x86/bits.h
  */
 
-#include "rseq-bits-template.h"
+#include "rseq/arch/templates/bits.h"
 
 /*
- * Refer to rseq-pseudocode.h for pseudo-code of the rseq critical
+ * Refer to rseq/pseudocode.h for pseudo-code of the rseq critical
  * section helpers.
  */
-#include "rseq-pseudocode.h"
+#include "rseq/pseudocode.h"
 
 #ifdef __x86_64__
 
@@ -989,4 +990,4 @@ error2:
 
 #endif
 
-#include "rseq-bits-reset.h"
+#include "rseq/arch/templates/bits-reset.h"

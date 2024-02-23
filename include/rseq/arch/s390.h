@@ -11,6 +11,10 @@
  * are not part of the public API.
  */
 
+#ifndef _RSEQ_RSEQ_H
+#error "Never use <rseq/arch/s390.h> directly; include <rseq/rseq.h> instead."
+#endif
+
 /*
  * RSEQ_SIG uses the trap4 instruction. As Linux does not make use of the
  * access-register mode nor the linkage stack this instruction will always
@@ -50,7 +54,7 @@ do {									\
 	RSEQ_WRITE_ONCE(*(p), v);					\
 } while (0)
 
-#ifdef __s390x__
+#ifdef RSEQ_ARCH_S390X
 
 /*
  * Helper macros to access a variable of pointer type stored in a 64-bit
@@ -99,7 +103,7 @@ do {									\
 		".quad " __rseq_str(start_ip) ", " __rseq_str(exit_ip) "\n\t" \
 		".popsection\n\t"
 
-#elif __s390__
+#else /* #ifdef RSEQ_ARCH_S390X */
 
 /*
  * Helper macros to access a variable of pointer type stored in a 64-bit
@@ -148,7 +152,7 @@ do {									\
 		".long 0x0, " __rseq_str(start_ip) ", 0x0, " __rseq_str(exit_ip) "\n\t" \
 		".popsection\n\t"
 
-#endif
+#endif /* #ifdef RSEQ_ARCH_S390X */
 
 /*
  * Define an rseq critical section structure of version 0 with no flags.
@@ -235,11 +239,11 @@ do {									\
 
 #define RSEQ_TEMPLATE_INDEX_CPU_ID
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-s390-bits.h"
+#include "rseq/arch/s390/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 
 #define RSEQ_TEMPLATE_MO_RELEASE
-#include "rseq-s390-bits.h"
+#include "rseq/arch/s390/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELEASE
 #undef RSEQ_TEMPLATE_INDEX_CPU_ID
 
@@ -247,11 +251,11 @@ do {									\
 
 #define RSEQ_TEMPLATE_INDEX_MM_CID
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-s390-bits.h"
+#include "rseq/arch/s390/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 
 #define RSEQ_TEMPLATE_MO_RELEASE
-#include "rseq-s390-bits.h"
+#include "rseq/arch/s390/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELEASE
 #undef RSEQ_TEMPLATE_INDEX_MM_CID
 
@@ -259,6 +263,6 @@ do {									\
 
 #define RSEQ_TEMPLATE_INDEX_NONE
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-s390-bits.h"
+#include "rseq/arch/s390/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 #undef RSEQ_TEMPLATE_INDEX_NONE

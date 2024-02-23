@@ -3,8 +3,12 @@
 /* SPDX-FileCopyrightText: 2018 Will Deacon <will.deacon@arm.com> */
 
 /*
- * rseq-arm64.h
+ * rseq/arch/aarch64.h
  */
+
+#ifndef _RSEQ_RSEQ_H
+#error "Never use <rseq/arch/aarch64.h> directly; include <rseq/rseq.h> instead."
+#endif
 
 /*
  * RSEQ_ASM_*() macro helpers are internal to the librseq headers. Those
@@ -290,11 +294,11 @@ do {										\
 
 #define RSEQ_TEMPLATE_INDEX_CPU_ID
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-arm64-bits.h"
+#include "rseq/arch/aarch64/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 
 #define RSEQ_TEMPLATE_MO_RELEASE
-#include "rseq-arm64-bits.h"
+#include "rseq/arch/aarch64/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELEASE
 #undef RSEQ_TEMPLATE_INDEX_CPU_ID
 
@@ -302,11 +306,11 @@ do {										\
 
 #define RSEQ_TEMPLATE_INDEX_MM_CID
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-arm64-bits.h"
+#include "rseq/arch/aarch64/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 
 #define RSEQ_TEMPLATE_MO_RELEASE
-#include "rseq-arm64-bits.h"
+#include "rseq/arch/aarch64/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELEASE
 #undef RSEQ_TEMPLATE_INDEX_MM_CID
 
@@ -314,6 +318,6 @@ do {										\
 
 #define RSEQ_TEMPLATE_INDEX_NONE
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-arm64-bits.h"
+#include "rseq/arch/aarch64/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 #undef RSEQ_TEMPLATE_INDEX_NONE

@@ -2,11 +2,11 @@
 /* SPDX-FileCopyrightText: 2016-2024 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
 
 /*
- * rseq-x86.h
+ * rseq/arch/x86.h
  */
 
-#ifndef RSEQ_H
-#error "Never use <rseq-x86.h> directly; include <rseq.h> instead."
+#ifndef _RSEQ_RSEQ_H
+#error "Never use <rseq/arch/x86.h> directly; include <rseq/rseq.h> instead."
 #endif
 
 #include <stdint.h>
@@ -71,7 +71,7 @@ do {									\
 	RSEQ_WRITE_ONCE(*(p), v);					\
 } while (0)
 
-#ifdef __x86_64__
+#ifdef RSEQ_ARCH_AMD64
 
 /* Segment selector for the thread pointer. */
 #define RSEQ_ASM_TP_SEGMENT	%%fs
@@ -131,7 +131,7 @@ do {									\
 		"movq %%rax, " __rseq_str(rseq_cs) "\n\t"		\
 		__rseq_str(label) ":\n\t"
 
-#elif defined(__i386__)
+#else /* #ifdef RSEQ_ARCH_AMD64 */
 
 /* Segment selector for the thread pointer. */
 #define RSEQ_ASM_TP_SEGMENT	%%gs
@@ -190,7 +190,7 @@ do {									\
 		"movl $" __rseq_str(cs_label) ", " __rseq_str(rseq_cs) "\n\t"	\
 		__rseq_str(label) ":\n\t"
 
-#endif
+#endif /* #ifdef RSEQ_ARCH_AMD64 */
 
 /*
  * Define an rseq critical section structure of version 0 with no flags.
@@ -263,11 +263,11 @@ do {									\
 
 #define RSEQ_TEMPLATE_INDEX_CPU_ID
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-x86-bits.h"
+#include "rseq/arch/x86/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 
 #define RSEQ_TEMPLATE_MO_RELEASE
-#include "rseq-x86-bits.h"
+#include "rseq/arch/x86/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELEASE
 #undef RSEQ_TEMPLATE_INDEX_CPU_ID
 
@@ -275,11 +275,11 @@ do {									\
 
 #define RSEQ_TEMPLATE_INDEX_MM_CID
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-x86-bits.h"
+#include "rseq/arch/x86/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 
 #define RSEQ_TEMPLATE_MO_RELEASE
-#include "rseq-x86-bits.h"
+#include "rseq/arch/x86/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELEASE
 #undef RSEQ_TEMPLATE_INDEX_MM_CID
 
@@ -287,6 +287,6 @@ do {									\
 
 #define RSEQ_TEMPLATE_INDEX_NONE
 #define RSEQ_TEMPLATE_MO_RELAXED
-#include "rseq-x86-bits.h"
+#include "rseq/arch/x86/bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
 #undef RSEQ_TEMPLATE_INDEX_NONE

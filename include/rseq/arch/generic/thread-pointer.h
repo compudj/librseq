@@ -2,7 +2,7 @@
 /* SPDX-FileCopyrightText: 2021 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
 
 /*
- * rseq-generic-thread-pointer.h
+ * rseq/arch/generic/thread-pointer.h
  */
 
 #ifndef _RSEQ_GENERIC_THREAD_POINTER
@@ -13,7 +13,8 @@ extern "C" {
 #endif
 
 /* Use gcc builtin thread pointer. */
-static inline void *rseq_thread_pointer(void)
+static inline __attribute__((always_inline))
+void *rseq_thread_pointer(void)
 {
 	return __builtin_thread_pointer();
 }

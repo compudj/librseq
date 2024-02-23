@@ -6,13 +6,13 @@
  * Author: Paul Burton <paul.burton@mips.com>
  */
 
-#include "rseq-bits-template.h"
+#include "rseq/arch/templates/bits.h"
 
 /*
- * Refer to rseq-pseudocode.h for documentation and pseudo-code of the
+ * Refer to rseq/pseudocode.h for documentation and pseudo-code of the
  * rseq critical section helpers.
  */
-#include "rseq-pseudocode.h"
+#include "rseq/pseudocode.h"
 
 #if defined(RSEQ_TEMPLATE_MO_RELAXED) && \
 	(defined(RSEQ_TEMPLATE_INDEX_CPU_ID) || defined(RSEQ_TEMPLATE_INDEX_MM_CID))
@@ -466,4 +466,4 @@ error2:
 #endif /* #if (defined(RSEQ_TEMPLATE_MO_RELAXED) || defined(RSEQ_TEMPLATE_MO_RELEASE)) &&
 	(defined(RSEQ_TEMPLATE_INDEX_CPU_ID) || defined(RSEQ_TEMPLATE_INDEX_MM_CID)) */
 
-#include "rseq-bits-reset.h"
+#include "rseq/arch/templates/bits-reset.h"

@@ -2,11 +2,14 @@
 /* SPDX-FileCopyrightText: 2024 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
 
 /*
- * rseq-pseudocode.h
+ * rseq/pseudocode.h
  *
  * This file contains the pseudo-code of rseq critical section helpers,
  * to be used as reference for architecture implementation.
  */
+
+#ifndef _RSEQ_PSEUDOCODE_H
+#define _RSEQ_PSEUDOCODE_H
 
 /*
  * Pseudo-code conventions:
@@ -134,3 +137,5 @@
  *   ne: 1
  *   abort: -1
  */
+
+#endif  /* _RSEQ_PSEUDOCODE_H */
