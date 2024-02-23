@@ -182,6 +182,15 @@ AC_CHECK_LIB([dl], [dlopen], [
 ])
 AC_SUBST(DL_LIBS)
 
+PKG_CHECK_MODULES([SECCOMP], [libseccomp],
+  [
+    dnl PKG_CHECK_MODULES defines SECCOMP_LIBS
+    have_seccomp=yes
+  ],
+  [
+    have_seccomp=no
+  ])
+
 
 ##                             ##
 ## Optional features selection ##
@@ -191,6 +200,13 @@ AC_SUBST(DL_LIBS)
 # Disabled by default
 AE_FEATURE_DEFAULT_DISABLE
 AE_FEATURE([Werror], [Treat compiler warnings as errors.])
+
+
+##                                                                          ##
+## Set automake variables for optional feature conditionnals in Makefile.am ##
+##                                                                          ##
+
+AM_CONDITIONAL([ENABLE_SECCOMP], test "x${have_seccomp}" = "xyes")
 
 
 ##                                             ##
