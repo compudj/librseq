@@ -24,7 +24,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t ex
 
 	__asm__ __volatile__ goto (
 		RSEQ_ASM_DEFINE_TABLE(3, 1f, 2f, 4f) /* start, commit, abort */
-		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[cmpfail])
+		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[ne])
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error1])
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
@@ -34,7 +34,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t ex
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"cmpq %[v], %[expect]\n\t"
-		"jnz %l[cmpfail]\n\t"
+		"jnz %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
@@ -54,7 +54,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t ex
 		  [newv]		"r" (newv)
 		: "memory", "cc", "rax"
 		  RSEQ_INJECT_CLOBBER
-		: abort, cmpfail
+		: abort, ne
 #ifdef RSEQ_COMPARE_TWICE
 		  , error1, error2
 #endif
@@ -65,7 +65,7 @@ abort:
 	rseq_after_asm_goto();
 	RSEQ_INJECT_FAILED
 	return -1;
-cmpfail:
+ne:
 	rseq_after_asm_goto();
 	return 1;
 #ifdef RSEQ_COMPARE_TWICE
@@ -86,7 +86,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbeq_store_add_load_store__ptr)(intptr_t 
 
 	__asm__ __volatile__ goto (
 		RSEQ_ASM_DEFINE_TABLE(3, 1f, 2f, 4f) /* start, commit, abort */
-		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[cmpfail])
+		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[eq])
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error1])
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
@@ -97,7 +97,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbeq_store_add_load_store__ptr)(intptr_t 
 		RSEQ_INJECT_ASM(3)
 		"movq %[v], %%rbx\n\t"
 		"cmpq %%rbx, %[expectnot]\n\t"
-		"je %l[cmpfail]\n\t"
+		"je %l[eq]\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
@@ -123,7 +123,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbeq_store_add_load_store__ptr)(intptr_t 
 		  [load]		"m" (*load)
 		: "memory", "cc", "rax", "rbx"
 		  RSEQ_INJECT_CLOBBER
-		: abort, cmpfail
+		: abort, eq
 #ifdef RSEQ_COMPARE_TWICE
 		  , error1, error2
 #endif
@@ -134,7 +134,7 @@ abort:
 	rseq_after_asm_goto();
 	RSEQ_INJECT_FAILED
 	return -1;
-cmpfail:
+eq:
 	rseq_after_asm_goto();
 	return 1;
 #ifdef RSEQ_COMPARE_TWICE
@@ -257,7 +257,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_cbne_store__ptr)(intptr_t *v, i
 
 	__asm__ __volatile__ goto (
 		RSEQ_ASM_DEFINE_TABLE(3, 1f, 2f, 4f) /* start, commit, abort */
-		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[cmpfail])
+		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[ne])
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error1])
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
@@ -268,10 +268,10 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_cbne_store__ptr)(intptr_t *v, i
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"cmpq %[v], %[expect]\n\t"
-		"jnz %l[cmpfail]\n\t"
+		"jnz %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 		"cmpq %[v2], %[expect2]\n\t"
-		"jnz %l[cmpfail]\n\t"
+		"jnz %l[ne]\n\t"
 		RSEQ_INJECT_ASM(5)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
@@ -297,7 +297,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_cbne_store__ptr)(intptr_t *v, i
 		  [newv]		"r" (newv)
 		: "memory", "cc", "rax"
 		  RSEQ_INJECT_CLOBBER
-		: abort, cmpfail
+		: abort, ne
 #ifdef RSEQ_COMPARE_TWICE
 		  , error1, error2, error3
 #endif
@@ -308,7 +308,7 @@ abort:
 	rseq_after_asm_goto();
 	RSEQ_INJECT_FAILED
 	return -1;
-cmpfail:
+ne:
 	rseq_after_asm_goto();
 	return 1;
 #ifdef RSEQ_COMPARE_TWICE
@@ -339,7 +339,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store_store__ptr)(intptr_t *v, intpt
 
 	__asm__ __volatile__ goto (
 		RSEQ_ASM_DEFINE_TABLE(3, 1f, 2f, 4f) /* start, commit, abort */
-		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[cmpfail])
+		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[ne])
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error1])
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
@@ -349,7 +349,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store_store__ptr)(intptr_t *v, intpt
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"cmpq %[v], %[expect]\n\t"
-		"jnz %l[cmpfail]\n\t"
+		"jnz %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
@@ -376,7 +376,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store_store__ptr)(intptr_t *v, intpt
 		  [newv]		"r" (newv)
 		: "memory", "cc", "rax"
 		  RSEQ_INJECT_CLOBBER
-		: abort, cmpfail
+		: abort, ne
 #ifdef RSEQ_COMPARE_TWICE
 		  , error1, error2
 #endif
@@ -387,7 +387,7 @@ abort:
 	rseq_after_asm_goto();
 	RSEQ_INJECT_FAILED
 	return -1;
-cmpfail:
+ne:
 	rseq_after_asm_goto();
 	return 1;
 #ifdef RSEQ_COMPARE_TWICE
@@ -411,7 +411,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 
 	__asm__ __volatile__ goto (
 		RSEQ_ASM_DEFINE_TABLE(3, 1f, 2f, 4f) /* start, commit, abort */
-		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[cmpfail])
+		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[ne])
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error1])
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
@@ -460,7 +460,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 			"movq %[rseq_scratch2], %[len]\n\t"
 			"movq %[rseq_scratch1], %[dst]\n\t"
 			"movq %[rseq_scratch0], %[src]\n\t",
-			cmpfail)
+			ne)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_DEFINE_CMPFAIL(6,
 			"movq %[rseq_scratch2], %[len]\n\t"
@@ -489,7 +489,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 		  [rseq_scratch2]	"m" (rseq_scratch[2])
 		: "memory", "cc", "rax"
 		  RSEQ_INJECT_CLOBBER
-		: abort, cmpfail
+		: abort, ne
 #ifdef RSEQ_COMPARE_TWICE
 		  , error1, error2
 #endif
@@ -500,7 +500,7 @@ abort:
 	rseq_after_asm_goto();
 	RSEQ_INJECT_FAILED
 	return -1;
-cmpfail:
+ne:
 	rseq_after_asm_goto();
 	return 1;
 #ifdef RSEQ_COMPARE_TWICE
@@ -528,7 +528,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t ex
 
 	__asm__ __volatile__ goto (
 		RSEQ_ASM_DEFINE_TABLE(3, 1f, 2f, 4f) /* start, commit, abort */
-		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[cmpfail])
+		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[ne])
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error1])
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
@@ -538,7 +538,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t ex
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"cmpl %[v], %[expect]\n\t"
-		"jnz %l[cmpfail]\n\t"
+		"jnz %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
@@ -558,7 +558,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t ex
 		  [newv]		"r" (newv)
 		: "memory", "cc", "eax"
 		  RSEQ_INJECT_CLOBBER
-		: abort, cmpfail
+		: abort, ne
 #ifdef RSEQ_COMPARE_TWICE
 		  , error1, error2
 #endif
@@ -569,7 +569,7 @@ abort:
 	rseq_after_asm_goto();
 	RSEQ_INJECT_FAILED
 	return -1;
-cmpfail:
+ne:
 	rseq_after_asm_goto();
 	return 1;
 #ifdef RSEQ_COMPARE_TWICE
@@ -590,7 +590,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbeq_store_add_load_store__ptr)(intptr_t 
 
 	__asm__ __volatile__ goto (
 		RSEQ_ASM_DEFINE_TABLE(3, 1f, 2f, 4f) /* start, commit, abort */
-		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[cmpfail])
+		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[eq])
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error1])
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
@@ -601,7 +601,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbeq_store_add_load_store__ptr)(intptr_t 
 		RSEQ_INJECT_ASM(3)
 		"movl %[v], %%ebx\n\t"
 		"cmpl %%ebx, %[expectnot]\n\t"
-		"je %l[cmpfail]\n\t"
+		"je %l[eq]\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
@@ -627,7 +627,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbeq_store_add_load_store__ptr)(intptr_t 
 		  [load]		"m" (*load)
 		: "memory", "cc", "eax", "ebx"
 		  RSEQ_INJECT_CLOBBER
-		: abort, cmpfail
+		: abort, eq
 #ifdef RSEQ_COMPARE_TWICE
 		  , error1, error2
 #endif
@@ -638,7 +638,7 @@ abort:
 	rseq_after_asm_goto();
 	RSEQ_INJECT_FAILED
 	return -1;
-cmpfail:
+eq:
 	rseq_after_asm_goto();
 	return 1;
 #ifdef RSEQ_COMPARE_TWICE
@@ -708,7 +708,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_cbne_store__ptr)(intptr_t *v, i
 
 	__asm__ __volatile__ goto (
 		RSEQ_ASM_DEFINE_TABLE(3, 1f, 2f, 4f) /* start, commit, abort */
-		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[cmpfail])
+		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[ne])
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error1])
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
@@ -719,10 +719,10 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_cbne_store__ptr)(intptr_t *v, i
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"cmpl %[v], %[expect]\n\t"
-		"jnz %l[cmpfail]\n\t"
+		"jnz %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 		"cmpl %[expect2], %[v2]\n\t"
-		"jnz %l[cmpfail]\n\t"
+		"jnz %l[ne]\n\t"
 		RSEQ_INJECT_ASM(5)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
@@ -749,7 +749,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_cbne_store__ptr)(intptr_t *v, i
 		  [newv]		"m" (newv)
 		: "memory", "cc", "eax"
 		  RSEQ_INJECT_CLOBBER
-		: abort, cmpfail
+		: abort, ne
 #ifdef RSEQ_COMPARE_TWICE
 		  , error1, error2, error3
 #endif
@@ -760,7 +760,7 @@ abort:
 	rseq_after_asm_goto();
 	RSEQ_INJECT_FAILED
 	return -1;
-cmpfail:
+ne:
 	rseq_after_asm_goto();
 	return 1;
 #ifdef RSEQ_COMPARE_TWICE
@@ -791,7 +791,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store_store__ptr)(intptr_t *v, intpt
 
 	__asm__ __volatile__ goto (
 		RSEQ_ASM_DEFINE_TABLE(3, 1f, 2f, 4f) /* start, commit, abort */
-		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[cmpfail])
+		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[ne])
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error1])
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
@@ -802,7 +802,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store_store__ptr)(intptr_t *v, intpt
 		RSEQ_INJECT_ASM(3)
 		"movl %[expect], %%eax\n\t"
 		"cmpl %[v], %%eax\n\t"
-		"jnz %l[cmpfail]\n\t"
+		"jnz %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
@@ -833,7 +833,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store_store__ptr)(intptr_t *v, intpt
 		  [newv]		"r" (newv)
 		: "memory", "cc", "eax"
 		  RSEQ_INJECT_CLOBBER
-		: abort, cmpfail
+		: abort, ne
 #ifdef RSEQ_COMPARE_TWICE
 		  , error1, error2
 #endif
@@ -844,7 +844,7 @@ abort:
 	rseq_after_asm_goto();
 	RSEQ_INJECT_FAILED
 	return -1;
-cmpfail:
+ne:
 	rseq_after_asm_goto();
 	return 1;
 #ifdef RSEQ_COMPARE_TWICE
@@ -870,7 +870,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 
 	__asm__ __volatile__ goto (
 		RSEQ_ASM_DEFINE_TABLE(3, 1f, 2f, 4f) /* start, commit, abort */
-		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[cmpfail])
+		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[ne])
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error1])
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
@@ -925,7 +925,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 			"movl %[rseq_scratch2], %[len]\n\t"
 			"movl %[rseq_scratch1], %[dst]\n\t"
 			"movl %[rseq_scratch0], %[src]\n\t",
-			cmpfail)
+			ne)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_DEFINE_CMPFAIL(6,
 			"movl %[rseq_scratch2], %[len]\n\t"
@@ -954,7 +954,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 		  [rseq_scratch2]	"m" (rseq_scratch[2])
 		: "memory", "cc", "eax"
 		  RSEQ_INJECT_CLOBBER
-		: abort, cmpfail
+		: abort, ne
 #ifdef RSEQ_COMPARE_TWICE
 		  , error1, error2
 #endif
@@ -965,7 +965,7 @@ abort:
 	rseq_after_asm_goto();
 	RSEQ_INJECT_FAILED
 	return -1;
-cmpfail:
+ne:
 	rseq_after_asm_goto();
 	return 1;
 #ifdef RSEQ_COMPARE_TWICE
