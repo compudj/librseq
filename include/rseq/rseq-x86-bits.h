@@ -456,18 +456,18 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 			"movq %[rseq_scratch1], %[dst]\n\t"
 			"movq %[rseq_scratch0], %[src]\n\t",
 			abort)
-		RSEQ_ASM_DEFINE_CMPFAIL(5,
+		RSEQ_ASM_DEFINE_TEARDOWN(5,
 			"movq %[rseq_scratch2], %[len]\n\t"
 			"movq %[rseq_scratch1], %[dst]\n\t"
 			"movq %[rseq_scratch0], %[src]\n\t",
 			ne)
 #ifdef RSEQ_COMPARE_TWICE
-		RSEQ_ASM_DEFINE_CMPFAIL(6,
+		RSEQ_ASM_DEFINE_TEARDOWN(6,
 			"movq %[rseq_scratch2], %[len]\n\t"
 			"movq %[rseq_scratch1], %[dst]\n\t"
 			"movq %[rseq_scratch0], %[src]\n\t",
 			error1)
-		RSEQ_ASM_DEFINE_CMPFAIL(7,
+		RSEQ_ASM_DEFINE_TEARDOWN(7,
 			"movq %[rseq_scratch2], %[len]\n\t"
 			"movq %[rseq_scratch1], %[dst]\n\t"
 			"movq %[rseq_scratch0], %[src]\n\t",
@@ -921,18 +921,18 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 			"movl %[rseq_scratch1], %[dst]\n\t"
 			"movl %[rseq_scratch0], %[src]\n\t",
 			abort)
-		RSEQ_ASM_DEFINE_CMPFAIL(5,
+		RSEQ_ASM_DEFINE_TEARDOWN(5,
 			"movl %[rseq_scratch2], %[len]\n\t"
 			"movl %[rseq_scratch1], %[dst]\n\t"
 			"movl %[rseq_scratch0], %[src]\n\t",
 			ne)
 #ifdef RSEQ_COMPARE_TWICE
-		RSEQ_ASM_DEFINE_CMPFAIL(6,
+		RSEQ_ASM_DEFINE_TEARDOWN(6,
 			"movl %[rseq_scratch2], %[len]\n\t"
 			"movl %[rseq_scratch1], %[dst]\n\t"
 			"movl %[rseq_scratch0], %[src]\n\t",
 			error1)
-		RSEQ_ASM_DEFINE_CMPFAIL(7,
+		RSEQ_ASM_DEFINE_TEARDOWN(7,
 			"movl %[rseq_scratch2], %[len]\n\t"
 			"movl %[rseq_scratch1], %[dst]\n\t"
 			"movl %[rseq_scratch0], %[src]\n\t",
