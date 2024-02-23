@@ -124,11 +124,11 @@ do {									\
 		"jg %l[" __rseq_str(abort_label) "]\n\t"		\
 		".popsection\n\t"
 
-#define RSEQ_ASM_DEFINE_CMPFAIL(label, teardown, cmpfail_label)		\
+#define RSEQ_ASM_DEFINE_TEARDOWN(label, teardown, target_label)		\
 		".pushsection __rseq_failure, \"ax\"\n\t"		\
 		__rseq_str(label) ":\n\t"				\
 		teardown						\
-		"jg %l[" __rseq_str(cmpfail_label) "]\n\t"		\
+		"jg %l[" __rseq_str(target_label) "]\n\t"		\
 		".popsection\n\t"
 
 /* Per-cpu-id indexing. */

@@ -405,20 +405,20 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 				      LONG_L " %[dst], %[rseq_scratch1]\n\t"
 				      LONG_L " %[src], %[rseq_scratch0]\n\t",
 				      abort, 1b, 2b, 4f)
-		RSEQ_ASM_DEFINE_CMPFAIL(5,
+		RSEQ_ASM_DEFINE_TEARDOWN(5,
 					/* teardown */
 					LONG_L " %[len], %[rseq_scratch2]\n\t"
 					LONG_L " %[dst], %[rseq_scratch1]\n\t"
 					LONG_L " %[src], %[rseq_scratch0]\n\t",
 					ne)
 #ifdef RSEQ_COMPARE_TWICE
-		RSEQ_ASM_DEFINE_CMPFAIL(6,
+		RSEQ_ASM_DEFINE_TEARDOWN(6,
 					/* teardown */
 					LONG_L " %[len], %[rseq_scratch2]\n\t"
 					LONG_L " %[dst], %[rseq_scratch1]\n\t"
 					LONG_L " %[src], %[rseq_scratch0]\n\t",
 					error1)
-		RSEQ_ASM_DEFINE_CMPFAIL(7,
+		RSEQ_ASM_DEFINE_TEARDOWN(7,
 					/* teardown */
 					LONG_L " %[len], %[rseq_scratch2]\n\t"
 					LONG_L " %[dst], %[rseq_scratch1]\n\t"

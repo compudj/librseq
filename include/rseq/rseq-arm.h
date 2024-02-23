@@ -138,10 +138,10 @@ do {									\
 				abort_label, 0x0, 0x0, start_ip,	\
 				(post_commit_ip - start_ip), abort_ip)
 
-#define RSEQ_ASM_DEFINE_CMPFAIL(label, teardown, cmpfail_label)		\
+#define RSEQ_ASM_DEFINE_TEARDOWN(label, teardown, target_label)		\
 		__rseq_str(label) ":\n\t"				\
 		teardown						\
-		"b %l[" __rseq_str(cmpfail_label) "]\n\t"
+		"b %l[" __rseq_str(target_label) "]\n\t"
 
 /* Per-cpu-id indexing. */
 
