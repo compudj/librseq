@@ -6,6 +6,12 @@
 
 #include "rseq-bits-template.h"
 
+/*
+ * Refer to rseq-pseudocode.h for pseudo-code of the rseq critical
+ * section helpers.
+ */
+#include "rseq-pseudocode.h"
+
 #ifdef __x86_64__
 
 #if defined(RSEQ_TEMPLATE_MO_RELAXED) && \

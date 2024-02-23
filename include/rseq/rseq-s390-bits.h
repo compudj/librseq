@@ -3,6 +3,12 @@
 
 #include "rseq-bits-template.h"
 
+/*
+ * Refer to rseq-pseudocode.h for documentation and pseudo-code of the
+ * rseq critical section helpers.
+ */
+#include "rseq-pseudocode.h"
+
 #if defined(RSEQ_TEMPLATE_MO_RELAXED) && \
 	(defined(RSEQ_TEMPLATE_CPU_ID) || defined(RSEQ_TEMPLATE_MM_CID))
 

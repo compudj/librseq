@@ -15,6 +15,7 @@ nobase_include_HEADERS = \
 	rseq/rseq-mips-bits.h \
 	rseq/rseq-ppc.h \
 	rseq/rseq-ppc-bits.h \
+	rseq/rseq-pseudocode.h \
 	rseq/rseq-riscv.h \
 	rseq/rseq-riscv-bits.h \
 	rseq/rseq-s390.h \
