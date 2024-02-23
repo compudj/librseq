@@ -268,6 +268,12 @@ static inline void rseq_prepare_unload(void)
 	rseq_clear_rseq_cs();
 }
 
+/*
+ * Refer to rseq-pseudocode.h for documentation and pseudo-code of the
+ * rseq critical section helpers.
+ */
+#include "rseq-pseudocode.h"
+
 static inline __attribute__((always_inline))
 int rseq_cmpeqv_storev(enum rseq_mo rseq_mo, enum rseq_percpu_mode percpu_mode,
 		       intptr_t *v, intptr_t expect,
