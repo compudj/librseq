@@ -20,8 +20,8 @@ portability. Here are some things you should have on your system in order to
 compile the Git repository tree:
 
   - [GNU Autotools](http://www.gnu.org/software/autoconf/)
-    (**Automake >= 1.10**, **Autoconf >= 2.50**,
-    **Autoheader >= 2.50**;
+    (**Automake >= 1.12**, **Autoconf >= 2.69**,
+    **Autoheader >= 2.69**;
     make sure your system-wide `automake` points to a recent version!)
   - **[GNU Libtool](https://www.gnu.org/software/libtool/) >= 2.2**
   - **Linux kernel headers** from kernel **>= 4.18** to build on x86, arm,
