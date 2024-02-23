@@ -97,7 +97,7 @@ static int rseq_this_cpu_lock(struct percpu_lock *lock)
 		int ret;
 
 		cpu = get_current_cpu_id();
-		ret = rseq_cmpeqv_storev(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+		ret = rseq_load_cbne_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 					 &lock->c[cpu].v, 0, 1, cpu);
 		if (rseq_likely(!ret))
 			break;
@@ -196,7 +196,7 @@ static void this_cpu_list_push(struct percpu_list *list,
 		newval = (intptr_t)node;
 		targetptr = (intptr_t *)&list->c[cpu].head;
 		node->next = (struct percpu_list_node *)expect;
-		ret = rseq_cmpeqv_storev(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+		ret = rseq_load_cbne_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 					 targetptr, expect, newval, cpu);
 		if (rseq_likely(!ret))
 			break;
@@ -225,7 +225,7 @@ static struct percpu_list_node *this_cpu_list_pop(struct percpu_list *list,
 		expectnot = (intptr_t)NULL;
 		offset = offsetof(struct percpu_list_node, next);
 		load = (intptr_t *)&head;
-		ret = rseq_cmpnev_storeoffp_load(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+		ret = rseq_load_cbeq_store_add_load_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 						 targetptr, expectnot,
 						 offset, load, cpu);
 		if (rseq_likely(!ret)) {

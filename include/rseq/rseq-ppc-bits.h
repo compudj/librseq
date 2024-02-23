@@ -18,7 +18,7 @@
 	(defined(RSEQ_TEMPLATE_CPU_ID) || defined(RSEQ_TEMPLATE_MM_CID))
 
 static inline __attribute__((always_inline))
-int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpeqv_storev)(intptr_t *v, intptr_t expect, intptr_t newv, int cpu)
+int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t expect, intptr_t newv, int cpu)
 {
 	RSEQ_INJECT_C(9)
 
@@ -82,7 +82,7 @@ error2:
 }
 
 static inline __attribute__((always_inline))
-int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpnev_storeoffp_load)(intptr_t *v, intptr_t expectnot,
+int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbeq_store_add_load_store__ptr)(intptr_t *v, intptr_t expectnot,
 			       long voffp, intptr_t *load, int cpu)
 {
 	RSEQ_INJECT_C(9)
@@ -155,7 +155,7 @@ error2:
 }
 
 static inline __attribute__((always_inline))
-int RSEQ_TEMPLATE_IDENTIFIER(rseq_addv)(intptr_t *v, intptr_t count, int cpu)
+int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_add_store__ptr)(intptr_t *v, intptr_t count, int cpu)
 {
 	RSEQ_INJECT_C(9)
 
@@ -210,7 +210,7 @@ error1:
 }
 
 static inline __attribute__((always_inline))
-int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpeqv_cmpeqv_storev)(intptr_t *v, intptr_t expect,
+int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_cbne_store__ptr)(intptr_t *v, intptr_t expect,
 			      intptr_t *v2, intptr_t expect2,
 			      intptr_t newv, int cpu)
 {
@@ -295,7 +295,7 @@ error3:
 	(defined(RSEQ_TEMPLATE_CPU_ID) || defined(RSEQ_TEMPLATE_MM_CID))
 
 static inline __attribute__((always_inline))
-int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpeqv_trystorev_storev)(intptr_t *v, intptr_t expect,
+int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store_store__ptr)(intptr_t *v, intptr_t expect,
 				 intptr_t *v2, intptr_t newv2,
 				 intptr_t newv, int cpu)
 {
@@ -372,7 +372,7 @@ error2:
 }
 
 static inline __attribute__((always_inline))
-int RSEQ_TEMPLATE_IDENTIFIER(rseq_cmpeqv_trymemcpy_storev)(intptr_t *v, intptr_t expect,
+int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intptr_t expect,
 				 void *dst, void *src, size_t len,
 				 intptr_t newv, int cpu)
 {

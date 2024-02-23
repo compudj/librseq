@@ -439,7 +439,7 @@ static int rseq_this_cpu_lock(struct percpu_lock *lock)
 				getpid(), (int) rseq_gettid(), rseq_current_cpu_raw(), cpu);
 			abort();
 		}
-		ret = rseq_cmpeqv_storev(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+		ret = rseq_load_cbne_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 					 &lock->c[cpu].v,
 					 0, 1, cpu);
 		if (rseq_likely(!ret))
@@ -558,7 +558,7 @@ static void *test_percpu_inc_thread(void *arg)
 			int cpu;
 
 			cpu = get_current_cpu_id();
-			ret = rseq_addv(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+			ret = rseq_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 					&data->c[cpu].count, 1, cpu);
 		} while (rseq_unlikely(ret));
 #ifndef BENCHMARK
@@ -634,7 +634,7 @@ static void this_cpu_list_push(struct percpu_list *list,
 		newval = (intptr_t)node;
 		targetptr = (intptr_t *)&list->c[cpu].head;
 		node->next = (struct percpu_list_node *)expect;
-		ret = rseq_cmpeqv_storev(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+		ret = rseq_load_cbne_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 					 targetptr, expect, newval, cpu);
 		if (rseq_likely(!ret))
 			break;
@@ -666,7 +666,7 @@ static struct percpu_list_node *this_cpu_list_pop(struct percpu_list *list,
 		expectnot = (intptr_t)NULL;
 		offset = offsetof(struct percpu_list_node, next);
 		load = (intptr_t *)&head;
-		ret = rseq_cmpnev_storeoffp_load(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+		ret = rseq_load_cbeq_store_add_load_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 						 targetptr, expectnot,
 						 offset, load, cpu);
 		if (rseq_likely(!ret)) {
@@ -814,7 +814,7 @@ static bool this_cpu_buffer_push(struct percpu_buffer *buffer,
 		targetptr_spec = (intptr_t *)&buffer->c[cpu].array[offset];
 		newval_final = offset + 1;
 		targetptr_final = &buffer->c[cpu].offset;
-		ret = rseq_cmpeqv_trystorev_storev(opt_mo, RSEQ_PERCPU,
+		ret = rseq_load_cbne_store_store__ptr(opt_mo, RSEQ_PERCPU,
 			targetptr_final, offset, targetptr_spec,
 			newval_spec, newval_final, cpu);
 		if (rseq_likely(!ret)) {
@@ -849,7 +849,7 @@ static struct percpu_buffer_node *this_cpu_buffer_pop(struct percpu_buffer *buff
 		head = RSEQ_READ_ONCE(buffer->c[cpu].array[offset - 1]);
 		newval = offset - 1;
 		targetptr = (intptr_t *)&buffer->c[cpu].offset;
-		ret = rseq_cmpeqv_cmpeqv_storev(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+		ret = rseq_load_cbne_load_cbne_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 			targetptr, offset,
 			(intptr_t *)&buffer->c[cpu].array[offset - 1],
 			(intptr_t)head, newval, cpu);
@@ -1019,7 +1019,7 @@ static bool this_cpu_memcpy_buffer_push(struct percpu_memcpy_buffer *buffer,
 		copylen = sizeof(item);
 		newval_final = offset + 1;
 		targetptr_final = &buffer->c[cpu].offset;
-		ret = rseq_cmpeqv_trymemcpy_storev(
+		ret = rseq_load_cbne_memcpy_store__ptr(
 			opt_mo, RSEQ_PERCPU,
 			targetptr_final, offset,
 			destptr, srcptr, copylen,
@@ -1059,7 +1059,7 @@ static bool this_cpu_memcpy_buffer_pop(struct percpu_memcpy_buffer *buffer,
 		copylen = sizeof(*item);
 		newval_final = offset - 1;
 		targetptr_final = &buffer->c[cpu].offset;
-		ret = rseq_cmpeqv_trymemcpy_storev(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+		ret = rseq_load_cbne_memcpy_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 			targetptr_final, offset, destptr, srcptr, copylen,
 			newval_final, cpu);
 		if (rseq_likely(!ret)) {
@@ -1281,7 +1281,7 @@ void *test_membarrier_worker_thread(void *arg)
 		do {
 			int cpu = get_current_cpu_id();
 
-			ret = rseq_offset_deref_addv(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+			ret = rseq_load_add_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 				&args->percpu_list_ptr,
 				sizeof(struct percpu_list_entry) * cpu, 1, cpu);
 		} while (rseq_unlikely(ret));
@@ -1472,7 +1472,7 @@ void test_membarrier(void)
 				"Skipping membarrier test.\n");
 		return;
 	}
-	fprintf(stderr, "rseq_offset_deref_addv is not implemented on this architecture. "
+	fprintf(stderr, "rseq_load_add_load_add_store__ptr is not implemented on this architecture. "
 			"Skipping membarrier test.\n");
 }
 #endif
