@@ -34,12 +34,12 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t ex
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"cmpq %[v], %[expect]\n\t"
-		"jnz %l[ne]\n\t"
+		"jne %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
 		"cmpq %[v], %[expect]\n\t"
-		"jnz %l[error2]\n\t"
+		"jne %l[error2]\n\t"
 #endif
 		/* final store */
 		"movq %[newv], %[v]\n\t"
@@ -268,17 +268,17 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_cbne_store__ptr)(intptr_t *v, i
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"cmpq %[v], %[expect]\n\t"
-		"jnz %l[ne]\n\t"
+		"jne %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 		"cmpq %[v2], %[expect2]\n\t"
-		"jnz %l[ne]\n\t"
+		"jne %l[ne]\n\t"
 		RSEQ_INJECT_ASM(5)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
 		"cmpq %[v], %[expect]\n\t"
-		"jnz %l[error2]\n\t"
+		"jne %l[error2]\n\t"
 		"cmpq %[v2], %[expect2]\n\t"
-		"jnz %l[error3]\n\t"
+		"jne %l[error3]\n\t"
 #endif
 		/* final store */
 		"movq %[newv], %[v]\n\t"
@@ -349,12 +349,12 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store_store__ptr)(intptr_t *v, intpt
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"cmpq %[v], %[expect]\n\t"
-		"jnz %l[ne]\n\t"
+		"jne %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
 		"cmpq %[v], %[expect]\n\t"
-		"jnz %l[error2]\n\t"
+		"jne %l[error2]\n\t"
 #endif
 		/* try store */
 		"movq %[newv2], %[v2]\n\t"
@@ -424,16 +424,16 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"cmpq %[v], %[expect]\n\t"
-		"jnz 5f\n\t"
+		"jne 5f\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), 6f)
 		"cmpq %[v], %[expect]\n\t"
-		"jnz 7f\n\t"
+		"jne 7f\n\t"
 #endif
 		/* try memcpy */
 		"test %[len], %[len]\n\t" \
-		"jz 333f\n\t" \
+		"je 333f\n\t" \
 		"222:\n\t" \
 		"movb (%[src]), %%al\n\t" \
 		"movb %%al, (%[dst])\n\t" \
@@ -538,12 +538,12 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t ex
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"cmpl %[v], %[expect]\n\t"
-		"jnz %l[ne]\n\t"
+		"jne %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
 		"cmpl %[v], %[expect]\n\t"
-		"jnz %l[error2]\n\t"
+		"jne %l[error2]\n\t"
 #endif
 		/* final store */
 		"movl %[newv], %[v]\n\t"
@@ -719,17 +719,17 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_cbne_store__ptr)(intptr_t *v, i
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"cmpl %[v], %[expect]\n\t"
-		"jnz %l[ne]\n\t"
+		"jne %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 		"cmpl %[expect2], %[v2]\n\t"
-		"jnz %l[ne]\n\t"
+		"jne %l[ne]\n\t"
 		RSEQ_INJECT_ASM(5)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
 		"cmpl %[v], %[expect]\n\t"
-		"jnz %l[error2]\n\t"
+		"jne %l[error2]\n\t"
 		"cmpl %[expect2], %[v2]\n\t"
-		"jnz %l[error3]\n\t"
+		"jne %l[error3]\n\t"
 #endif
 		"movl %[newv], %%eax\n\t"
 		/* final store */
@@ -802,13 +802,13 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store_store__ptr)(intptr_t *v, intpt
 		RSEQ_INJECT_ASM(3)
 		"movl %[expect], %%eax\n\t"
 		"cmpl %[v], %%eax\n\t"
-		"jnz %l[ne]\n\t"
+		"jne %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
 		"movl %[expect], %%eax\n\t"
 		"cmpl %[v], %%eax\n\t"
-		"jnz %l[error2]\n\t"
+		"jne %l[error2]\n\t"
 #endif
 		/* try store */
 		"movl %[newv2], %[v2]\n\t"
@@ -884,17 +884,17 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 		RSEQ_INJECT_ASM(3)
 		"movl %[expect], %%eax\n\t"
 		"cmpl %%eax, %[v]\n\t"
-		"jnz 5f\n\t"
+		"jne 5f\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_CPU_ID_OFFSET(%[rseq_offset]), 6f)
 		"movl %[expect], %%eax\n\t"
 		"cmpl %%eax, %[v]\n\t"
-		"jnz 7f\n\t"
+		"jne 7f\n\t"
 #endif
 		/* try memcpy */
 		"test %[len], %[len]\n\t" \
-		"jz 333f\n\t" \
+		"je 333f\n\t" \
 		"222:\n\t" \
 		"movb (%[src]), %%al\n\t" \
 		"movb %%al, (%[dst])\n\t" \
