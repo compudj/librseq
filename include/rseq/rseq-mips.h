@@ -60,22 +60,22 @@ do {									\
 } while (0)
 
 #if _MIPS_SZLONG == 64
-# define LONG			".dword"
-# define LONG_LA		"dla"
-# define LONG_L			"ld"
-# define LONG_S			"sd"
-# define LONG_ADDI		"daddiu"
-# define U32_U64_PAD(x)		x
+# define RSEQ_ASM_LONG			".dword"
+# define RSEQ_ASM_LONG_LA		"dla"
+# define RSEQ_ASM_LONG_L		"ld"
+# define RSEQ_ASM_LONG_S		"sd"
+# define RSEQ_ASM_LONG_ADDI		"daddiu"
+# define RSEQ_ASM_U32_U64_PAD(x)	x
 #elif _MIPS_SZLONG == 32
-# define LONG			".word"
-# define LONG_LA		"la"
-# define LONG_L			"lw"
-# define LONG_S			"sw"
-# define LONG_ADDI		"addiu"
+# define RSEQ_ASM_LONG			".word"
+# define RSEQ_ASM_LONG_LA		"la"
+# define RSEQ_ASM_LONG_L		"lw"
+# define RSEQ_ASM_LONG_S		"sw"
+# define RSEQ_ASM_LONG_ADDI		"addiu"
 # ifdef __BIG_ENDIAN
-#  define U32_U64_PAD(x)	"0x0, " x
+#  define RSEQ_ASM_U32_U64_PAD(x)	"0x0, " x
 # else
-#  define U32_U64_PAD(x)	x ", 0x0"
+#  define RSEQ_ASM_U32_U64_PAD(x)	x ", 0x0"
 # endif
 #else
 # error unsupported _MIPS_SZLONG
@@ -85,14 +85,14 @@ do {									\
 				post_commit_offset, abort_ip) \
 		".pushsection __rseq_cs, \"aw\"\n\t" \
 		".balign 32\n\t" \
-		__rseq_str(label) ":\n\t"					\
+		__rseq_str(label) ":\n\t" \
 		".word " __rseq_str(version) ", " __rseq_str(flags) "\n\t" \
-		LONG " " U32_U64_PAD(__rseq_str(start_ip)) "\n\t" \
-		LONG " " U32_U64_PAD(__rseq_str(post_commit_offset)) "\n\t" \
-		LONG " " U32_U64_PAD(__rseq_str(abort_ip)) "\n\t" \
+		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(start_ip)) "\n\t" \
+		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(post_commit_offset)) "\n\t" \
+		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(abort_ip)) "\n\t" \
 		".popsection\n\t" \
 		".pushsection __rseq_cs_ptr_array, \"aw\"\n\t" \
-		LONG " " U32_U64_PAD(__rseq_str(label) "b") "\n\t" \
+		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(label) "b") "\n\t" \
 		".popsection\n\t"
 
 #define RSEQ_ASM_DEFINE_TABLE(label, start_ip, post_commit_ip, abort_ip) \
@@ -109,14 +109,14 @@ do {									\
  */
 #define RSEQ_ASM_DEFINE_EXIT_POINT(start_ip, exit_ip) \
 		".pushsection __rseq_exit_point_array, \"aw\"\n\t" \
-		LONG " " U32_U64_PAD(__rseq_str(start_ip)) "\n\t" \
-		LONG " " U32_U64_PAD(__rseq_str(exit_ip)) "\n\t" \
+		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(start_ip)) "\n\t" \
+		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(exit_ip)) "\n\t" \
 		".popsection\n\t"
 
 #define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs) \
 		RSEQ_INJECT_ASM(1) \
-		LONG_LA " $4, " __rseq_str(cs_label) "\n\t" \
-		LONG_S  " $4, %[" __rseq_str(rseq_cs) "]\n\t" \
+		RSEQ_ASM_LONG_LA " $4, " __rseq_str(cs_label) "\n\t" \
+		RSEQ_ASM_LONG_S  " $4, %[" __rseq_str(rseq_cs) "]\n\t" \
 		__rseq_str(label) ":\n\t"
 
 #define RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, label) \
@@ -130,9 +130,9 @@ do {									\
 		".balign 32\n\t" \
 		__rseq_str(table_label) ":\n\t" \
 		".word " __rseq_str(version) ", " __rseq_str(flags) "\n\t" \
-		LONG " " U32_U64_PAD(__rseq_str(start_ip)) "\n\t" \
-		LONG " " U32_U64_PAD(__rseq_str(post_commit_offset)) "\n\t" \
-		LONG " " U32_U64_PAD(__rseq_str(abort_ip)) "\n\t" \
+		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(start_ip)) "\n\t" \
+		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(post_commit_offset)) "\n\t" \
+		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(abort_ip)) "\n\t" \
 		".word " __rseq_str(RSEQ_SIG) "\n\t" \
 		__rseq_str(label) ":\n\t" \
 		teardown \
