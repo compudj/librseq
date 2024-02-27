@@ -185,7 +185,7 @@ do {									\
 		RSEQ_ASM_LOADX_LONG "%%r17, %[" __rseq_str(voffp) "], %%r17\n\t"
 
 /* TODO: implement a faster memcpy. */
-#define RSEQ_ASM_OP_R_MEMCPY() \
+#define RSEQ_ASM_OP_R_BYTEWISE_MEMCPY() \
 		RSEQ_ASM_CMP_LONG_INT "%%r19, 0\n\t" \
 		"beq 333f\n\t" \
 		"addi %%r20, %%r20, -1\n\t" \

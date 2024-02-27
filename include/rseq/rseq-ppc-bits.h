@@ -404,7 +404,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 		RSEQ_ASM_OP_CBNE(v, expect, %l[error2])
 #endif
 		/* try memcpy */
-		RSEQ_ASM_OP_R_MEMCPY()
+		RSEQ_ASM_OP_R_BYTEWISE_MEMCPY()
 		RSEQ_INJECT_ASM(5)
 #ifdef RSEQ_TEMPLATE_MO_RELEASE
 		/* for 'release' */
