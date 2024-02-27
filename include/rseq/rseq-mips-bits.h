@@ -46,7 +46,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t ex
 		"2:\n\t"
 		RSEQ_INJECT_ASM(5)
 		"b 5f\n\t"
-		RSEQ_ASM_DEFINE_ABORT(3, 4, "", abort, 1b, 2b, 4f)
+		RSEQ_ASM_DEFINE_ABORT(4, "", abort, 3, 1b, 2b, 4f)
 		"5:\n\t"
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
@@ -110,7 +110,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbeq_store_add_load_store__ptr)(intptr_t 
 		"2:\n\t"
 		RSEQ_INJECT_ASM(5)
 		"b 5f\n\t"
-		RSEQ_ASM_DEFINE_ABORT(3, 4, "", abort, 1b, 2b, 4f)
+		RSEQ_ASM_DEFINE_ABORT(4, "", abort, 3, 1b, 2b, 4f)
 		"5:\n\t"
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
@@ -167,7 +167,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_add_store__ptr)(intptr_t *v, intptr_t cou
 		"2:\n\t"
 		RSEQ_INJECT_ASM(4)
 		"b 5f\n\t"
-		RSEQ_ASM_DEFINE_ABORT(3, 4, "", abort, 1b, 2b, 4f)
+		RSEQ_ASM_DEFINE_ABORT(4, "", abort, 3, 1b, 2b, 4f)
 		"5:\n\t"
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
@@ -230,7 +230,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_cbne_store__ptr)(intptr_t *v, i
 		"2:\n\t"
 		RSEQ_INJECT_ASM(6)
 		"b 5f\n\t"
-		RSEQ_ASM_DEFINE_ABORT(3, 4, "", abort, 1b, 2b, 4f)
+		RSEQ_ASM_DEFINE_ABORT(4, "", abort, 3, 1b, 2b, 4f)
 		"5:\n\t"
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
@@ -310,7 +310,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store_store__ptr)(intptr_t *v, intpt
 		"2:\n\t"
 		RSEQ_INJECT_ASM(6)
 		"b 5f\n\t"
-		RSEQ_ASM_DEFINE_ABORT(3, 4, "", abort, 1b, 2b, 4f)
+		RSEQ_ASM_DEFINE_ABORT(4, "", abort, 3, 1b, 2b, 4f)
 		"5:\n\t"
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
@@ -399,12 +399,12 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 		RSEQ_ASM_LONG_L " %[dst], %[rseq_scratch1]\n\t"
 		RSEQ_ASM_LONG_L " %[src], %[rseq_scratch0]\n\t"
 		"b 8f\n\t"
-		RSEQ_ASM_DEFINE_ABORT(3, 4,
+		RSEQ_ASM_DEFINE_ABORT(4,
 				      /* teardown */
 				      RSEQ_ASM_LONG_L " %[len], %[rseq_scratch2]\n\t"
 				      RSEQ_ASM_LONG_L " %[dst], %[rseq_scratch1]\n\t"
 				      RSEQ_ASM_LONG_L " %[src], %[rseq_scratch0]\n\t",
-				      abort, 1b, 2b, 4f)
+				      abort, 3, 1b, 2b, 4f)
 		RSEQ_ASM_DEFINE_TEARDOWN(5,
 					/* teardown */
 					RSEQ_ASM_LONG_L " %[len], %[rseq_scratch2]\n\t"
