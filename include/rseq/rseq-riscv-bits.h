@@ -246,7 +246,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_add_load_add_store__ptr)(intptr_t *ptr, o
 #ifdef RSEQ_COMPARE_TWICE
 				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
 #endif
-				  RSEQ_ASM_OP_R_DEREF_ADDV(ptr, off, 3)
+				  RSEQ_ASM_OP_R_DEREF_ADDV(ptr, off, inc, 3)
 				  RSEQ_INJECT_ASM(4)
 				  RSEQ_ASM_DEFINE_ABORT(4, "", abort)
 				  : /* gcc asm goto does not allow outputs */
