@@ -31,10 +31,6 @@
 #define RSEQ_CS_OFFSET		8
 #define RSEQ_MM_CID_OFFSET	24
 
-#ifdef __x86_64__
-
-#define RSEQ_ASM_TP_SEGMENT	%%fs
-
 #define rseq_smp_mb()	\
 	__asm__ __volatile__ ("lock; addl $0,-128(%%rsp)" ::: "memory", "cc")
 #define rseq_smp_rmb()	rseq_barrier()
@@ -54,6 +50,10 @@ do {									\
 	rseq_barrier();							\
 	RSEQ_WRITE_ONCE(*(p), v);					\
 } while (0)
+
+#ifdef __x86_64__
+
+#define RSEQ_ASM_TP_SEGMENT	%%fs
 
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,			\
 				start_ip, post_commit_offset, abort_ip)	\
@@ -116,28 +116,6 @@ do {									\
 #elif defined(__i386__)
 
 #define RSEQ_ASM_TP_SEGMENT	%%gs
-
-#define rseq_smp_mb()	\
-	__asm__ __volatile__ ("lock; addl $0,-128(%%esp)" ::: "memory", "cc")
-#define rseq_smp_rmb()	\
-	__asm__ __volatile__ ("lock; addl $0,-128(%%esp)" ::: "memory", "cc")
-#define rseq_smp_wmb()	\
-	__asm__ __volatile__ ("lock; addl $0,-128(%%esp)" ::: "memory", "cc")
-
-#define rseq_smp_load_acquire(p)					\
-__extension__ ({							\
-	rseq_unqual_scalar_typeof(*(p)) ____p1 = RSEQ_READ_ONCE(*(p));	\
-	rseq_smp_mb();							\
-	____p1;								\
-})
-
-#define rseq_smp_acquire__after_ctrl_dep()	rseq_smp_rmb()
-
-#define rseq_smp_store_release(p, v)					\
-do {									\
-	rseq_smp_mb();							\
-	RSEQ_WRITE_ONCE(*p, v);						\
-} while (0)
 
 /*
  * Use eax as scratch register and take memory operands as input to
