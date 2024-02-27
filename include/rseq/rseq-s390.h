@@ -31,13 +31,13 @@ do {									\
 
 #ifdef __s390x__
 
-#define LONG_L			"lg"
-#define LONG_S			"stg"
-#define LONG_LT_R		"ltgr"
-#define LONG_CMP		"cg"
-#define LONG_CMP_R		"cgr"
-#define LONG_ADDI		"aghi"
-#define LONG_ADD_R		"agr"
+#define RSEQ_ASM_LONG_L			"lg"
+#define RSEQ_ASM_LONG_S			"stg"
+#define RSEQ_ASM_LONG_LT_R		"ltgr"
+#define RSEQ_ASM_LONG_CMP		"cg"
+#define RSEQ_ASM_LONG_CMP_R		"cgr"
+#define RSEQ_ASM_LONG_ADDI		"aghi"
+#define RSEQ_ASM_LONG_ADD_R		"agr"
 
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,			\
 				start_ip, post_commit_offset, abort_ip)	\
@@ -91,13 +91,13 @@ do {									\
 		".long 0x0, " __rseq_str(start_ip) ", 0x0, " __rseq_str(exit_ip) "\n\t" \
 		".popsection\n\t"
 
-#define LONG_L			"l"
-#define LONG_S			"st"
-#define LONG_LT_R		"ltr"
-#define LONG_CMP		"c"
-#define LONG_CMP_R		"cr"
-#define LONG_ADDI		"ahi"
-#define LONG_ADD_R		"ar"
+#define RSEQ_ASM_LONG_L			"l"
+#define RSEQ_ASM_LONG_S			"st"
+#define RSEQ_ASM_LONG_LT_R		"ltr"
+#define RSEQ_ASM_LONG_CMP		"c"
+#define RSEQ_ASM_LONG_CMP_R		"cr"
+#define RSEQ_ASM_LONG_ADDI		"ahi"
+#define RSEQ_ASM_LONG_ADD_R		"ar"
 
 #endif
 
@@ -108,7 +108,7 @@ do {									\
 #define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs)		\
 		RSEQ_INJECT_ASM(1)					\
 		"larl %%r0, " __rseq_str(cs_label) "\n\t"		\
-		LONG_S " %%r0, %[" __rseq_str(rseq_cs) "]\n\t"		\
+		RSEQ_ASM_LONG_S " %%r0, %[" __rseq_str(rseq_cs) "]\n\t"	\
 		__rseq_str(label) ":\n\t"
 
 #define RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, label)		\

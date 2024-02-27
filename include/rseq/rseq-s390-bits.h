@@ -28,16 +28,16 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t ex
 		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, rseq_cs)
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, 4f)
 		RSEQ_INJECT_ASM(3)
-		LONG_CMP " %[expect], %[v]\n\t"
+		RSEQ_ASM_LONG_CMP " %[expect], %[v]\n\t"
 		"jnz %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, %l[error1])
-		LONG_CMP " %[expect], %[v]\n\t"
+		RSEQ_ASM_LONG_CMP " %[expect], %[v]\n\t"
 		"jnz %l[error2]\n\t"
 #endif
 		/* final store */
-		LONG_S " %[newv], %[v]\n\t"
+		RSEQ_ASM_LONG_S " %[newv], %[v]\n\t"
 		"2:\n\t"
 		RSEQ_INJECT_ASM(5)
 		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
@@ -92,21 +92,21 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbeq_store_add_load_store__ptr)(intptr_t 
 		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, rseq_cs)
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, 4f)
 		RSEQ_INJECT_ASM(3)
-		LONG_L " %%r1, %[v]\n\t"
-		LONG_CMP_R " %%r1, %[expectnot]\n\t"
+		RSEQ_ASM_LONG_L " %%r1, %[v]\n\t"
+		RSEQ_ASM_LONG_CMP_R " %%r1, %[expectnot]\n\t"
 		"je %l[eq]\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, %l[error1])
-		LONG_L " %%r1, %[v]\n\t"
-		LONG_CMP_R " %%r1, %[expectnot]\n\t"
+		RSEQ_ASM_LONG_L " %%r1, %[v]\n\t"
+		RSEQ_ASM_LONG_CMP_R " %%r1, %[expectnot]\n\t"
 		"je %l[error2]\n\t"
 #endif
-		LONG_S " %%r1, %[load]\n\t"
-		LONG_ADD_R " %%r1, %[voffp]\n\t"
-		LONG_L " %%r1, 0(%%r1)\n\t"
+		RSEQ_ASM_LONG_S " %%r1, %[load]\n\t"
+		RSEQ_ASM_LONG_ADD_R " %%r1, %[voffp]\n\t"
+		RSEQ_ASM_LONG_L " %%r1, 0(%%r1)\n\t"
 		/* final store */
-		LONG_S " %%r1, %[v]\n\t"
+		RSEQ_ASM_LONG_S " %%r1, %[v]\n\t"
 		"2:\n\t"
 		RSEQ_INJECT_ASM(5)
 		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
@@ -163,10 +163,10 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_add_store__ptr)(intptr_t *v, intptr_t cou
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, %l[error1])
 #endif
-		LONG_L " %%r0, %[v]\n\t"
-		LONG_ADD_R " %%r0, %[count]\n\t"
+		RSEQ_ASM_LONG_L " %%r0, %[v]\n\t"
+		RSEQ_ASM_LONG_ADD_R " %%r0, %[count]\n\t"
 		/* final store */
-		LONG_S " %%r0, %[v]\n\t"
+		RSEQ_ASM_LONG_S " %%r0, %[v]\n\t"
 		"2:\n\t"
 		RSEQ_INJECT_ASM(4)
 		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
@@ -217,21 +217,21 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_cbne_store__ptr)(intptr_t *v, i
 		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, rseq_cs)
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, 4f)
 		RSEQ_INJECT_ASM(3)
-		LONG_CMP " %[expect], %[v]\n\t"
+		RSEQ_ASM_LONG_CMP " %[expect], %[v]\n\t"
 		"jnz %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
-		LONG_CMP " %[expect2], %[v2]\n\t"
+		RSEQ_ASM_LONG_CMP " %[expect2], %[v2]\n\t"
 		"jnz %l[ne]\n\t"
 		RSEQ_INJECT_ASM(5)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, %l[error1])
-		LONG_CMP " %[expect], %[v]\n\t"
+		RSEQ_ASM_LONG_CMP " %[expect], %[v]\n\t"
 		"jnz %l[error2]\n\t"
-		LONG_CMP " %[expect2], %[v2]\n\t"
+		RSEQ_ASM_LONG_CMP " %[expect2], %[v2]\n\t"
 		"jnz %l[error3]\n\t"
 #endif
 		/* final store */
-		LONG_S " %[newv], %[v]\n\t"
+		RSEQ_ASM_LONG_S " %[newv], %[v]\n\t"
 		"2:\n\t"
 		RSEQ_INJECT_ASM(6)
 		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
@@ -301,19 +301,19 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store_store__ptr)(intptr_t *v, intpt
 		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, rseq_cs)
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, 4f)
 		RSEQ_INJECT_ASM(3)
-		LONG_CMP " %[expect], %[v]\n\t"
+		RSEQ_ASM_LONG_CMP " %[expect], %[v]\n\t"
 		"jnz %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, %l[error1])
-		LONG_CMP " %[expect], %[v]\n\t"
+		RSEQ_ASM_LONG_CMP " %[expect], %[v]\n\t"
 		"jnz %l[error2]\n\t"
 #endif
 		/* try store */
-		LONG_S " %[newv2], %[v2]\n\t"
+		RSEQ_ASM_LONG_S " %[newv2], %[v2]\n\t"
 		RSEQ_INJECT_ASM(5)
 		/* final store */
-		LONG_S " %[newv], %[v]\n\t"
+		RSEQ_ASM_LONG_S " %[newv], %[v]\n\t"
 		"2:\n\t"
 		RSEQ_INJECT_ASM(6)
 		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
@@ -372,61 +372,61 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error1])
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
 #endif
-		LONG_S " %[src], %[rseq_scratch0]\n\t"
-		LONG_S " %[dst], %[rseq_scratch1]\n\t"
-		LONG_S " %[len], %[rseq_scratch2]\n\t"
+		RSEQ_ASM_LONG_S " %[src], %[rseq_scratch0]\n\t"
+		RSEQ_ASM_LONG_S " %[dst], %[rseq_scratch1]\n\t"
+		RSEQ_ASM_LONG_S " %[len], %[rseq_scratch2]\n\t"
 		/* Start rseq by storing table entry pointer into rseq_cs. */
 		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, rseq_cs)
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, 4f)
 		RSEQ_INJECT_ASM(3)
-		LONG_CMP " %[expect], %[v]\n\t"
+		RSEQ_ASM_LONG_CMP " %[expect], %[v]\n\t"
 		"jnz 5f\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, 6f)
-		LONG_CMP " %[expect], %[v]\n\t"
+		RSEQ_ASM_LONG_CMP " %[expect], %[v]\n\t"
 		"jnz 7f\n\t"
 #endif
 		/* try memcpy */
-		LONG_LT_R " %[len], %[len]\n\t"
+		RSEQ_ASM_LONG_LT_R " %[len], %[len]\n\t"
 		"jz 333f\n\t"
 		"222:\n\t"
 		"ic %%r0,0(%[src])\n\t"
 		"stc %%r0,0(%[dst])\n\t"
-		LONG_ADDI " %[src], 1\n\t"
-		LONG_ADDI " %[dst], 1\n\t"
-		LONG_ADDI " %[len], -1\n\t"
+		RSEQ_ASM_LONG_ADDI " %[src], 1\n\t"
+		RSEQ_ASM_LONG_ADDI " %[dst], 1\n\t"
+		RSEQ_ASM_LONG_ADDI " %[len], -1\n\t"
 		"jnz 222b\n\t"
 		"333:\n\t"
 		RSEQ_INJECT_ASM(5)
 		/* final store */
-		LONG_S " %[newv], %[v]\n\t"
+		RSEQ_ASM_LONG_S " %[newv], %[v]\n\t"
 		"2:\n\t"
 		RSEQ_INJECT_ASM(6)
 		/* teardown */
-		LONG_L " %[len], %[rseq_scratch2]\n\t"
-		LONG_L " %[dst], %[rseq_scratch1]\n\t"
-		LONG_L " %[src], %[rseq_scratch0]\n\t"
+		RSEQ_ASM_LONG_L " %[len], %[rseq_scratch2]\n\t"
+		RSEQ_ASM_LONG_L " %[dst], %[rseq_scratch1]\n\t"
+		RSEQ_ASM_LONG_L " %[src], %[rseq_scratch0]\n\t"
 		RSEQ_ASM_DEFINE_ABORT(4,
-			LONG_L " %[len], %[rseq_scratch2]\n\t"
-			LONG_L " %[dst], %[rseq_scratch1]\n\t"
-			LONG_L " %[src], %[rseq_scratch0]\n\t",
+			RSEQ_ASM_LONG_L " %[len], %[rseq_scratch2]\n\t"
+			RSEQ_ASM_LONG_L " %[dst], %[rseq_scratch1]\n\t"
+			RSEQ_ASM_LONG_L " %[src], %[rseq_scratch0]\n\t",
 			abort)
 		RSEQ_ASM_DEFINE_TEARDOWN(5,
-			LONG_L " %[len], %[rseq_scratch2]\n\t"
-			LONG_L " %[dst], %[rseq_scratch1]\n\t"
-			LONG_L " %[src], %[rseq_scratch0]\n\t",
+			RSEQ_ASM_LONG_L " %[len], %[rseq_scratch2]\n\t"
+			RSEQ_ASM_LONG_L " %[dst], %[rseq_scratch1]\n\t"
+			RSEQ_ASM_LONG_L " %[src], %[rseq_scratch0]\n\t",
 			ne)
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_DEFINE_TEARDOWN(6,
-			LONG_L " %[len], %[rseq_scratch2]\n\t"
-			LONG_L " %[dst], %[rseq_scratch1]\n\t"
-			LONG_L " %[src], %[rseq_scratch0]\n\t",
+			RSEQ_ASM_LONG_L " %[len], %[rseq_scratch2]\n\t"
+			RSEQ_ASM_LONG_L " %[dst], %[rseq_scratch1]\n\t"
+			RSEQ_ASM_LONG_L " %[src], %[rseq_scratch0]\n\t",
 			error1)
 		RSEQ_ASM_DEFINE_TEARDOWN(7,
-			LONG_L " %[len], %[rseq_scratch2]\n\t"
-			LONG_L " %[dst], %[rseq_scratch1]\n\t"
-			LONG_L " %[src], %[rseq_scratch0]\n\t",
+			RSEQ_ASM_LONG_L " %[len], %[rseq_scratch2]\n\t"
+			RSEQ_ASM_LONG_L " %[dst], %[rseq_scratch1]\n\t"
+			RSEQ_ASM_LONG_L " %[src], %[rseq_scratch0]\n\t",
 			error2)
 #endif
 		: /* gcc asm goto does not allow outputs */
