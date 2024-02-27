@@ -18,19 +18,19 @@
 #endif
 
 #if __riscv_xlen == 64
-#define __REG_SEL(a, b)	a
+#define __RSEQ_ASM_REG_SEL(a, b)	a
 #elif __riscv_xlen == 32
-#define __REG_SEL(a, b)	b
+#define __RSEQ_ASM_REG_SEL(a, b)	b
 #endif
 
-#define REG_L	__REG_SEL("ld ", "lw ")
-#define REG_S	__REG_SEL("sd ", "sw ")
+#define RSEQ_ASM_REG_L	__RSEQ_ASM_REG_SEL("ld ", "lw ")
+#define RSEQ_ASM_REG_S	__RSEQ_ASM_REG_SEL("sd ", "sw ")
 
-#define RISCV_FENCE(p, s) \
+#define RSEQ_ASM_RISCV_FENCE(p, s) \
 	__asm__ __volatile__ ("fence " #p "," #s : : : "memory")
-#define rseq_smp_mb()	RISCV_FENCE(rw, rw)
-#define rseq_smp_rmb()	RISCV_FENCE(r, r)
-#define rseq_smp_wmb()	RISCV_FENCE(w, w)
+#define rseq_smp_mb()	RSEQ_ASM_RISCV_FENCE(rw, rw)
+#define rseq_smp_rmb()	RSEQ_ASM_RISCV_FENCE(r, r)
+#define rseq_smp_wmb()	RSEQ_ASM_RISCV_FENCE(w, w)
 #define RSEQ_ASM_TMP_REG_1	"t6"
 #define RSEQ_ASM_TMP_REG_2	"t5"
 #define RSEQ_ASM_TMP_REG_3	"t4"
@@ -39,7 +39,7 @@
 #define rseq_smp_load_acquire(p)					\
 __extension__ ({							\
 	rseq_unqual_scalar_typeof(*(p)) ____p1 = RSEQ_READ_ONCE(*(p));	\
-	RISCV_FENCE(r, rw);						\
+	RSEQ_ASM_RISCV_FENCE(r, rw);					\
 	____p1;								\
 })
 
@@ -47,7 +47,7 @@ __extension__ ({							\
 
 #define rseq_smp_store_release(p, v)					\
 do {									\
-	RISCV_FENCE(rw, w);						\
+	RSEQ_ASM_RISCV_FENCE(rw, w);					\
 	RSEQ_WRITE_ONCE(*(p), v);					\
 } while (0)
 
@@ -85,7 +85,7 @@ do {									\
 #define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs)		\
 	RSEQ_INJECT_ASM(1)						\
 	"la	" RSEQ_ASM_TMP_REG_1 ", " __rseq_str(cs_label) "\n"	\
-	REG_S	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(rseq_cs) "]\n"	\
+	RSEQ_ASM_REG_S	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(rseq_cs) "]\n" \
 	__rseq_str(label) ":\n"
 
 #define RSEQ_ASM_DEFINE_ABORT(label, teardown, abort_label)		\
@@ -98,10 +98,10 @@ do {									\
 	"222:\n"
 
 #define RSEQ_ASM_OP_STORE(value, var)					\
-	REG_S	"%[" __rseq_str(value) "], %[" __rseq_str(var) "]\n"
+	RSEQ_ASM_REG_S	"%[" __rseq_str(value) "], %[" __rseq_str(var) "]\n"
 
 #define RSEQ_ASM_OP_CBNE(var, expect, label)				\
-	REG_L	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"		\
+	RSEQ_ASM_REG_L	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"	\
 	"bne	" RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(expect) "] ,"	\
 		  __rseq_str(label) "\n"
 
@@ -111,7 +111,7 @@ do {									\
 		  __rseq_str(label) "\n"
 
 #define RSEQ_ASM_OP_CBEQ(var, expect, label)				\
-	REG_L	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"		\
+	RSEQ_ASM_REG_L	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"	\
 	"beq	" RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(expect) "] ,"	\
 		  __rseq_str(label) "\n"
 
@@ -120,15 +120,15 @@ do {									\
 	RSEQ_ASM_OP_CBNE32(current_cpu_id, cpu_id, label)
 
 #define RSEQ_ASM_OP_R_LOAD(var)						\
-	REG_L	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"
+	RSEQ_ASM_REG_L	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"
 
 #define RSEQ_ASM_OP_R_STORE(var)					\
-	REG_S	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"
+	RSEQ_ASM_REG_S	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"
 
 #define RSEQ_ASM_OP_R_LOAD_OFF(offset)					\
 	"add	" RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(offset) "], "	\
 		 RSEQ_ASM_TMP_REG_1 "\n"				\
-	REG_L	RSEQ_ASM_TMP_REG_1 ", (" RSEQ_ASM_TMP_REG_1 ")\n"
+	RSEQ_ASM_REG_L	RSEQ_ASM_TMP_REG_1 ", (" RSEQ_ASM_TMP_REG_1 ")\n"
 
 #define RSEQ_ASM_OP_R_ADD(count)					\
 	"add	" RSEQ_ASM_TMP_REG_1 ", " RSEQ_ASM_TMP_REG_1		\
@@ -144,7 +144,7 @@ do {									\
 	__rseq_str(post_commit_label) ":\n"
 
 #define RSEQ_ASM_OP_R_FINAL_STORE(var, post_commit_label)		\
-	REG_S	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"		\
+	RSEQ_ASM_REG_S	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"	\
 	__rseq_str(post_commit_label) ":\n"
 
 #define RSEQ_ASM_OP_R_BYTEWISE_MEMCPY(dst, src, len)			\
@@ -164,7 +164,7 @@ do {									\
 #define RSEQ_ASM_OP_R_DEREF_ADDV(ptr, off, post_commit_label)		\
 	"mv	" RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(ptr) "]\n"	\
 	RSEQ_ASM_OP_R_ADD(off)						\
-	REG_L	  RSEQ_ASM_TMP_REG_1 ", 0(" RSEQ_ASM_TMP_REG_1 ")\n"	\
+	RSEQ_ASM_REG_L	  RSEQ_ASM_TMP_REG_1 ", 0(" RSEQ_ASM_TMP_REG_1 ")\n" \
 	RSEQ_ASM_OP_R_ADD(inc)						\
 	__rseq_str(post_commit_label) ":\n"
 
