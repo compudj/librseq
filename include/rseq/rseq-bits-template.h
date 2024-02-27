@@ -6,7 +6,7 @@
  */
 
 #ifdef RSEQ_TEMPLATE_CPU_ID
-# define RSEQ_TEMPLATE_CPU_ID_OFFSET	RSEQ_CPU_ID_OFFSET
+# define RSEQ_TEMPLATE_CPU_ID_OFFSET	RSEQ_ASM_CPU_ID_OFFSET
 # define RSEQ_TEMPLATE_CPU_ID_FIELD	cpu_id
 # ifdef RSEQ_TEMPLATE_MO_RELEASE
 #  define RSEQ_TEMPLATE_SUFFIX		_release_cpu_id
@@ -16,7 +16,7 @@
 #  error "Never use <rseq-bits-template.h> directly; include <rseq.h> instead."
 # endif
 #elif defined(RSEQ_TEMPLATE_MM_CID)
-# define RSEQ_TEMPLATE_CPU_ID_OFFSET	RSEQ_MM_CID_OFFSET
+# define RSEQ_TEMPLATE_CPU_ID_OFFSET	RSEQ_ASM_MM_CID_OFFSET
 # define RSEQ_TEMPLATE_CPU_ID_FIELD	mm_cid
 # ifdef RSEQ_TEMPLATE_MO_RELEASE
 #  define RSEQ_TEMPLATE_SUFFIX		_release_mm_cid

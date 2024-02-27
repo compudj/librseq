@@ -27,9 +27,9 @@
  */
 
 /* Offset of cpu_id, rseq_cs, and mm_cid fields in struct rseq. */
-#define RSEQ_CPU_ID_OFFSET	4
-#define RSEQ_CS_OFFSET		8
-#define RSEQ_MM_CID_OFFSET	24
+#define RSEQ_ASM_CPU_ID_OFFSET		4
+#define RSEQ_ASM_CS_OFFSET		8
+#define RSEQ_ASM_MM_CID_OFFSET		24
 
 #define rseq_smp_mb()	\
 	__asm__ __volatile__ ("lock; addl $0,-128(%%rsp)" ::: "memory", "cc")
