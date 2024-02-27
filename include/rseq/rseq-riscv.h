@@ -170,7 +170,7 @@ do {									\
 
 /* Per-cpu-id indexing. */
 
-#define RSEQ_TEMPLATE_CPU_ID
+#define RSEQ_TEMPLATE_INDEX_CPU_ID
 #define RSEQ_TEMPLATE_MO_RELAXED
 #include "rseq-riscv-bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
@@ -178,11 +178,11 @@ do {									\
 #define RSEQ_TEMPLATE_MO_RELEASE
 #include "rseq-riscv-bits.h"
 #undef RSEQ_TEMPLATE_MO_RELEASE
-#undef RSEQ_TEMPLATE_CPU_ID
+#undef RSEQ_TEMPLATE_INDEX_CPU_ID
 
 /* Per-mm-cid indexing. */
 
-#define RSEQ_TEMPLATE_MM_CID
+#define RSEQ_TEMPLATE_INDEX_MM_CID
 #define RSEQ_TEMPLATE_MO_RELAXED
 #include "rseq-riscv-bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
@@ -190,12 +190,12 @@ do {									\
 #define RSEQ_TEMPLATE_MO_RELEASE
 #include "rseq-riscv-bits.h"
 #undef RSEQ_TEMPLATE_MO_RELEASE
-#undef RSEQ_TEMPLATE_MM_CID
+#undef RSEQ_TEMPLATE_INDEX_MM_CID
 
-/* APIs which are not based on cpu ids. */
+/* APIs which are not indexed. */
 
-#define RSEQ_TEMPLATE_CPU_ID_NONE
+#define RSEQ_TEMPLATE_INDEX_NONE
 #define RSEQ_TEMPLATE_MO_RELAXED
 #include "rseq-riscv-bits.h"
 #undef RSEQ_TEMPLATE_MO_RELAXED
-#undef RSEQ_TEMPLATE_CPU_ID_NONE
+#undef RSEQ_TEMPLATE_INDEX_NONE
