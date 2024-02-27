@@ -1,9 +1,14 @@
 /* SPDX-License-Identifier: MIT */
-/* SPDX-FileCopyrightText: 2016-2018 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
+/* SPDX-FileCopyrightText: 2016-2024 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
 /* SPDX-FileCopyrightText: 2016-2018 Boqun Feng <boqun.feng@gmail.com> */
 
 /*
  * rseq-ppc.h
+ */
+
+/*
+ * RSEQ_ASM_*() macro helpers are internal to the librseq headers. Those
+ * are not part of the public API.
  */
 
 /*
@@ -16,33 +21,41 @@
 
 #define RSEQ_SIG	0x0fe5000b
 
-#define rseq_smp_mb()		__asm__ __volatile__ ("sync"	::: "memory", "cc")
-#define rseq_smp_lwsync()	__asm__ __volatile__ ("lwsync"	::: "memory", "cc")
-#define rseq_smp_rmb()		rseq_smp_lwsync()
-#define rseq_smp_wmb()		rseq_smp_lwsync()
+/*
+ * Refer to the Linux kernel memory model (LKMM) for documentation of
+ * the memory barriers.
+ */
 
+/* CPU memory barrier. */
+#define rseq_smp_mb()		__asm__ __volatile__ ("sync"	::: "memory", "cc")
+/* Only used internally in this header. */
+#define __rseq_smp_lwsync()	__asm__ __volatile__ ("lwsync"	::: "memory", "cc")
+/* CPU read memory barrier */
+#define rseq_smp_rmb()		__rseq_smp_lwsync()
+/* CPU write memory barrier */
+#define rseq_smp_wmb()		__rseq_smp_lwsync()
+
+/* Acquire: One-way permeable barrier. */
 #define rseq_smp_load_acquire(p)					\
 __extension__ ({							\
 	rseq_unqual_scalar_typeof(*(p)) ____p1 = RSEQ_READ_ONCE(*(p));	\
-	rseq_smp_lwsync();						\
+	__rseq_smp_lwsync();						\
 	____p1;								\
 })
 
-#define rseq_smp_acquire__after_ctrl_dep()	rseq_smp_lwsync()
+/* Acquire barrier after control dependency. */
+#define rseq_smp_acquire__after_ctrl_dep()	__rseq_smp_lwsync()
 
+/* Release: One-way permeable barrier. */
 #define rseq_smp_store_release(p, v)					\
 do {									\
-	rseq_smp_lwsync();						\
+	__rseq_smp_lwsync();						\
 	RSEQ_WRITE_ONCE(*(p), v);					\
 } while (0)
 
-/*
- * The __rseq_cs_ptr_array and __rseq_cs sections can be used by debuggers to
- * better handle single-stepping through the restartable critical sections.
- */
-
 #ifdef __PPC64__
 
+/* Helpers only used internally in this header. */
 #define RSEQ_ASM_STORE_LONG(arg)	"std%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
 #define RSEQ_ASM_STORE_INT(arg)		"stw%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
 #define RSEQ_ASM_LOAD_LONG(arg)		"ld%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* From memory ("m" constraint) */
@@ -51,6 +64,7 @@ do {									\
 #define RSEQ_ASM_CMP_LONG		"cmpd "							/* Register-to-register comparison */
 #define RSEQ_ASM_CMP_LONG_INT		"cmpdi "						/* Register-to-immediate comparison */
 
+/* Only used in RSEQ_ASM_DEFINE_TABLE. */
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,				\
 			start_ip, post_commit_offset, abort_ip)			\
 		".pushsection __rseq_cs, \"aw\"\n\t"				\
@@ -63,6 +77,20 @@ do {									\
 		".quad " __rseq_str(label) "b\n\t"				\
 		".popsection\n\t"
 
+/*
+ * Store the address of the critical section descriptor structure at
+ * @cs_label into the @rseq_cs pointer and emit the label @label, which
+ * is the beginning of the sequence of consecutive assembly instructions.
+ *
+ *  @label:
+ *    Local label to the beginning of the sequence of consecutive assembly
+ *    instructions.
+ *  @cs_label:
+ *    Source local label to the critical section descriptor structure.
+ *  @rseq_cs:
+ *    Destination pointer where to store the address of the critical
+ *    section descriptor structure.
+ */
 #define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs)			\
 		RSEQ_INJECT_ASM(1)						\
 		"lis %%r17, (" __rseq_str(cs_label) ")@highest\n\t"		\
@@ -74,6 +102,15 @@ do {									\
 		__rseq_str(label) ":\n\t"
 
 /*
+ * Define the @exit_ip pointer as an exit point for the sequence of consecutive
+ * assembly instructions at @start_ip.
+ *
+ *  @start_ip:
+ *    Pointer to the first instruction of the sequence of consecutive assembly
+ *    instructions.
+ *  @exit_ip:
+ *    Pointer to an exit point instruction.
+ *
  * Exit points of a rseq critical section consist of all instructions outside
  * of the critical section where a critical section can either branch to or
  * reach through the normal course of its execution. The abort IP and the
@@ -88,6 +125,7 @@ do {									\
 
 #else /* #ifdef __PPC64__ */
 
+/* Helpers only used internally in this header. */
 #define RSEQ_ASM_STORE_LONG(arg)	"stw%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
 #define RSEQ_ASM_STORE_INT(arg)		RSEQ_ASM_STORE_LONG(arg)				/* To memory ("m" constraint) */
 #define RSEQ_ASM_LOAD_LONG(arg)		"lwz%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* From memory ("m" constraint) */
@@ -96,6 +134,7 @@ do {									\
 #define RSEQ_ASM_CMP_LONG		"cmpw "							/* Register-to-register comparison */
 #define RSEQ_ASM_CMP_LONG_INT		"cmpwi "						/* Register-to-immediate comparison */
 
+/* Only used in RSEQ_ASM_DEFINE_TABLE. */
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,				\
 			start_ip, post_commit_offset, abort_ip)			\
 		".pushsection __rseq_cs, \"aw\"\n\t"				\
@@ -110,6 +149,15 @@ do {									\
 		".popsection\n\t"
 
 /*
+ * Define the @exit_ip pointer as an exit point for the sequence of consecutive
+ * assembly instructions at @start_ip.
+ *
+ *  @start_ip:
+ *    Pointer to the first instruction of the sequence of consecutive assembly
+ *    instructions.
+ *  @exit_ip:
+ *    Pointer to an exit point instruction.
+ *
  * Exit points of a rseq critical section consist of all instructions outside
  * of the critical section where a critical section can either branch to or
  * reach through the normal course of its execution. The abort IP and the
@@ -123,6 +171,20 @@ do {									\
 		".long 0x0, " __rseq_str(start_ip) ", 0x0, " __rseq_str(exit_ip) "\n\t"	\
 		".popsection\n\t"
 
+/*
+ * Store the address of the critical section descriptor structure at
+ * @cs_label into the @rseq_cs pointer and emit the label @label, which
+ * is the beginning of the sequence of consecutive assembly instructions.
+ *
+ *  @label:
+ *    Local label to the beginning of the sequence of consecutive assembly
+ *    instructions.
+ *  @cs_label:
+ *    Source local label to the critical section descriptor structure.
+ *  @rseq_cs:
+ *    Destination pointer where to store the address of the critical
+ *    section descriptor structure.
+ */
 #define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs)			\
 		RSEQ_INJECT_ASM(1)						\
 		"lis %%r17, (" __rseq_str(cs_label) ")@ha\n\t"			\
@@ -132,16 +194,36 @@ do {									\
 
 #endif /* #ifdef __PPC64__ */
 
+/*
+ * Define an rseq critical section structure of version 0 with no flags.
+ *
+ *  @label:
+ *    Local label for the beginning of the critical section descriptor
+ *    structure.
+ *  @start_ip:
+ *    Pointer to the first instruction of the sequence of consecutive assembly
+ *    instructions.
+ *  @post_commit_ip:
+ *    Pointer to the instruction after the last instruction of the sequence of
+ *    consecutive assembly instructions.
+ *  @abort_ip:
+ *    Pointer to the instruction where to move the execution flow in case of
+ *    abort of the sequence of consecutive assembly instructions.
+ */
 #define RSEQ_ASM_DEFINE_TABLE(label, start_ip, post_commit_ip, abort_ip)	\
 		__RSEQ_ASM_DEFINE_TABLE(label, 0x0, 0x0, start_ip,		\
 					(post_commit_ip - start_ip), abort_ip)
 
-#define RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, label)			\
-		RSEQ_INJECT_ASM(2)						\
-		RSEQ_ASM_LOAD_INT(current_cpu_id) "%%r17, %[" __rseq_str(current_cpu_id) "]\n\t" \
-		"cmpw cr7, %[" __rseq_str(cpu_id) "], %%r17\n\t"		\
-		"bne- cr7, " __rseq_str(label) "\n\t"
-
+/*
+ * Define a critical section abort handler.
+ *
+ *  @label:
+ *    Local label to the abort handler.
+ *  @teardown:
+ *    Sequence of instructions to run on abort.
+ *  @abort_label:
+ *    C label to jump to at the end of the sequence.
+ */
 #define RSEQ_ASM_DEFINE_ABORT(label, teardown, abort_label)			\
 		".pushsection __rseq_failure, \"ax\"\n\t"			\
 		".long " __rseq_str(RSEQ_SIG) "\n\t"				\
@@ -150,21 +232,32 @@ do {									\
 		"b %l[" __rseq_str(abort_label) "]\n\t"				\
 		".popsection\n\t"
 
+/* Jump to local label @label when @cpu_id != @current_cpu_id. */
+#define RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, label)			\
+		RSEQ_INJECT_ASM(2)						\
+		RSEQ_ASM_LOAD_INT(current_cpu_id) "%%r17, %[" __rseq_str(current_cpu_id) "]\n\t" \
+		"cmpw cr7, %[" __rseq_str(cpu_id) "], %%r17\n\t"		\
+		"bne- cr7, " __rseq_str(label) "\n\t"
+
 /*
- * RSEQ_ASM_OPs: asm operations for rseq
- * 	RSEQ_ASM_OP_R_*: has hard-code registers in it
- * 	RSEQ_ASM_OP_* (else): doesn't have hard-code registers(unless cr7)
+ * RSEQ_ASM_OPs: asm operations for rseq. Only used internally by rseq headers.
+ * 	RSEQ_ASM_OP_R_*: has hard-coded registers in it
+ * 	RSEQ_ASM_OP_* (else): doesn't have hard-coded registers(unless cr7)
  */
+
+/* Jump to local label @label when @var != @expect. */
 #define RSEQ_ASM_OP_CBNE(var, expect, label)					\
 		RSEQ_ASM_LOAD_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"	\
 		RSEQ_ASM_CMP_LONG "cr7, %%r17, %[" __rseq_str(expect) "]\n\t"	\
 		"bne- cr7, " __rseq_str(label) "\n\t"
 
-#define RSEQ_ASM_OP_CBEQ(var, expectnot, label)					\
+/* Jump to local label @label when @var == @expect. */
+#define RSEQ_ASM_OP_CBEQ(var, expect, label)					\
 		RSEQ_ASM_LOAD_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"	\
-		RSEQ_ASM_CMP_LONG "cr7, %%r17, %[" __rseq_str(expectnot) "]\n\t" \
+		RSEQ_ASM_CMP_LONG "cr7, %%r17, %[" __rseq_str(expect) "]\n\t" \
 		"beq- cr7, " __rseq_str(label) "\n\t"
 
+/* Store @value to address @var. */
 #define RSEQ_ASM_OP_STORE(value, var)						\
 		RSEQ_ASM_STORE_LONG(var) "%[" __rseq_str(value) "], %[" __rseq_str(var) "]\n\t"
 
@@ -184,7 +277,10 @@ do {									\
 #define RSEQ_ASM_OP_R_LOADX(voffp)						\
 		RSEQ_ASM_LOADX_LONG "%%r17, %[" __rseq_str(voffp) "], %%r17\n\t"
 
-/* TODO: implement a faster memcpy. */
+/*
+ * Copy @len bytes from @src to @dst. This is an inefficient bytewise
+ * copy and could be improved in the future.
+ */
 #define RSEQ_ASM_OP_R_BYTEWISE_MEMCPY() \
 		RSEQ_ASM_CMP_LONG_INT "%%r19, 0\n\t" \
 		"beq 333f\n\t" \
@@ -198,10 +294,18 @@ do {									\
 		"bne 222b\n\t" \
 		"333:\n\t" \
 
+/*
+ * End-of-sequence store of r17 to address @var. Emit
+ * @post_commit_label label after the store instruction.
+ */
 #define RSEQ_ASM_OP_R_FINAL_STORE(var, post_commit_label)			\
 		RSEQ_ASM_STORE_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"	\
 		__rseq_str(post_commit_label) ":\n\t"
 
+/*
+ * End-of-sequence store of @value to address @var. Emit
+ * @post_commit_label label after the store instruction.
+ */
 #define RSEQ_ASM_OP_FINAL_STORE(value, var, post_commit_label)			\
 		RSEQ_ASM_STORE_LONG(var) "%[" __rseq_str(value) "], %[" __rseq_str(var) "]\n\t" \
 		__rseq_str(post_commit_label) ":\n\t"
