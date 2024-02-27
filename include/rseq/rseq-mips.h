@@ -134,7 +134,7 @@ do {									\
  */
 #define RSEQ_ASM_DEFINE_TABLE(label, start_ip, post_commit_ip, abort_ip) \
 	__RSEQ_ASM_DEFINE_TABLE(label, 0x0, 0x0, start_ip, \
-				(post_commit_ip - start_ip), abort_ip)
+				(post_commit_ip) - (start_ip), abort_ip)
 
 /*
  * Define the @exit_ip pointer as an exit point for the sequence of consecutive
@@ -195,7 +195,7 @@ do {									\
 			      table_label, start_ip, post_commit_ip, abort_ip) \
 	__RSEQ_ASM_DEFINE_ABORT(label, teardown, abort_label, \
 				table_label, 0x0, 0x0, start_ip, \
-				(post_commit_ip - start_ip), abort_ip)
+				(post_commit_ip) - (start_ip), abort_ip)
 
 /*
  * Define a critical section teardown handler.
