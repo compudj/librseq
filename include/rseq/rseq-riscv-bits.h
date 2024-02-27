@@ -364,7 +364,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 				  RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, "%l[error1]")
 				  RSEQ_ASM_OP_CBNE(v, expect, "%l[error2]")
 #endif
-				  RSEQ_ASM_OP_R_BAD_MEMCPY(dst, src, len)
+				  RSEQ_ASM_OP_R_BYTEWISE_MEMCPY(dst, src, len)
 				  RSEQ_INJECT_ASM(5)
 #ifdef RSEQ_TEMPLATE_MO_RELEASE
 				  RSEQ_ASM_OP_FINAL_STORE_RELEASE(newv, v, 3)

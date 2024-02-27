@@ -147,7 +147,7 @@ do {									\
 	REG_S	RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(var) "]\n"		\
 	__rseq_str(post_commit_label) ":\n"
 
-#define RSEQ_ASM_OP_R_BAD_MEMCPY(dst, src, len)				\
+#define RSEQ_ASM_OP_R_BYTEWISE_MEMCPY(dst, src, len)			\
 	"beqz	%[" __rseq_str(len) "], 333f\n"				\
 	"mv	" RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(len) "]\n"	\
 	"mv	" RSEQ_ASM_TMP_REG_2 ", %[" __rseq_str(src) "]\n"	\
