@@ -1,5 +1,15 @@
 /* SPDX-License-Identifier: MIT */
 /* SPDX-FileCopyrightText: 2018 Vasily Gorbik <gor@linux.ibm.com> */
+/* SPDX-FileCopyrightText: 2024 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
+
+/*
+ * rseq-s390.h
+ */
+
+/*
+ * RSEQ_ASM_*() macro helpers are internal to the librseq headers. Those
+ * are not part of the public API.
+ */
 
 /*
  * RSEQ_SIG uses the trap4 instruction. As Linux does not make use of the
@@ -10,10 +20,19 @@
  */
 #define RSEQ_SIG	0xB2FF0FFF
 
+/*
+ * Refer to the Linux kernel memory model (LKMM) for documentation of
+ * the memory barriers.
+ */
+
+/* CPU memory barrier. */
 #define rseq_smp_mb()	__asm__ __volatile__ ("bcr 15,0" ::: "memory")
+/* CPU read memory barrier */
 #define rseq_smp_rmb()	rseq_smp_mb()
+/* CPU write memory barrier */
 #define rseq_smp_wmb()	rseq_smp_mb()
 
+/* Acquire: One-way permeable barrier. */
 #define rseq_smp_load_acquire(p)					\
 __extension__ ({							\
 	rseq_unqual_scalar_typeof(*(p)) ____p1 = RSEQ_READ_ONCE(*(p));	\
@@ -21,8 +40,10 @@ __extension__ ({							\
 	____p1;								\
 })
 
+/* Acquire barrier after control dependency. */
 #define rseq_smp_acquire__after_ctrl_dep()	rseq_smp_rmb()
 
+/* Release: One-way permeable barrier. */
 #define rseq_smp_store_release(p, v)					\
 do {									\
 	rseq_barrier();							\
@@ -31,6 +52,10 @@ do {									\
 
 #ifdef __s390x__
 
+/*
+ * Helper macros to access a variable of pointer type stored in a 64-bit
+ * integer. Only used internally in rseq headers.
+ */
 #define RSEQ_ASM_LONG_L			"lg"
 #define RSEQ_ASM_LONG_S			"stg"
 #define RSEQ_ASM_LONG_LT_R		"ltgr"
@@ -39,6 +64,7 @@ do {									\
 #define RSEQ_ASM_LONG_ADDI		"aghi"
 #define RSEQ_ASM_LONG_ADD_R		"agr"
 
+/* Only used in RSEQ_ASM_DEFINE_TABLE. */
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,			\
 				start_ip, post_commit_offset, abort_ip)	\
 		".pushsection __rseq_cs, \"aw\"\n\t"			\
@@ -52,6 +78,15 @@ do {									\
 		".popsection\n\t"
 
 /*
+ * Define the @exit_ip pointer as an exit point for the sequence of consecutive
+ * assembly instructions at @start_ip.
+ *
+ *  @start_ip:
+ *    Pointer to the first instruction of the sequence of consecutive assembly
+ *    instructions.
+ *  @exit_ip:
+ *    Pointer to an exit point instruction.
+ *
  * Exit points of a rseq critical section consist of all instructions outside
  * of the critical section where a critical section can either branch to or
  * reach through the normal course of its execution. The abort IP and the
@@ -66,6 +101,19 @@ do {									\
 
 #elif __s390__
 
+/*
+ * Helper macros to access a variable of pointer type stored in a 64-bit
+ * integer. Only used internally in rseq headers.
+ */
+#define RSEQ_ASM_LONG_L			"l"
+#define RSEQ_ASM_LONG_S			"st"
+#define RSEQ_ASM_LONG_LT_R		"ltr"
+#define RSEQ_ASM_LONG_CMP		"c"
+#define RSEQ_ASM_LONG_CMP_R		"cr"
+#define RSEQ_ASM_LONG_ADDI		"ahi"
+#define RSEQ_ASM_LONG_ADD_R		"ar"
+
+/* Only used in RSEQ_ASM_DEFINE_TABLE. */
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,			\
 				start_ip, post_commit_offset, abort_ip)	\
 		".pushsection __rseq_cs, \"aw\"\n\t"			\
@@ -79,6 +127,15 @@ do {									\
 		".popsection\n\t"
 
 /*
+ * Define the @exit_ip pointer as an exit point for the sequence of consecutive
+ * assembly instructions at @start_ip.
+ *
+ *  @start_ip:
+ *    Pointer to the first instruction of the sequence of consecutive assembly
+ *    instructions.
+ *  @exit_ip:
+ *    Pointer to an exit point instruction.
+ *
  * Exit points of a rseq critical section consist of all instructions outside
  * of the critical section where a critical section can either branch to or
  * reach through the normal course of its execution. The abort IP and the
@@ -91,31 +148,38 @@ do {									\
 		".long 0x0, " __rseq_str(start_ip) ", 0x0, " __rseq_str(exit_ip) "\n\t" \
 		".popsection\n\t"
 
-#define RSEQ_ASM_LONG_L			"l"
-#define RSEQ_ASM_LONG_S			"st"
-#define RSEQ_ASM_LONG_LT_R		"ltr"
-#define RSEQ_ASM_LONG_CMP		"c"
-#define RSEQ_ASM_LONG_CMP_R		"cr"
-#define RSEQ_ASM_LONG_ADDI		"ahi"
-#define RSEQ_ASM_LONG_ADD_R		"ar"
-
 #endif
 
+/*
+ * Define an rseq critical section structure of version 0 with no flags.
+ *
+ *  @label:
+ *    Local label for the beginning of the critical section descriptor
+ *    structure.
+ *  @start_ip:
+ *    Pointer to the first instruction of the sequence of consecutive assembly
+ *    instructions.
+ *  @post_commit_ip:
+ *    Pointer to the instruction after the last instruction of the sequence of
+ *    consecutive assembly instructions.
+ *  @abort_ip:
+ *    Pointer to the instruction where to move the execution flow in case of
+ *    abort of the sequence of consecutive assembly instructions.
+ */
 #define RSEQ_ASM_DEFINE_TABLE(label, start_ip, post_commit_ip, abort_ip) \
 	__RSEQ_ASM_DEFINE_TABLE(label, 0x0, 0x0, start_ip,		\
 				(post_commit_ip - start_ip), abort_ip)
 
-#define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs)		\
-		RSEQ_INJECT_ASM(1)					\
-		"larl %%r0, " __rseq_str(cs_label) "\n\t"		\
-		RSEQ_ASM_LONG_S " %%r0, %[" __rseq_str(rseq_cs) "]\n\t"	\
-		__rseq_str(label) ":\n\t"
-
-#define RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, label)		\
-		RSEQ_INJECT_ASM(2)					\
-		"c %[" __rseq_str(cpu_id) "], %[" __rseq_str(current_cpu_id) "]\n\t" \
-		"jnz " __rseq_str(label) "\n\t"
-
+/*
+ * Define a critical section abort handler.
+ *
+ *  @label:
+ *    Local label to the abort handler.
+ *  @teardown:
+ *    Sequence of instructions to run on abort.
+ *  @abort_label:
+ *    C label to jump to at the end of the sequence.
+ */
 #define RSEQ_ASM_DEFINE_ABORT(label, teardown, abort_label)		\
 		".pushsection __rseq_failure, \"ax\"\n\t"		\
 		".long " __rseq_str(RSEQ_SIG) "\n\t"			\
@@ -124,12 +188,48 @@ do {									\
 		"jg %l[" __rseq_str(abort_label) "]\n\t"		\
 		".popsection\n\t"
 
+/*
+ * Define a critical section teardown handler.
+ *
+ *  @label:
+ *    Local label to the teardown handler.
+ *  @teardown:
+ *    Sequence of instructions to run on teardown.
+ *  @target_label:
+ *    C label to jump to at the end of the sequence.
+ */
 #define RSEQ_ASM_DEFINE_TEARDOWN(label, teardown, target_label)		\
 		".pushsection __rseq_failure, \"ax\"\n\t"		\
 		__rseq_str(label) ":\n\t"				\
 		teardown						\
 		"jg %l[" __rseq_str(target_label) "]\n\t"		\
 		".popsection\n\t"
+
+/*
+ * Store the address of the critical section descriptor structure at
+ * @cs_label into the @rseq_cs pointer and emit the label @label, which
+ * is the beginning of the sequence of consecutive assembly instructions.
+ *
+ *  @label:
+ *    Local label to the beginning of the sequence of consecutive assembly
+ *    instructions.
+ *  @cs_label:
+ *    Source local label to the critical section descriptor structure.
+ *  @rseq_cs:
+ *    Destination pointer where to store the address of the critical
+ *    section descriptor structure.
+ */
+#define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs)		\
+		RSEQ_INJECT_ASM(1)					\
+		"larl %%r0, " __rseq_str(cs_label) "\n\t"		\
+		RSEQ_ASM_LONG_S " %%r0, %[" __rseq_str(rseq_cs) "]\n\t"	\
+		__rseq_str(label) ":\n\t"
+
+/* Jump to local label @label when @cpu_id != @current_cpu_id. */
+#define RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, label)		\
+		RSEQ_INJECT_ASM(2)					\
+		"c %[" __rseq_str(cpu_id) "], %[" __rseq_str(current_cpu_id) "]\n\t" \
+		"jnz " __rseq_str(label) "\n\t"
 
 /* Per-cpu-id indexing. */
 
