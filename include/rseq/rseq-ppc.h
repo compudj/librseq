@@ -43,13 +43,13 @@ do {									\
 
 #ifdef __PPC64__
 
-#define RSEQ_STORE_LONG(arg)	"std%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
-#define RSEQ_STORE_INT(arg)	"stw%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
-#define RSEQ_LOAD_LONG(arg)	"ld%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* From memory ("m" constraint) */
-#define RSEQ_LOAD_INT(arg)	"lwz%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* From memory ("m" constraint) */
-#define RSEQ_LOADX_LONG		"ldx "							/* From base register ("b" constraint) */
-#define RSEQ_CMP_LONG		"cmpd "
-#define RSEQ_CMP_LONG_INT	"cmpdi "
+#define RSEQ_ASM_STORE_LONG(arg)	"std%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
+#define RSEQ_ASM_STORE_INT(arg)		"stw%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
+#define RSEQ_ASM_LOAD_LONG(arg)		"ld%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* From memory ("m" constraint) */
+#define RSEQ_ASM_LOAD_INT(arg)		"lwz%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* From memory ("m" constraint) */
+#define RSEQ_ASM_LOADX_LONG		"ldx "							/* From base register ("b" constraint) */
+#define RSEQ_ASM_CMP_LONG		"cmpd "							/* Register-to-register comparison */
+#define RSEQ_ASM_CMP_LONG_INT		"cmpdi "						/* Register-to-immediate comparison */
 
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,				\
 			start_ip, post_commit_offset, abort_ip)			\
@@ -88,13 +88,13 @@ do {									\
 
 #else /* #ifdef __PPC64__ */
 
-#define RSEQ_STORE_LONG(arg)	"stw%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
-#define RSEQ_STORE_INT(arg)	RSEQ_STORE_LONG(arg)					/* To memory ("m" constraint) */
-#define RSEQ_LOAD_LONG(arg)	"lwz%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* From memory ("m" constraint) */
-#define RSEQ_LOAD_INT(arg)	RSEQ_LOAD_LONG(arg)					/* From memory ("m" constraint) */
-#define RSEQ_LOADX_LONG		"lwzx "							/* From base register ("b" constraint) */
-#define RSEQ_CMP_LONG		"cmpw "
-#define RSEQ_CMP_LONG_INT	"cmpwi "
+#define RSEQ_ASM_STORE_LONG(arg)	"stw%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
+#define RSEQ_ASM_STORE_INT(arg)		RSEQ_ASM_STORE_LONG(arg)				/* To memory ("m" constraint) */
+#define RSEQ_ASM_LOAD_LONG(arg)		"lwz%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* From memory ("m" constraint) */
+#define RSEQ_ASM_LOAD_INT(arg)		RSEQ_ASM_LOAD_LONG(arg)					/* From memory ("m" constraint) */
+#define RSEQ_ASM_LOADX_LONG		"lwzx "							/* From base register ("b" constraint) */
+#define RSEQ_ASM_CMP_LONG		"cmpw "							/* Register-to-register comparison */
+#define RSEQ_ASM_CMP_LONG_INT		"cmpwi "						/* Register-to-immediate comparison */
 
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,				\
 			start_ip, post_commit_offset, abort_ip)			\
@@ -127,7 +127,7 @@ do {									\
 		RSEQ_INJECT_ASM(1)						\
 		"lis %%r17, (" __rseq_str(cs_label) ")@ha\n\t"			\
 		"addi %%r17, %%r17, (" __rseq_str(cs_label) ")@l\n\t"		\
-		RSEQ_STORE_INT(rseq_cs) "%%r17, %[" __rseq_str(rseq_cs) "]\n\t"	\
+		RSEQ_ASM_STORE_INT(rseq_cs) "%%r17, %[" __rseq_str(rseq_cs) "]\n\t" \
 		__rseq_str(label) ":\n\t"
 
 #endif /* #ifdef __PPC64__ */
@@ -138,7 +138,7 @@ do {									\
 
 #define RSEQ_ASM_CBNE_CPU_ID(cpu_id, current_cpu_id, label)			\
 		RSEQ_INJECT_ASM(2)						\
-		RSEQ_LOAD_INT(current_cpu_id) "%%r17, %[" __rseq_str(current_cpu_id) "]\n\t" \
+		RSEQ_ASM_LOAD_INT(current_cpu_id) "%%r17, %[" __rseq_str(current_cpu_id) "]\n\t" \
 		"cmpw cr7, %[" __rseq_str(cpu_id) "], %%r17\n\t"		\
 		"bne- cr7, " __rseq_str(label) "\n\t"
 
@@ -156,25 +156,25 @@ do {									\
  * 	RSEQ_ASM_OP_* (else): doesn't have hard-code registers(unless cr7)
  */
 #define RSEQ_ASM_OP_CBNE(var, expect, label)					\
-		RSEQ_LOAD_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"		\
-		RSEQ_CMP_LONG "cr7, %%r17, %[" __rseq_str(expect) "]\n\t"		\
+		RSEQ_ASM_LOAD_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"	\
+		RSEQ_ASM_CMP_LONG "cr7, %%r17, %[" __rseq_str(expect) "]\n\t"	\
 		"bne- cr7, " __rseq_str(label) "\n\t"
 
-#define RSEQ_ASM_OP_CBEQ(var, expectnot, label)				\
-		RSEQ_LOAD_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"		\
-		RSEQ_CMP_LONG "cr7, %%r17, %[" __rseq_str(expectnot) "]\n\t"		\
+#define RSEQ_ASM_OP_CBEQ(var, expectnot, label)					\
+		RSEQ_ASM_LOAD_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"	\
+		RSEQ_ASM_CMP_LONG "cr7, %%r17, %[" __rseq_str(expectnot) "]\n\t" \
 		"beq- cr7, " __rseq_str(label) "\n\t"
 
 #define RSEQ_ASM_OP_STORE(value, var)						\
-		RSEQ_STORE_LONG(var) "%[" __rseq_str(value) "], %[" __rseq_str(var) "]\n\t"
+		RSEQ_ASM_STORE_LONG(var) "%[" __rseq_str(value) "], %[" __rseq_str(var) "]\n\t"
 
 /* Load @var to r17 */
 #define RSEQ_ASM_OP_R_LOAD(var)							\
-		RSEQ_LOAD_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"
+		RSEQ_ASM_LOAD_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"
 
 /* Store r17 to @var */
 #define RSEQ_ASM_OP_R_STORE(var)						\
-		RSEQ_STORE_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"
+		RSEQ_ASM_STORE_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"
 
 /* Add @count to r17 */
 #define RSEQ_ASM_OP_R_ADD(count)						\
@@ -182,11 +182,11 @@ do {									\
 
 /* Load (r17 + voffp) to r17 */
 #define RSEQ_ASM_OP_R_LOADX(voffp)						\
-		RSEQ_LOADX_LONG "%%r17, %[" __rseq_str(voffp) "], %%r17\n\t"
+		RSEQ_ASM_LOADX_LONG "%%r17, %[" __rseq_str(voffp) "], %%r17\n\t"
 
 /* TODO: implement a faster memcpy. */
 #define RSEQ_ASM_OP_R_MEMCPY() \
-		RSEQ_CMP_LONG_INT "%%r19, 0\n\t" \
+		RSEQ_ASM_CMP_LONG_INT "%%r19, 0\n\t" \
 		"beq 333f\n\t" \
 		"addi %%r20, %%r20, -1\n\t" \
 		"addi %%r21, %%r21, -1\n\t" \
@@ -194,16 +194,16 @@ do {									\
 		"lbzu %%r18, 1(%%r20)\n\t" \
 		"stbu %%r18, 1(%%r21)\n\t" \
 		"addi %%r19, %%r19, -1\n\t" \
-		RSEQ_CMP_LONG_INT "%%r19, 0\n\t" \
+		RSEQ_ASM_CMP_LONG_INT "%%r19, 0\n\t" \
 		"bne 222b\n\t" \
 		"333:\n\t" \
 
 #define RSEQ_ASM_OP_R_FINAL_STORE(var, post_commit_label)			\
-		RSEQ_STORE_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"			\
+		RSEQ_ASM_STORE_LONG(var) "%%r17, %[" __rseq_str(var) "]\n\t"	\
 		__rseq_str(post_commit_label) ":\n\t"
 
 #define RSEQ_ASM_OP_FINAL_STORE(value, var, post_commit_label)			\
-		RSEQ_STORE_LONG(var) "%[" __rseq_str(value) "], %[" __rseq_str(var) "]\n\t" \
+		RSEQ_ASM_STORE_LONG(var) "%[" __rseq_str(value) "], %[" __rseq_str(var) "]\n\t" \
 		__rseq_str(post_commit_label) ":\n\t"
 
 /* Per-cpu-id indexing. */
