@@ -518,6 +518,12 @@ error2:
 
 #elif defined(__i386__)
 
+/*
+ * On x86-32, use eax as scratch register and take memory operands as
+ * input to lessen register pressure. Especially needed when compiling
+ * in O0.
+ */
+
 #if defined(RSEQ_TEMPLATE_MO_RELAXED) && \
 	(defined(RSEQ_TEMPLATE_INDEX_CPU_ID) || defined(RSEQ_TEMPLATE_INDEX_MM_CID))
 
