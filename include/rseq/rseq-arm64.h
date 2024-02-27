@@ -192,7 +192,7 @@ do {										\
 	"	str	" RSEQ_ASM_TMP_REG ", %[" __rseq_str(var) "]\n"		\
 	__rseq_str(post_commit_label) ":\n"
 
-#define RSEQ_ASM_OP_R_BAD_MEMCPY(dst, src, len)					\
+#define RSEQ_ASM_OP_R_BYTEWISE_MEMCPY(dst, src, len)				\
 	"	cbz	%[" __rseq_str(len) "], 333f\n"				\
 	"	mov	" RSEQ_ASM_TMP_REG_2 ", %[" __rseq_str(len) "]\n"	\
 	"222:	sub	" RSEQ_ASM_TMP_REG_2 ", " RSEQ_ASM_TMP_REG_2 ", #1\n"	\
