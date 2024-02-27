@@ -171,8 +171,8 @@ do {									\
 		__rseq_str(label) ":\n\t"
 
 /* Only used in RSEQ_ASM_DEFINE_ABORT.  */
-#define __RSEQ_ASM_DEFINE_ABORT(table_label, label, teardown,		\
-				abort_label, version, flags,		\
+#define __RSEQ_ASM_DEFINE_ABORT(label, teardown, abort_label,		\
+				table_label, version, flags,		\
 				start_ip, post_commit_offset, abort_ip)	\
 		".balign 32\n\t"					\
 		__rseq_str(table_label) ":\n\t"				\
@@ -186,24 +186,24 @@ do {									\
 /*
  * Define a critical section abort handler.
  *
- *  @table_label:
- *    Local label to the critical section descriptor copy placed near
- *    the program counter. This is done for performance reasons because
- *    computing this address is faster than accessing the program data.
  *  @label:
  *    Local label to the abort handler.
  *  @teardown:
  *    Sequence of instructions to run on abort.
  *  @abort_label:
  *    C label to jump to at the end of the sequence.
+ *  @table_label:
+ *    Local label to the critical section descriptor copy placed near
+ *    the program counter. This is done for performance reasons because
+ *    computing this address is faster than accessing the program data.
  *
  * The purpose of @start_ip, @post_commit_ip, and @abort_ip are
  * documented in RSEQ_ASM_DEFINE_TABLE.
  */
-#define RSEQ_ASM_DEFINE_ABORT(table_label, label, teardown, abort_label, \
-			      start_ip, post_commit_ip, abort_ip)	\
-	__RSEQ_ASM_DEFINE_ABORT(table_label, label, teardown,		\
-				abort_label, 0x0, 0x0, start_ip,	\
+#define RSEQ_ASM_DEFINE_ABORT(label, teardown, abort_label,		\
+			      table_label, start_ip, post_commit_ip, abort_ip) \
+	__RSEQ_ASM_DEFINE_ABORT(label, teardown, abort_label,		\
+				table_label, 0x0, 0x0, start_ip,	\
 				(post_commit_ip - start_ip), abort_ip)
 
 /*
