@@ -44,12 +44,14 @@ dist_noinst_SCRIPTS = \
 	run_unregistered_test_cxx.tap \
 	run_unregistered_test.tap
 
+if ENABLE_SHARED
 if ENABLE_SECCOMP
 noinst_LTLIBRARIES = libdisable-rseq-syscall.la
 
 libdisable_rseq_syscall_la_SOURCES = disable-rseq-syscall.c
 libdisable_rseq_syscall_la_LDFLAGS = -module -shared -avoid-version -rpath $(abs_builddir)/.libs/
 libdisable_rseq_syscall_la_LIBADD = $(SECCOMP_LIBS)
+endif
 endif
 
 basic_percpu_ops_test_tap_SOURCES = basic_percpu_ops_test.c
@@ -137,10 +139,12 @@ TESTS = \
 	run_unregistered_test.tap \
 	run_unregistered_test_cxx.tap
 
+if ENABLE_SHARED
 if ENABLE_SECCOMP
 TESTS += \
 	run_no_syscall_test.tap \
 	run_no_syscall_test_cxx.tap
+endif
 endif
 
 # Run longer tests last

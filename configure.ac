@@ -206,7 +206,8 @@ AE_FEATURE([Werror], [Treat compiler warnings as errors.])
 ## Set automake variables for optional feature conditionnals in Makefile.am ##
 ##                                                                          ##
 
-AM_CONDITIONAL([ENABLE_SECCOMP], test "x${have_seccomp}" = "xyes")
+AM_CONDITIONAL([ENABLE_SHARED], [test "x${enable_shared}" = "xyes"])
+AM_CONDITIONAL([ENABLE_SECCOMP], [test "x${have_seccomp}" = "xyes"])
 
 
 ##                                             ##
