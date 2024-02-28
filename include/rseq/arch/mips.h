@@ -10,10 +10,16 @@
 #error "Never use <rseq/arch/mips.h> directly; include <rseq/rseq.h> instead."
 #endif
 
+#include <asm/byteorder.h>
+
 /*
  * RSEQ_ASM_*() macro helpers are internal to the librseq headers. Those
  * are not part of the public API.
  */
+
+#if (RSEQ_BITS_PER_LONG != 64) && (RSEQ_BITS_PER_LONG != 32)
+# error unsupported RSEQ_BITS_PER_LONG
+#endif
 
 /*
  * RSEQ_SIG uses the break instruction. The instruction pattern is:
@@ -80,29 +86,35 @@ do {									\
 } while (0)
 
 /*
- * Helper macros to define and access a variable of pointer type stored
- * in a 64-bit integer. Only used internally in rseq headers.
+ * Helper macros to define and access a variable of long integer type.
+ * Only used internally in rseq headers.
  */
-#if _MIPS_SZLONG == 64
+#if RSEQ_BITS_PER_LONG == 64
 # define RSEQ_ASM_LONG			".dword"
 # define RSEQ_ASM_LONG_LA		"dla"
 # define RSEQ_ASM_LONG_L		"ld"
 # define RSEQ_ASM_LONG_S		"sd"
 # define RSEQ_ASM_LONG_ADDI		"daddiu"
-# define RSEQ_ASM_U32_U64_PAD(x)	x
-#elif _MIPS_SZLONG == 32
+#else
 # define RSEQ_ASM_LONG			".word"
 # define RSEQ_ASM_LONG_LA		"la"
 # define RSEQ_ASM_LONG_L		"lw"
 # define RSEQ_ASM_LONG_S		"sw"
 # define RSEQ_ASM_LONG_ADDI		"addiu"
-# ifdef __BIG_ENDIAN
-#  define RSEQ_ASM_U32_U64_PAD(x)	"0x0, " x
-# else
-#  define RSEQ_ASM_U32_U64_PAD(x)	x ", 0x0"
-# endif
+#endif
+
+/*
+ * Helper macros to define a variable of pointer type stored in a 64-bit
+ * integer. Only used internally in rseq headers.
+ */
+#if RSEQ_BITS_PER_LONG == 64
+# define RSEQ_ASM_U64_PTR(x)		".dword " x
 #else
-# error unsupported _MIPS_SZLONG
+# if defined(__BYTE_ORDER) ? (__BYTE_ORDER == __BIG_ENDIAN) : defined(__BIG_ENDIAN)
+#  define RSEQ_ASM_U64_PTR(x)		".word 0x0, " x
+# else
+#  define RSEQ_ASM_U64_PTR(x)		".word " x ", 0x0"
+# endif
 #endif
 
 /* Only used in RSEQ_ASM_DEFINE_TABLE. */
@@ -112,12 +124,12 @@ do {									\
 		".balign 32\n\t" \
 		__rseq_str(label) ":\n\t" \
 		".word " __rseq_str(version) ", " __rseq_str(flags) "\n\t" \
-		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(start_ip)) "\n\t" \
-		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(post_commit_offset)) "\n\t" \
-		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(abort_ip)) "\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(post_commit_offset)) "\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(abort_ip)) "\n\t" \
 		".popsection\n\t" \
 		".pushsection __rseq_cs_ptr_array, \"aw\"\n\t" \
-		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(label) "b") "\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(label) "b") "\n\t" \
 		".popsection\n\t"
 
 /*
@@ -159,8 +171,8 @@ do {									\
  */
 #define RSEQ_ASM_DEFINE_EXIT_POINT(start_ip, exit_ip) \
 		".pushsection __rseq_exit_point_array, \"aw\"\n\t" \
-		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(start_ip)) "\n\t" \
-		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(exit_ip)) "\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(exit_ip)) "\n\t" \
 		".popsection\n\t"
 
 /* Only used in RSEQ_ASM_DEFINE_ABORT. */
@@ -170,9 +182,9 @@ do {									\
 		".balign 32\n\t" \
 		__rseq_str(table_label) ":\n\t" \
 		".word " __rseq_str(version) ", " __rseq_str(flags) "\n\t" \
-		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(start_ip)) "\n\t" \
-		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(post_commit_offset)) "\n\t" \
-		RSEQ_ASM_LONG " " RSEQ_ASM_U32_U64_PAD(__rseq_str(abort_ip)) "\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(post_commit_offset)) "\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(abort_ip)) "\n\t" \
 		".word " __rseq_str(RSEQ_SIG) "\n\t" \
 		__rseq_str(label) ":\n\t" \
 		teardown \
