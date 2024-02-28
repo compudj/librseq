@@ -57,29 +57,38 @@ do {									\
 	RSEQ_WRITE_ONCE(*(p), v);					\
 } while (0)
 
+/*
+ * Helper macros to define and access a variable of long integer type.
+ * Only used internally in rseq headers.
+ */
 #ifdef RSEQ_ARCH_PPC64
+# define RSEQ_ASM_STORE_LONG(arg)	"std%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
+# define RSEQ_ASM_STORE_INT(arg)	"stw%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
+# define RSEQ_ASM_LOAD_LONG(arg)	"ld%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* From memory ("m" constraint) */
+# define RSEQ_ASM_LOAD_INT(arg)		"lwz%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* From memory ("m" constraint) */
+# define RSEQ_ASM_LOADX_LONG		"ldx "							/* From base register ("b" constraint) */
+# define RSEQ_ASM_CMP_LONG		"cmpd "							/* Register-to-register comparison */
+# define RSEQ_ASM_CMP_LONG_INT		"cmpdi "						/* Register-to-immediate comparison */
+#else
+# define RSEQ_ASM_STORE_LONG(arg)	"stw%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
+# define RSEQ_ASM_STORE_INT(arg)	RSEQ_ASM_STORE_LONG(arg)				/* To memory ("m" constraint) */
+# define RSEQ_ASM_LOAD_LONG(arg)	"lwz%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* From memory ("m" constraint) */
+# define RSEQ_ASM_LOAD_INT(arg)		RSEQ_ASM_LOAD_LONG(arg)					/* From memory ("m" constraint) */
+# define RSEQ_ASM_LOADX_LONG		"lwzx "							/* From base register ("b" constraint) */
+# define RSEQ_ASM_CMP_LONG		"cmpw "							/* Register-to-register comparison */
+# define RSEQ_ASM_CMP_LONG_INT		"cmpwi "						/* Register-to-immediate comparison */
+#endif
 
-/* Helpers only used internally in this header. */
-#define RSEQ_ASM_STORE_LONG(arg)	"std%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
-#define RSEQ_ASM_STORE_INT(arg)		"stw%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
-#define RSEQ_ASM_LOAD_LONG(arg)		"ld%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* From memory ("m" constraint) */
-#define RSEQ_ASM_LOAD_INT(arg)		"lwz%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* From memory ("m" constraint) */
-#define RSEQ_ASM_LOADX_LONG		"ldx "							/* From base register ("b" constraint) */
-#define RSEQ_ASM_CMP_LONG		"cmpd "							/* Register-to-register comparison */
-#define RSEQ_ASM_CMP_LONG_INT		"cmpdi "						/* Register-to-immediate comparison */
-
-/* Only used in RSEQ_ASM_DEFINE_TABLE. */
-#define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,				\
-			start_ip, post_commit_offset, abort_ip)			\
-		".pushsection __rseq_cs, \"aw\"\n\t"				\
-		".balign 32\n\t"						\
-		__rseq_str(label) ":\n\t"					\
-		".long " __rseq_str(version) ", " __rseq_str(flags) "\n\t"	\
-		".quad " __rseq_str(start_ip) ", " __rseq_str(post_commit_offset) ", " __rseq_str(abort_ip) "\n\t" \
-		".popsection\n\t"						\
-		".pushsection __rseq_cs_ptr_array, \"aw\"\n\t"			\
-		".quad " __rseq_str(label) "b\n\t"				\
-		".popsection\n\t"
+/*
+ * Helper macros to define a variable of pointer type stored in a 64-bit
+ * integer. Only used internally in rseq headers.
+ */
+#ifdef RSEQ_ARCH_PPC64
+# define RSEQ_ASM_U64_PTR(x)		".quad " x
+#else
+/* 32-bit only supported on big endian. */
+# define RSEQ_ASM_U64_PTR(x)		".long 0x0, " x
+#endif
 
 /*
  * Store the address of the critical section descriptor structure at
@@ -95,7 +104,8 @@ do {									\
  *    Destination pointer where to store the address of the critical
  *    section descriptor structure.
  */
-#define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs)			\
+#ifdef RSEQ_ARCH_PPC64
+# define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs)			\
 		RSEQ_INJECT_ASM(1)						\
 		"lis %%r17, (" __rseq_str(cs_label) ")@highest\n\t"		\
 		"ori %%r17, %%r17, (" __rseq_str(cs_label) ")@higher\n\t"	\
@@ -104,39 +114,14 @@ do {									\
 		"ori %%r17, %%r17, (" __rseq_str(cs_label) ")@l\n\t"		\
 		"std %%r17, %[" __rseq_str(rseq_cs) "]\n\t"			\
 		__rseq_str(label) ":\n\t"
-
-/*
- * Define the @exit_ip pointer as an exit point for the sequence of consecutive
- * assembly instructions at @start_ip.
- *
- *  @start_ip:
- *    Pointer to the first instruction of the sequence of consecutive assembly
- *    instructions.
- *  @exit_ip:
- *    Pointer to an exit point instruction.
- *
- * Exit points of a rseq critical section consist of all instructions outside
- * of the critical section where a critical section can either branch to or
- * reach through the normal course of its execution. The abort IP and the
- * post-commit IP are already part of the __rseq_cs section and should not be
- * explicitly defined as additional exit points. Knowing all exit points is
- * useful to assist debuggers stepping over the critical section.
- */
-#define RSEQ_ASM_DEFINE_EXIT_POINT(start_ip, exit_ip)			\
-		".pushsection __rseq_exit_point_array, \"aw\"\n\t"	\
-		".quad " __rseq_str(start_ip) ", " __rseq_str(exit_ip) "\n\t" \
-		".popsection\n\t"
-
-#else /* #ifdef RSEQ_ARCH_PPC64 */
-
-/* Helpers only used internally in this header. */
-#define RSEQ_ASM_STORE_LONG(arg)	"stw%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* To memory ("m" constraint) */
-#define RSEQ_ASM_STORE_INT(arg)		RSEQ_ASM_STORE_LONG(arg)				/* To memory ("m" constraint) */
-#define RSEQ_ASM_LOAD_LONG(arg)		"lwz%U[" __rseq_str(arg) "]%X[" __rseq_str(arg) "] "	/* From memory ("m" constraint) */
-#define RSEQ_ASM_LOAD_INT(arg)		RSEQ_ASM_LOAD_LONG(arg)					/* From memory ("m" constraint) */
-#define RSEQ_ASM_LOADX_LONG		"lwzx "							/* From base register ("b" constraint) */
-#define RSEQ_ASM_CMP_LONG		"cmpw "							/* Register-to-register comparison */
-#define RSEQ_ASM_CMP_LONG_INT		"cmpwi "						/* Register-to-immediate comparison */
+#else
+# define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs)			\
+		RSEQ_INJECT_ASM(1)						\
+		"lis %%r17, (" __rseq_str(cs_label) ")@ha\n\t"			\
+		"addi %%r17, %%r17, (" __rseq_str(cs_label) ")@l\n\t"		\
+		RSEQ_ASM_STORE_INT(rseq_cs) "%%r17, %[" __rseq_str(rseq_cs) "]\n\t" \
+		__rseq_str(label) ":\n\t"
+#endif
 
 /* Only used in RSEQ_ASM_DEFINE_TABLE. */
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,				\
@@ -145,58 +130,13 @@ do {									\
 		".balign 32\n\t"						\
 		__rseq_str(label) ":\n\t"					\
 		".long " __rseq_str(version) ", " __rseq_str(flags) "\n\t"	\
-		/* 32-bit only supported on BE */				\
-		".long 0x0, " __rseq_str(start_ip) ", 0x0, " __rseq_str(post_commit_offset) ", 0x0, " __rseq_str(abort_ip) "\n\t" \
-		".popsection\n\t"					\
-		".pushsection __rseq_cs_ptr_array, \"aw\"\n\t"		\
-		".long 0x0, " __rseq_str(label) "b\n\t"			\
+		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t"			\
+		RSEQ_ASM_U64_PTR(__rseq_str(post_commit_offset)) "\n\t"		\
+		RSEQ_ASM_U64_PTR(__rseq_str(abort_ip)) "\n\t"			\
+		".popsection\n\t"						\
+		".pushsection __rseq_cs_ptr_array, \"aw\"\n\t"			\
+		RSEQ_ASM_U64_PTR(__rseq_str(label) "b") "\n\t"			\
 		".popsection\n\t"
-
-/*
- * Define the @exit_ip pointer as an exit point for the sequence of consecutive
- * assembly instructions at @start_ip.
- *
- *  @start_ip:
- *    Pointer to the first instruction of the sequence of consecutive assembly
- *    instructions.
- *  @exit_ip:
- *    Pointer to an exit point instruction.
- *
- * Exit points of a rseq critical section consist of all instructions outside
- * of the critical section where a critical section can either branch to or
- * reach through the normal course of its execution. The abort IP and the
- * post-commit IP are already part of the __rseq_cs section and should not be
- * explicitly defined as additional exit points. Knowing all exit points is
- * useful to assist debuggers stepping over the critical section.
- */
-#define RSEQ_ASM_DEFINE_EXIT_POINT(start_ip, exit_ip)				\
-		".pushsection __rseq_exit_point_array, \"aw\"\n\t"		\
-		/* 32-bit only supported on BE */				\
-		".long 0x0, " __rseq_str(start_ip) ", 0x0, " __rseq_str(exit_ip) "\n\t"	\
-		".popsection\n\t"
-
-/*
- * Store the address of the critical section descriptor structure at
- * @cs_label into the @rseq_cs pointer and emit the label @label, which
- * is the beginning of the sequence of consecutive assembly instructions.
- *
- *  @label:
- *    Local label to the beginning of the sequence of consecutive assembly
- *    instructions.
- *  @cs_label:
- *    Source local label to the critical section descriptor structure.
- *  @rseq_cs:
- *    Destination pointer where to store the address of the critical
- *    section descriptor structure.
- */
-#define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs)			\
-		RSEQ_INJECT_ASM(1)						\
-		"lis %%r17, (" __rseq_str(cs_label) ")@ha\n\t"			\
-		"addi %%r17, %%r17, (" __rseq_str(cs_label) ")@l\n\t"		\
-		RSEQ_ASM_STORE_INT(rseq_cs) "%%r17, %[" __rseq_str(rseq_cs) "]\n\t" \
-		__rseq_str(label) ":\n\t"
-
-#endif /* #ifdef RSEQ_ARCH_PPC64 */
 
 /*
  * Define an rseq critical section structure of version 0 with no flags.
@@ -217,6 +157,29 @@ do {									\
 #define RSEQ_ASM_DEFINE_TABLE(label, start_ip, post_commit_ip, abort_ip)	\
 		__RSEQ_ASM_DEFINE_TABLE(label, 0x0, 0x0, start_ip,		\
 					(post_commit_ip) - (start_ip), abort_ip)
+
+/*
+ * Define the @exit_ip pointer as an exit point for the sequence of consecutive
+ * assembly instructions at @start_ip.
+ *
+ *  @start_ip:
+ *    Pointer to the first instruction of the sequence of consecutive assembly
+ *    instructions.
+ *  @exit_ip:
+ *    Pointer to an exit point instruction.
+ *
+ * Exit points of a rseq critical section consist of all instructions outside
+ * of the critical section where a critical section can either branch to or
+ * reach through the normal course of its execution. The abort IP and the
+ * post-commit IP are already part of the __rseq_cs section and should not be
+ * explicitly defined as additional exit points. Knowing all exit points is
+ * useful to assist debuggers stepping over the critical section.
+ */
+#define RSEQ_ASM_DEFINE_EXIT_POINT(start_ip, exit_ip)			\
+		".pushsection __rseq_exit_point_array, \"aw\"\n\t"	\
+		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t"		\
+		RSEQ_ASM_U64_PTR(__rseq_str(exit_ip)) "\n\t"		\
+		".popsection\n\t"
 
 /*
  * Define a critical section abort handler.
