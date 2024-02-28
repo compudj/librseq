@@ -54,105 +54,49 @@ do {									\
 	RSEQ_WRITE_ONCE(*(p), v);					\
 } while (0)
 
+/*
+ * Helper macros to access a variable of long integer type. Only used
+ * internally in rseq headers.
+ */
 #ifdef RSEQ_ARCH_S390X
+# define RSEQ_ASM_LONG_L		"lg"
+# define RSEQ_ASM_LONG_S		"stg"
+# define RSEQ_ASM_LONG_LT_R		"ltgr"
+# define RSEQ_ASM_LONG_CMP		"cg"
+# define RSEQ_ASM_LONG_CMP_R		"cgr"
+# define RSEQ_ASM_LONG_ADDI		"aghi"
+# define RSEQ_ASM_LONG_ADD_R		"agr"
+#else
+# define RSEQ_ASM_LONG_L		"l"
+# define RSEQ_ASM_LONG_S		"st"
+# define RSEQ_ASM_LONG_LT_R		"ltr"
+# define RSEQ_ASM_LONG_CMP		"c"
+# define RSEQ_ASM_LONG_CMP_R		"cr"
+# define RSEQ_ASM_LONG_ADDI		"ahi"
+# define RSEQ_ASM_LONG_ADD_R		"ar"
+#endif
 
-/*
- * Helper macros to access a variable of pointer type stored in a 64-bit
- * integer. Only used internally in rseq headers.
- */
-#define RSEQ_ASM_LONG_L			"lg"
-#define RSEQ_ASM_LONG_S			"stg"
-#define RSEQ_ASM_LONG_LT_R		"ltgr"
-#define RSEQ_ASM_LONG_CMP		"cg"
-#define RSEQ_ASM_LONG_CMP_R		"cgr"
-#define RSEQ_ASM_LONG_ADDI		"aghi"
-#define RSEQ_ASM_LONG_ADD_R		"agr"
-
-/* Only used in RSEQ_ASM_DEFINE_TABLE. */
-#define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,			\
-				start_ip, post_commit_offset, abort_ip)	\
-		".pushsection __rseq_cs, \"aw\"\n\t"			\
-		".balign 32\n\t"					\
-		__rseq_str(label) ":\n\t"				\
-		".long " __rseq_str(version) ", " __rseq_str(flags) "\n\t" \
-		".quad " __rseq_str(start_ip) ", " __rseq_str(post_commit_offset) ", " __rseq_str(abort_ip) "\n\t" \
-		".popsection\n\t"					\
-		".pushsection __rseq_cs_ptr_array, \"aw\"\n\t"		\
-		".quad " __rseq_str(label) "b\n\t"			\
-		".popsection\n\t"
-
-/*
- * Define the @exit_ip pointer as an exit point for the sequence of consecutive
- * assembly instructions at @start_ip.
- *
- *  @start_ip:
- *    Pointer to the first instruction of the sequence of consecutive assembly
- *    instructions.
- *  @exit_ip:
- *    Pointer to an exit point instruction.
- *
- * Exit points of a rseq critical section consist of all instructions outside
- * of the critical section where a critical section can either branch to or
- * reach through the normal course of its execution. The abort IP and the
- * post-commit IP are already part of the __rseq_cs section and should not be
- * explicitly defined as additional exit points. Knowing all exit points is
- * useful to assist debuggers stepping over the critical section.
- */
-#define RSEQ_ASM_DEFINE_EXIT_POINT(start_ip, exit_ip)			\
-		".pushsection __rseq_exit_point_array, \"aw\"\n\t"	\
-		".quad " __rseq_str(start_ip) ", " __rseq_str(exit_ip) "\n\t" \
-		".popsection\n\t"
-
-#else /* #ifdef RSEQ_ARCH_S390X */
-
-/*
- * Helper macros to access a variable of pointer type stored in a 64-bit
- * integer. Only used internally in rseq headers.
- */
-#define RSEQ_ASM_LONG_L			"l"
-#define RSEQ_ASM_LONG_S			"st"
-#define RSEQ_ASM_LONG_LT_R		"ltr"
-#define RSEQ_ASM_LONG_CMP		"c"
-#define RSEQ_ASM_LONG_CMP_R		"cr"
-#define RSEQ_ASM_LONG_ADDI		"ahi"
-#define RSEQ_ASM_LONG_ADD_R		"ar"
+#ifdef RSEQ_ARCH_S390X
+# define RSEQ_ASM_U64_PTR(x)		".quad " x
+#else
+/* 32-bit only supported on big endian. */
+# define RSEQ_ASM_U64_PTR(x)		".long 0x0, " x
+#endif
 
 /* Only used in RSEQ_ASM_DEFINE_TABLE. */
-#define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,			\
-				start_ip, post_commit_offset, abort_ip)	\
-		".pushsection __rseq_cs, \"aw\"\n\t"			\
-		".balign 32\n\t"					\
-		__rseq_str(label) ":\n\t"				\
-		".long " __rseq_str(version) ", " __rseq_str(flags) "\n\t" \
-		".long 0x0, " __rseq_str(start_ip) ", 0x0, " __rseq_str(post_commit_offset) ", 0x0, " __rseq_str(abort_ip) "\n\t" \
-		".popsection\n\t"					\
-		".pushsection __rseq_cs_ptr_array, \"aw\"\n\t"		\
-		".long 0x0, " __rseq_str(label) "b\n\t"			\
+#define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,				\
+			start_ip, post_commit_offset, abort_ip)			\
+		".pushsection __rseq_cs, \"aw\"\n\t"				\
+		".balign 32\n\t"						\
+		__rseq_str(label) ":\n\t"					\
+		".long " __rseq_str(version) ", " __rseq_str(flags) "\n\t"	\
+		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t"			\
+		RSEQ_ASM_U64_PTR(__rseq_str(post_commit_offset)) "\n\t"		\
+		RSEQ_ASM_U64_PTR(__rseq_str(abort_ip)) "\n\t"			\
+		".popsection\n\t"						\
+		".pushsection __rseq_cs_ptr_array, \"aw\"\n\t"			\
+		RSEQ_ASM_U64_PTR(__rseq_str(label) "b") "\n\t"			\
 		".popsection\n\t"
-
-/*
- * Define the @exit_ip pointer as an exit point for the sequence of consecutive
- * assembly instructions at @start_ip.
- *
- *  @start_ip:
- *    Pointer to the first instruction of the sequence of consecutive assembly
- *    instructions.
- *  @exit_ip:
- *    Pointer to an exit point instruction.
- *
- * Exit points of a rseq critical section consist of all instructions outside
- * of the critical section where a critical section can either branch to or
- * reach through the normal course of its execution. The abort IP and the
- * post-commit IP are already part of the __rseq_cs section and should not be
- * explicitly defined as additional exit points. Knowing all exit points is
- * useful to assist debuggers stepping over the critical section.
- */
-#define RSEQ_ASM_DEFINE_EXIT_POINT(start_ip, exit_ip)			\
-		".pushsection __rseq_exit_point_array, \"aw\"\n\t"	\
-		".long 0x0, " __rseq_str(start_ip) ", 0x0, " __rseq_str(exit_ip) "\n\t" \
-		".popsection\n\t"
-
-#endif /* #ifdef RSEQ_ARCH_S390X */
 
 /*
  * Define an rseq critical section structure of version 0 with no flags.
@@ -173,6 +117,29 @@ do {									\
 #define RSEQ_ASM_DEFINE_TABLE(label, start_ip, post_commit_ip, abort_ip) \
 	__RSEQ_ASM_DEFINE_TABLE(label, 0x0, 0x0, start_ip,		\
 				(post_commit_ip) - (start_ip), abort_ip)
+
+/*
+ * Define the @exit_ip pointer as an exit point for the sequence of consecutive
+ * assembly instructions at @start_ip.
+ *
+ *  @start_ip:
+ *    Pointer to the first instruction of the sequence of consecutive assembly
+ *    instructions.
+ *  @exit_ip:
+ *    Pointer to an exit point instruction.
+ *
+ * Exit points of a rseq critical section consist of all instructions outside
+ * of the critical section where a critical section can either branch to or
+ * reach through the normal course of its execution. The abort IP and the
+ * post-commit IP are already part of the __rseq_cs section and should not be
+ * explicitly defined as additional exit points. Knowing all exit points is
+ * useful to assist debuggers stepping over the critical section.
+ */
+#define RSEQ_ASM_DEFINE_EXIT_POINT(start_ip, exit_ip)			\
+		".pushsection __rseq_exit_point_array, \"aw\"\n\t"	\
+		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t"		\
+		RSEQ_ASM_U64_PTR(__rseq_str(exit_ip)) "\n\t"		\
+		".popsection\n\t"
 
 /*
  * Define a critical section abort handler.
