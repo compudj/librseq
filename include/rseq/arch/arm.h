@@ -99,6 +99,12 @@ do {									\
 	RSEQ_WRITE_ONCE(*(p), v);					\
 } while (0)
 
+#ifdef __ARMEB__	/* Big endian */
+# define RSEQ_ASM_U64_PTR(x)		".word 0x0, " x
+#else			/* Little endian */
+# define RSEQ_ASM_U64_PTR(x)		".word " x ", 0x0"
+#endif
+
 /* Only used in RSEQ_ASM_DEFINE_TABLE. */
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags, start_ip,	\
 				post_commit_offset, abort_ip)		\
@@ -106,10 +112,12 @@ do {									\
 		".balign 32\n\t"					\
 		__rseq_str(label) ":\n\t"				\
 		".word " __rseq_str(version) ", " __rseq_str(flags) "\n\t" \
-		".word " __rseq_str(start_ip) ", 0x0, " __rseq_str(post_commit_offset) ", 0x0, " __rseq_str(abort_ip) ", 0x0\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t"		\
+		RSEQ_ASM_U64_PTR(__rseq_str(post_commit_offset)) "\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(abort_ip)) "\n\t"		\
 		".popsection\n\t"					\
 		".pushsection __rseq_cs_ptr_array, \"aw\"\n\t"		\
-		".word " __rseq_str(label) "b, 0x0\n\t"			\
+		RSEQ_ASM_U64_PTR(__rseq_str(label) "b") "\n\t"		\
 		".popsection\n\t"
 
 /*
@@ -151,7 +159,8 @@ do {									\
  */
 #define RSEQ_ASM_DEFINE_EXIT_POINT(start_ip, exit_ip)			\
 		".pushsection __rseq_exit_point_array, \"aw\"\n\t"	\
-		".word " __rseq_str(start_ip) ", 0x0, " __rseq_str(exit_ip) ", 0x0\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t"		\
+		RSEQ_ASM_U64_PTR(__rseq_str(exit_ip)) "\n\t"		\
 		".popsection\n\t"
 
 /*
@@ -181,7 +190,9 @@ do {									\
 		".balign 32\n\t"					\
 		__rseq_str(table_label) ":\n\t"				\
 		".word " __rseq_str(version) ", " __rseq_str(flags) "\n\t" \
-		".word " __rseq_str(start_ip) ", 0x0, " __rseq_str(post_commit_offset) ", 0x0, " __rseq_str(abort_ip) ", 0x0\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t"		\
+		RSEQ_ASM_U64_PTR(__rseq_str(post_commit_offset)) "\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(abort_ip)) "\n\t"		\
 		".word " __rseq_str(RSEQ_SIG) "\n\t"			\
 		__rseq_str(label) ":\n\t"				\
 		teardown						\
