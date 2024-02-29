@@ -27,6 +27,7 @@ nobase_include_HEADERS = \
 	rseq/compiler.h \
 	rseq/inject.h \
 	rseq/pseudocode.h \
+	rseq/percpu-alloc.h \
 	rseq/rseq.h \
 	rseq/thread-pointer.h \
 	rseq/utils.h
