@@ -63,10 +63,10 @@
  * instruction (.inst) in assembler.
  */
 
-#ifdef __ARMEB__
-#define RSEQ_SIG    0xf3def5e7      /* udf    #24035    ; 0x5de3 (ARMv6+) */
-#else
-#define RSEQ_SIG    0xe7f5def3      /* udf    #24035    ; 0x5de3 */
+#ifdef __ARMEB__	/* Big endian */
+# define RSEQ_SIG	0xf3def5e7	/* udf    #24035    ; 0x5de3 (ARMv6+) */
+#else			/* Little endian */
+# define RSEQ_SIG	0xe7f5def3	/* udf    #24035    ; 0x5de3 */
 #endif
 
 /*
