@@ -90,6 +90,8 @@ do {									\
 # define RSEQ_ASM_U64_PTR(x)		".long 0x0, " x
 #endif
 
+#define RSEQ_ASM_U32(x)			".long " x
+
 /*
  * Store the address of the critical section descriptor structure at
  * @cs_label into the @rseq_cs pointer and emit the label @label, which
@@ -129,7 +131,8 @@ do {									\
 		".pushsection __rseq_cs, \"aw\"\n\t"				\
 		".balign 32\n\t"						\
 		__rseq_str(label) ":\n\t"					\
-		".long " __rseq_str(version) ", " __rseq_str(flags) "\n\t"	\
+		RSEQ_ASM_U32(__rseq_str(version)) "\n\t" 			\
+		RSEQ_ASM_U32(__rseq_str(flags)) "\n\t" 				\
 		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t"			\
 		RSEQ_ASM_U64_PTR(__rseq_str(post_commit_offset)) "\n\t"		\
 		RSEQ_ASM_U64_PTR(__rseq_str(abort_ip)) "\n\t"			\
@@ -193,7 +196,7 @@ do {									\
  */
 #define RSEQ_ASM_DEFINE_ABORT(label, teardown, abort_label)			\
 		".pushsection __rseq_failure, \"ax\"\n\t"			\
-		".long " __rseq_str(RSEQ_SIG) "\n\t"				\
+		RSEQ_ASM_U32(__rseq_str(RSEQ_SIG)) "\n\t"			\
 		__rseq_str(label) ":\n\t"					\
 		teardown							\
 		"b %l[" __rseq_str(abort_label) "]\n\t"				\
