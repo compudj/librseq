@@ -5,8 +5,8 @@
  * rseq/arch/generic/thread-pointer.h
  */
 
-#ifndef _RSEQ_GENERIC_THREAD_POINTER
-#define _RSEQ_GENERIC_THREAD_POINTER
+#ifndef _RSEQ_GENERIC_THREAD_POINTER_H
+#define _RSEQ_GENERIC_THREAD_POINTER_H
 
 #ifdef __cplusplus
 extern "C" {
