@@ -6,6 +6,7 @@ nobase_include_HEADERS = \
 	rseq/arch/aarch64.h \
 	rseq/arch/arm/bits.h \
 	rseq/arch/arm.h \
+	rseq/arch/generic/common.h \
 	rseq/arch/generic/thread-pointer.h \
 	rseq/arch/mips/bits.h \
 	rseq/arch/mips.h \
