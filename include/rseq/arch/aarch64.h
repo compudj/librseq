@@ -108,6 +108,7 @@ do {										\
 } while (0)
 
 #define RSEQ_ASM_U64_PTR(x)	".quad " x
+#define RSEQ_ASM_U32(x)		".long " x
 
 /* Temporary scratch registers. */
 #define RSEQ_ASM_TMP_REG32	"w15"
@@ -120,7 +121,8 @@ do {										\
 	"	.pushsection	__rseq_cs, \"aw\"\n"				\
 	"	.balign	32\n"							\
 	__rseq_str(label) ":\n"							\
-	"	.long	" __rseq_str(version) ", " __rseq_str(flags) "\n"	\
+	"	" RSEQ_ASM_U32(__rseq_str(version)) "\n"			\
+	"	" RSEQ_ASM_U32(__rseq_str(flags)) "\n"				\
 	"	" RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n"			\
 	"	" RSEQ_ASM_U64_PTR(__rseq_str(post_commit_offset)) "\n"		\
 	"	" RSEQ_ASM_U64_PTR(__rseq_str(abort_ip)) "\n"			\
