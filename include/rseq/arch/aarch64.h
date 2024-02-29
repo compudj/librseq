@@ -107,6 +107,8 @@ do {										\
 	}									\
 } while (0)
 
+#define RSEQ_ASM_U64_PTR(x)	".quad " x
+
 /* Temporary scratch registers. */
 #define RSEQ_ASM_TMP_REG32	"w15"
 #define RSEQ_ASM_TMP_REG	"x15"
@@ -119,12 +121,12 @@ do {										\
 	"	.balign	32\n"							\
 	__rseq_str(label) ":\n"							\
 	"	.long	" __rseq_str(version) ", " __rseq_str(flags) "\n"	\
-	"	.quad	" __rseq_str(start_ip) ", "				\
-			  __rseq_str(post_commit_offset) ", "			\
-			  __rseq_str(abort_ip) "\n"				\
+	"	" RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n"			\
+	"	" RSEQ_ASM_U64_PTR(__rseq_str(post_commit_offset)) "\n"		\
+	"	" RSEQ_ASM_U64_PTR(__rseq_str(abort_ip)) "\n"			\
 	"	.popsection\n\t"						\
 	"	.pushsection __rseq_cs_ptr_array, \"aw\"\n"			\
-	"	.quad " __rseq_str(label) "b\n"					\
+	"	" RSEQ_ASM_U64_PTR(__rseq_str(label) "b") "\n"			\
 	"	.popsection\n"
 
 /*
@@ -166,7 +168,8 @@ do {										\
  */
 #define RSEQ_ASM_DEFINE_EXIT_POINT(start_ip, exit_ip)				\
 	"	.pushsection __rseq_exit_point_array, \"aw\"\n"			\
-	"	.quad " __rseq_str(start_ip) ", " __rseq_str(exit_ip) "\n"	\
+	"	" RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n"			\
+	"	" RSEQ_ASM_U64_PTR(__rseq_str(exit_ip)) "\n"			\
 	"	.popsection\n"
 
 /*
