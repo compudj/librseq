@@ -136,11 +136,8 @@ do {									\
 				start_ip, post_commit_offset, abort_ip)	\
 		".balign 32\n\t"					\
 		__rseq_str(table_label) ":\n\t"				\
-		RSEQ_ASM_U32(__rseq_str(version)) "\n\t" 		\
-		RSEQ_ASM_U32(__rseq_str(flags)) "\n\t" 			\
-		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t"		\
-		RSEQ_ASM_U64_PTR(__rseq_str(post_commit_offset)) "\n\t" \
-		RSEQ_ASM_U64_PTR(__rseq_str(abort_ip)) "\n\t"		\
+		__RSEQ_ASM_DEFINE_CS_FIELDS(version, flags,		\
+			start_ip, post_commit_offset, abort_ip) "\n\t"	\
 		RSEQ_ASM_U32(__rseq_str(RSEQ_SIG)) "\n\t"		\
 		__rseq_str(label) ":\n\t"				\
 		teardown						\

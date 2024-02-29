@@ -8,12 +8,25 @@
 #ifndef _RSEQ_GENERIC_COMMON_H
 #define _RSEQ_GENERIC_COMMON_H
 
+/*
+ * Define the rseq critical section descriptor fields.
+ */
+ #define __RSEQ_ASM_DEFINE_CS_FIELDS(version, flags,			\
+				start_ip, post_commit_offset, abort_ip)	\
+		RSEQ_ASM_U32(__rseq_str(version)) "\n\t" 		\
+		RSEQ_ASM_U32(__rseq_str(flags)) "\n\t" 			\
+		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t"		\
+		RSEQ_ASM_U64_PTR(__rseq_str(post_commit_offset)) "\n\t" \
+		RSEQ_ASM_U64_PTR(__rseq_str(abort_ip))
+
 /* Only used in RSEQ_ASM_DEFINE_TABLE. */
 #define __RSEQ_ASM_DEFINE_TABLE(label, version, flags,			\
 				start_ip, post_commit_offset, abort_ip)	\
 		".pushsection __rseq_cs, \"aw\"\n\t"			\
 		".balign 32\n\t"					\
 		__rseq_str(label) ":\n\t"				\
+		__RSEQ_ASM_DEFINE_CS_FIELDS(version, flags,		\
+			start_ip, post_commit_offset, abort_ip) "\n\t"	\
 		RSEQ_ASM_U32(__rseq_str(version)) "\n\t" 		\
 		RSEQ_ASM_U32(__rseq_str(flags)) "\n\t" 			\
 		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t"		\
