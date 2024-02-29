@@ -12,6 +12,12 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
+
+#ifdef HAVE_LIBNUMA
+# include <numa.h>
+# include <numaif.h>
+#endif
 
 /*
  * rseq-percpu-alloc.c: rseq per-cpu memory allocator.
@@ -176,15 +182,96 @@ int get_count_order_ulong(unsigned long x)
 	return fls_ulong(x - 1);
 }
 
+static
+long rseq_get_page_len(void)
+{
+	long page_len = sysconf(_SC_PAGE_SIZE);
+
+	if (page_len < 0)
+		page_len = DEFAULT_PAGE_SIZE;
+	return page_len;
+}
+
+static
+void *__rseq_pool_percpu_ptr(struct rseq_percpu_pool *pool, int cpu, uintptr_t item_offset)
+{
+	return pool->base + (pool->percpu_len * cpu) + item_offset;
+}
+
+void *__rseq_percpu_ptr(void *_ptr, int cpu)
+{
+	uintptr_t ptr = (uintptr_t) _ptr;
+	uintptr_t item_offset = ptr >> OFFSET_SHIFT;
+	uintptr_t pool_index = ptr & POOL_MASK;
+	struct rseq_percpu_pool *pool = &rseq_percpu_pool[pool_index];
+
+	assert(cpu >= 0);
+	return __rseq_pool_percpu_ptr(pool, cpu, item_offset);
+}
+
+static
+void rseq_percpu_zero_item(struct rseq_percpu_pool *pool, uintptr_t item_offset)
+{
+	int i;
+
+	for (i = 0; i < pool->max_nr_cpus; i++) {
+		char *p = __rseq_pool_percpu_ptr(pool, i, item_offset);
+		memset(p, 0, pool->item_len);
+	}
+}
+
+#ifdef HAVE_LIBNUMA
+static
+void rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool,
+		int numa_flags)
+{
+	unsigned long nr_pages, page;
+	long ret, page_len;
+	int cpu;
+
+	if (!numa_flags)
+		return;
+	page_len = rseq_get_page_len();
+	nr_pages = pool->percpu_len >> get_count_order_ulong(page_len);
+	for (cpu = 0; cpu < pool->max_nr_cpus; cpu++) {
+		int node = numa_node_of_cpu(cpu);
+
+		/* TODO: batch move_pages() call with an array of pages. */
+		for (page = 0; page < nr_pages; page++) {
+			void *pageptr = __rseq_pool_percpu_ptr(pool, cpu, page * page_len);
+			int status = -EPERM;
+
+			ret = move_pages(0, 1, &pageptr, &node, &status, numa_flags);
+			if (ret) {
+				perror("move_pages");
+				abort();
+			}
+		}
+	}
+}
+#else
+static
+void rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool __attribute__((unused)),
+		int numa_flags __attribute__((unused)))
+{
+}
+#endif
+
+/*
+ * Expected numa_flags:
+ *   0:                do not move pages to specific numa nodes (use for e.g. mm_cid indexing).
+ *   MPOL_MF_MOVE:     move process-private pages to cpu-specific numa nodes.
+ *   MPOL_MF_MOVE_ALL: move shared pages to cpu-specific numa nodes (requires CAP_SYS_NICE).
+ */
 struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 		size_t percpu_len, int max_nr_cpus,
-		int prot, int flags, int fd, off_t offset)
+		int mmap_prot, int mmap_flags, int mmap_fd,
+		off_t mmap_offset, int numa_flags)
 {
 	struct rseq_percpu_pool *pool;
 	void *base;
 	unsigned int i;
 	int order;
-	long page_len;
 
 	/* Make sure each item is large enough to contain free list pointers. */
 	if (item_len < sizeof(void *))
@@ -199,10 +286,7 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 	item_len = 1UL << order;
 
 	/* Align percpu_len on page size. */
-	page_len = sysconf(_SC_PAGE_SIZE);
-	if (page_len < 0)
-		page_len = DEFAULT_PAGE_SIZE;
-	percpu_len = rseq_align(percpu_len, page_len);
+	percpu_len = rseq_align(percpu_len, rseq_get_page_len());
 
 	if (max_nr_cpus < 0 || item_len > percpu_len ||
 			percpu_len > (UINTPTR_MAX >> OFFSET_SHIFT)) {
@@ -222,13 +306,13 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 	goto end;
 
 found_empty:
-	base = mmap(NULL, percpu_len * max_nr_cpus, prot, flags, fd, offset);
+	base = mmap(NULL, percpu_len * max_nr_cpus, mmap_prot,
+			mmap_flags, mmap_fd, mmap_offset);
 	if (base == MAP_FAILED) {
 		pool = NULL;
 		goto end;
 	}
-	// TODO: integrate with libnuma to provide NUMA placement hints.
-	// See move_pages(2).
+	rseq_percpu_pool_init_numa(pool, numa_flags);
 	pthread_mutex_init(&pool->lock, NULL);
 	pool->base = base;
 	pool->percpu_len = percpu_len;
@@ -259,34 +343,6 @@ int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
 end:
 	pthread_mutex_unlock(&pool_lock);
 	return 0;
-}
-
-static
-void *__rseq_pool_percpu_ptr(struct rseq_percpu_pool *pool, int cpu, uintptr_t item_offset)
-{
-	return pool->base + (pool->percpu_len * cpu) + item_offset;
-}
-
-void *__rseq_percpu_ptr(void *_ptr, int cpu)
-{
-	uintptr_t ptr = (uintptr_t) _ptr;
-	uintptr_t item_offset = ptr >> OFFSET_SHIFT;
-	uintptr_t pool_index = ptr & POOL_MASK;
-	struct rseq_percpu_pool *pool = &rseq_percpu_pool[pool_index];
-
-	assert(cpu >= 0);
-	return __rseq_pool_percpu_ptr(pool, cpu, item_offset);
-}
-
-static
-void rseq_percpu_zero_item(struct rseq_percpu_pool *pool, uintptr_t item_offset)
-{
-	int i;
-
-	for (i = 0; i < pool->max_nr_cpus; i++) {
-		char *p = __rseq_pool_percpu_ptr(pool, i, item_offset);
-		memset(p, 0, pool->item_len);
-	}
 }
 
 static

@@ -9,5 +9,9 @@ librseq_la_SOURCES = \
 librseq_la_LDFLAGS = -no-undefined -version-info $(RSEQ_LIBRARY_VERSION)
 librseq_la_LIBADD = $(DL_LIBS)
 
+if ENABLE_NUMA
+librseq_la_LIBADD += -lnuma
+endif
+
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = librseq.pc

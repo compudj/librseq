@@ -196,10 +196,31 @@ PKG_CHECK_MODULES([SECCOMP], [libseccomp],
 ## Optional features selection ##
 ##                             ##
 
+# Enabled by default
+AE_FEATURE_DEFAULT_ENABLE
+AE_FEATURE([numa],[disable NUMA support])
+
 # When given, add -Werror to WARN_CFLAGS and WARN_CXXFLAGS.
 # Disabled by default
 AE_FEATURE_DEFAULT_DISABLE
 AE_FEATURE([Werror], [Treat compiler warnings as errors.])
+
+##                                          ##
+## Check for optional features dependencies ##
+##                                          ##
+
+# The numa integration requires libnuma
+AE_IF_FEATURE_ENABLED([numa], [
+  AC_CHECK_LIB([numa], [numa_available], [
+    AC_DEFINE([HAVE_LIBNUMA], [1], [Define to 1 if libnuma is available.])
+  ], [
+    AC_MSG_ERROR([dnl
+libnuma is not available. Please either install it (e.g. libnuma-dev) or use
+[LDFLAGS]=-Ldir to specify the right location, or use --disable-numa configure
+argument to disable NUMA support.
+    ])
+  ])
+])
 
 
 ##                                                                          ##
@@ -208,7 +229,7 @@ AE_FEATURE([Werror], [Treat compiler warnings as errors.])
 
 AM_CONDITIONAL([ENABLE_SHARED], [test "x${enable_shared}" = "xyes"])
 AM_CONDITIONAL([ENABLE_SECCOMP], [test "x${have_seccomp}" = "xyes"])
-
+AM_CONDITIONAL([ENABLE_NUMA], AE_IS_FEATURE_ENABLED([numa]))
 
 ##                                             ##
 ## Substitute variables for use in Makefile.am ##
@@ -264,6 +285,8 @@ AS_ECHO
 PPRINT_SUBTITLE([Features])
 
 PPRINT_PROP_STRING([Target architecture], $host_cpu)
+AE_IS_FEATURE_ENABLED([numa]) && value=1 || value=0
+PPRINT_PROP_BOOL([NUMA], $value)
 
 report_bindir="`eval eval echo $bindir`"
 report_libdir="`eval eval echo $libdir`"

@@ -15,7 +15,8 @@ struct rseq_percpu_pool;
 
 struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 		size_t percpu_len, int max_nr_cpus,
-		int prot, int flags, int fd, off_t offset);
+		int mmap_prot, int mmap_flags, int mmap_fd, off_t mmap_offset,
+		int numa_flags);
 int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool);
 
 void *rseq_percpu_malloc(struct rseq_percpu_pool *pool);
