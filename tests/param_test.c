@@ -20,6 +20,9 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <rseq/percpu-alloc.h>
+
+#define PERCPU_POOL_LEN		(1024*1024)	/* 1MB */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0)
 enum {
@@ -346,25 +349,21 @@ int rseq_membarrier_expedited(int cpu)
 # endif /* TEST_MEMBARRIER */
 #endif
 
-struct percpu_lock_entry {
-	intptr_t v;
-} __attribute__((aligned(128)));
-
 struct percpu_lock {
-	struct percpu_lock_entry c[CPU_SETSIZE];
+	intptr_t v;
 };
 
 struct test_data_entry {
 	intptr_t count;
-} __attribute__((aligned(128)));
+};
 
 struct spinlock_test_data {
 	struct percpu_lock lock;
-	struct test_data_entry c[CPU_SETSIZE];
+	intptr_t count;
 };
 
 struct spinlock_thread_test_data {
-	struct spinlock_test_data *data;
+	struct spinlock_test_data *data;	/* Per-cpu pointer */
 	long long reps;
 	int reg;
 };
@@ -426,7 +425,7 @@ struct percpu_memcpy_buffer {
 };
 
 /* A simple percpu spinlock. Grabs lock on current cpu. */
-static int rseq_this_cpu_lock(struct percpu_lock *lock)
+static int rseq_this_cpu_lock(struct percpu_lock *lock /* Per-cpu pointer */)
 {
 	int cpu;
 
@@ -440,7 +439,7 @@ static int rseq_this_cpu_lock(struct percpu_lock *lock)
 			abort();
 		}
 		ret = rseq_load_cbne_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
-					 &lock->c[cpu].v,
+					 &rseq_percpu_ptr(lock, cpu)->v,
 					 0, 1, cpu);
 		if (rseq_likely(!ret))
 			break;
@@ -454,20 +453,20 @@ static int rseq_this_cpu_lock(struct percpu_lock *lock)
 	return cpu;
 }
 
-static void rseq_percpu_unlock(struct percpu_lock *lock, int cpu)
+static void rseq_percpu_unlock(struct percpu_lock *lock /* Per-cpu pointer */, int cpu)
 {
-	assert(lock->c[cpu].v == 1);
+	assert(rseq_percpu_ptr(lock, cpu)->v == 1);
 	/*
 	 * Release lock, with release semantic. Matches
 	 * rseq_smp_acquire__after_ctrl_dep().
 	 */
-	rseq_smp_store_release(&lock->c[cpu].v, 0);
+	rseq_smp_store_release(&rseq_percpu_ptr(lock, cpu)->v, 0);
 }
 
 static void *test_percpu_spinlock_thread(void *arg)
 {
 	struct spinlock_thread_test_data *thread_data = (struct spinlock_thread_test_data *) arg;
-	struct spinlock_test_data *data = thread_data->data;
+	struct spinlock_test_data *data = thread_data->data;	/* Per-cpu pointer */
 	long long i, reps;
 
 	if (!opt_disable_rseq && thread_data->reg &&
@@ -476,7 +475,7 @@ static void *test_percpu_spinlock_thread(void *arg)
 	reps = thread_data->reps;
 	for (i = 0; i < reps; i++) {
 		int cpu = rseq_this_cpu_lock(&data->lock);
-		data->c[cpu].count++;
+		rseq_percpu_ptr(data, cpu)->count++;
 		rseq_percpu_unlock(&data->lock, cpu);
 #ifndef BENCHMARK
 		if (i != 0 && !(i % (reps / 10)))
@@ -504,17 +503,30 @@ static void test_percpu_spinlock(void)
 	int i, ret;
 	uint64_t sum;
 	pthread_t test_threads[num_threads];
-	struct spinlock_test_data data;
+	struct spinlock_test_data *data;	/* Per-cpu pointer */
 	struct spinlock_thread_test_data thread_data[num_threads];
+	struct rseq_percpu_pool *mempool;
 
-	memset(&data, 0, sizeof(data));
+	mempool = rseq_percpu_pool_create(sizeof(struct spinlock_test_data),
+			PERCPU_POOL_LEN, CPU_SETSIZE, PROT_READ | PROT_WRITE,
+			MAP_ANONYMOUS | MAP_PRIVATE, -1, 0, 0);
+	if (!mempool) {
+		perror("rseq_percpu_pool_create");
+		abort();
+	}
+	data = (struct spinlock_test_data *)rseq_percpu_zmalloc(mempool);
+	if (!data) {
+		perror("rseq_percpu_zmalloc");
+		abort();
+	}
+
 	for (i = 0; i < num_threads; i++) {
 		thread_data[i].reps = opt_reps;
 		if (opt_disable_mod <= 0 || (i % opt_disable_mod))
 			thread_data[i].reg = 1;
 		else
 			thread_data[i].reg = 0;
-		thread_data[i].data = &data;
+		thread_data[i].data = data;
 		ret = pthread_create(&test_threads[i], NULL,
 				     test_percpu_spinlock_thread,
 				     &thread_data[i]);
@@ -536,9 +548,15 @@ static void test_percpu_spinlock(void)
 
 	sum = 0;
 	for (i = 0; i < CPU_SETSIZE; i++)
-		sum += data.c[i].count;
+		sum += rseq_percpu_ptr(data, i)->count;
 
 	assert(sum == (uint64_t)opt_reps * num_threads);
+	rseq_percpu_free(data);
+	ret = rseq_percpu_pool_destroy(mempool);
+	if (ret) {
+		perror("rseq_percpu_pool_destroy");
+		abort();
+	}
 }
 
 static void *test_percpu_inc_thread(void *arg)
