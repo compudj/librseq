@@ -27,18 +27,26 @@
  * per-cpu, for a given maximum number of CPUs.
  */
 
-/* Use lowest bits of per-cpu addresses to index the pool. */
+/*
+ * Use high bits of per-cpu addresses to index the pool.
+ * This leaves the low bits of available to the application for pointer
+ * tagging (based on next power of 2 alignment of the allocations).
+ */
 #if RSEQ_BITS_PER_LONG == 64
-# define OFFSET_SHIFT	16
+# define POOL_INDEX_BITS	16
 #else
-# define OFFSET_SHIFT	8
+# define POOL_INDEX_BITS	8
 #endif
-#define MAX_NR_POOLS	(1U << OFFSET_SHIFT)
-#define POOL_MASK	(MAX_NR_POOLS - 1)
+#define MAX_NR_POOLS		(1UL << POOL_INDEX_BITS)
+#define POOL_INDEX_SHIFT	(RSEQ_BITS_PER_LONG - POOL_INDEX_BITS)
+#define MAX_POOL_LEN		(1UL << POOL_INDEX_SHIFT)
+#define MAX_POOL_LEN_MASK	(MAX_POOL_LEN - 1)
 
-#define POOL_SET_NR_ENTRIES	(RSEQ_BITS_PER_LONG - OFFSET_SHIFT)
-#define POOL_SET_MAX_ALLOC_LEN	(1U << POOL_SET_NR_ENTRIES)
+#define POOL_SET_NR_ENTRIES	POOL_INDEX_SHIFT
 
+/*
+ * Smallest allocation should hold enough space for a free list pointer.
+ */
 #if RSEQ_BITS_PER_LONG == 64
 # define POOL_SET_MIN_ENTRY	3	/* Smallest item_len=8 */
 #else
@@ -201,8 +209,8 @@ void *__rseq_pool_percpu_ptr(struct rseq_percpu_pool *pool, int cpu, uintptr_t i
 void *__rseq_percpu_ptr(void *_ptr, int cpu)
 {
 	uintptr_t ptr = (uintptr_t) _ptr;
-	uintptr_t item_offset = ptr >> OFFSET_SHIFT;
-	uintptr_t pool_index = ptr & POOL_MASK;
+	uintptr_t item_offset = ptr & MAX_POOL_LEN_MASK;
+	uintptr_t pool_index = ptr >> POOL_INDEX_SHIFT;
 	struct rseq_percpu_pool *pool = &rseq_percpu_pool[pool_index];
 
 	assert(cpu >= 0);
@@ -289,7 +297,7 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 	percpu_len = rseq_align(percpu_len, rseq_get_page_len());
 
 	if (max_nr_cpus < 0 || item_len > percpu_len ||
-			percpu_len > (UINTPTR_MAX >> OFFSET_SHIFT)) {
+			percpu_len > (UINTPTR_MAX >> POOL_INDEX_BITS)) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -359,7 +367,7 @@ void *__rseq_percpu_malloc(struct rseq_percpu_pool *pool, bool zeroed)
 		/* Remove node from free list (update head). */
 		pool->free_list_head = node->next;
 		item_offset = (uintptr_t) ((void *) node - pool->base);
-		addr = (void *) ((item_offset << OFFSET_SHIFT) | pool->index);
+		addr = (void *) (((uintptr_t) pool->index << POOL_INDEX_SHIFT) | item_offset);
 		goto end;
 	}
 	if (pool->next_unused + pool->item_len > pool->percpu_len) {
@@ -367,7 +375,7 @@ void *__rseq_percpu_malloc(struct rseq_percpu_pool *pool, bool zeroed)
 		goto end;
 	}
 	item_offset = pool->next_unused;
-	addr = (void *) ((item_offset << OFFSET_SHIFT) | pool->index);
+	addr = (void *) (((uintptr_t) pool->index << POOL_INDEX_SHIFT) | item_offset);
 	pool->next_unused += pool->item_len;
 end:
 	pthread_mutex_unlock(&pool->lock);
@@ -389,8 +397,8 @@ void *rseq_percpu_zmalloc(struct rseq_percpu_pool *pool)
 void rseq_percpu_free(void *_ptr)
 {
 	uintptr_t ptr = (uintptr_t) _ptr;
-	uintptr_t item_offset = ptr >> OFFSET_SHIFT;
-	uintptr_t pool_index = ptr & POOL_MASK;
+	uintptr_t item_offset = ptr & MAX_POOL_LEN_MASK;
+	uintptr_t pool_index = ptr >> POOL_INDEX_SHIFT;
 	struct rseq_percpu_pool *pool = &rseq_percpu_pool[pool_index];
 	struct free_list_node *head, *item;
 
