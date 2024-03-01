@@ -371,6 +371,9 @@ void *__rseq_percpu_pool_set_malloc(struct rseq_percpu_pool_set *pool_set, size_
 	struct rseq_percpu_pool *pool;
 	void *addr;
 
+	order = rseq_get_count_order_ulong(len);
+	if (order > POOL_SET_MIN_ENTRY)
+		min_order = order;
 again:
 	pthread_mutex_lock(&pool_set->lock);
 	/* First smallest present pool where @len fits. */
