@@ -22,15 +22,20 @@
 #include "rseq-alloc-utils.h"
 
 /*
- * rseq-percpu-alloc.c: rseq per-cpu memory allocator.
+ * rseq-percpu-alloc.c: rseq CPU-Local Storage (CLS) memory allocator.
  *
- * The rseq per-cpu memory allocator allows the application the request
- * memory pools of per-cpu memory each of a given virtual address size
- * per-cpu, for a given maximum number of CPUs.
+ * The rseq per-CPU memory allocator allows the application the request
+ * memory pools of CPU-Local memory each of containing objects of a
+ * given size (rounded to next power of 2), a given virtual address size
+ * per CPU, for a given maximum number of CPUs.
+ *
+ * The per-CPU memory allocator is analogous to TLS (Thread-Local
+ * Storage) memory: TLS is Thread-Local Storage, whereas the per-CPU
+ * memory allocator provides CPU-Local Storage.
  */
 
 /*
- * Use high bits of per-cpu addresses to index the pool.
+ * Use high bits of per-CPU addresses to index the pool.
  * This leaves the low bits of available to the application for pointer
  * tagging (based on next power of 2 alignment of the allocations).
  */
@@ -73,9 +78,9 @@ struct rseq_percpu_pool {
 	int max_nr_cpus;
 
 	/*
-	 * The free list chains freed items on the cpu 0 address range.
+	 * The free list chains freed items on the CPU 0 address range.
 	 * We should rethink this decision if false sharing between
-	 * malloc/free from other cpus and data accesses from cpu 0
+	 * malloc/free from other CPUs and data accesses from CPU 0
 	 * becomes an issue. This is a NULL-terminated singly-linked
 	 * list.
 	 */
@@ -304,7 +309,7 @@ void rseq_percpu_free(void *_ptr)
 	pthread_mutex_lock(&pool->lock);
 	/* Add ptr to head of free list */
 	head = pool->free_list_head;
-	/* Free-list is in cpu 0 range. */
+	/* Free-list is in CPU 0 range. */
 	item = (struct free_list_node *)__rseq_pool_percpu_ptr(pool, 0, item_offset);
 	item->next = head;
 	pool->free_list_head = item;
