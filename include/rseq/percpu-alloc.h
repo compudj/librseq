@@ -12,6 +12,10 @@
  * rseq/percpu-alloc.h
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct rseq_percpu_pool;
 
 struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
@@ -35,5 +39,9 @@ int rseq_percpu_pool_set_add_pool(struct rseq_percpu_pool_set *pool_set,
 
 void *rseq_percpu_pool_set_malloc(struct rseq_percpu_pool_set *pool_set, size_t len);
 void *rseq_percpu_pool_set_zmalloc(struct rseq_percpu_pool_set *pool_set, size_t len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _RSEQ_PERCPU_ALLOC_H */
