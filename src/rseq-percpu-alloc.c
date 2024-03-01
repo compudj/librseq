@@ -275,6 +275,7 @@ void *__rseq_percpu_malloc(struct rseq_percpu_pool *pool, bool zeroed)
 		goto end;
 	}
 	if (pool->next_unused + pool->item_len > pool->percpu_len) {
+		errno = ENOMEM;
 		addr = NULL;
 		goto end;
 	}
