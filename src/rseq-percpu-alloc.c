@@ -19,6 +19,8 @@
 # include <numaif.h>
 #endif
 
+#include "rseq-alloc-utils.h"
+
 /*
  * rseq-percpu-alloc.c: rseq per-cpu memory allocator.
  *
@@ -52,8 +54,6 @@
 #else
 # define POOL_SET_MIN_ENTRY	2	/* Smallest item_len=4 */
 #endif
-
-#define DEFAULT_PAGE_SIZE	4096
 
 struct free_list_node;
 
@@ -99,107 +99,6 @@ struct rseq_percpu_pool_set {
 	struct rseq_percpu_pool *entries[POOL_SET_NR_ENTRIES];
 };
 
-#define __rseq_align_mask(v, mask)	(((v) + (mask)) & ~(mask))
-#define rseq_align(v, align)		__rseq_align_mask(v, (__typeof__(v)) (align) - 1)
-
-static __attribute__((unused))
-unsigned int fls_u64(uint64_t x)
-{
-	unsigned int r = 64;
-
-	if (!x)
-		return 0;
-
-	if (!(x & 0xFFFFFFFF00000000ULL)) {
-		x <<= 32;
-		r -= 32;
-	}
-	if (!(x & 0xFFFF000000000000ULL)) {
-		x <<= 16;
-		r -= 16;
-	}
-	if (!(x & 0xFF00000000000000ULL)) {
-		x <<= 8;
-		r -= 8;
-	}
-	if (!(x & 0xF000000000000000ULL)) {
-		x <<= 4;
-		r -= 4;
-	}
-	if (!(x & 0xC000000000000000ULL)) {
-		x <<= 2;
-		r -= 2;
-	}
-	if (!(x & 0x8000000000000000ULL)) {
-		x <<= 1;
-		r -= 1;
-	}
-	return r;
-}
-
-static __attribute__((unused))
-unsigned int fls_u32(uint32_t x)
-{
-	unsigned int r = 32;
-
-	if (!x)
-		return 0;
-	if (!(x & 0xFFFF0000U)) {
-		x <<= 16;
-		r -= 16;
-	}
-	if (!(x & 0xFF000000U)) {
-		x <<= 8;
-		r -= 8;
-	}
-	if (!(x & 0xF0000000U)) {
-		x <<= 4;
-		r -= 4;
-	}
-	if (!(x & 0xC0000000U)) {
-		x <<= 2;
-		r -= 2;
-	}
-	if (!(x & 0x80000000U)) {
-		x <<= 1;
-		r -= 1;
-	}
-	return r;
-}
-
-static
-unsigned int fls_ulong(unsigned long x)
-{
-#if RSEQ_BITS_PER_LONG == 32
-	return fls_u32(x);
-#else
-	return fls_u64(x);
-#endif
-}
-
-/*
- * Return the minimum order for which x <= (1UL << order).
- * Return -1 if x is 0.
- */
-static
-int get_count_order_ulong(unsigned long x)
-{
-	if (!x)
-		return -1;
-
-	return fls_ulong(x - 1);
-}
-
-static
-long rseq_get_page_len(void)
-{
-	long page_len = sysconf(_SC_PAGE_SIZE);
-
-	if (page_len < 0)
-		page_len = DEFAULT_PAGE_SIZE;
-	return page_len;
-}
-
 static
 void *__rseq_pool_percpu_ptr(struct rseq_percpu_pool *pool, int cpu, uintptr_t item_offset)
 {
@@ -240,7 +139,7 @@ void rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool,
 	if (!numa_flags)
 		return;
 	page_len = rseq_get_page_len();
-	nr_pages = pool->percpu_len >> get_count_order_ulong(page_len);
+	nr_pages = pool->percpu_len >> rseq_get_count_order_ulong(page_len);
 	for (cpu = 0; cpu < pool->max_nr_cpus; cpu++) {
 		int node = numa_node_of_cpu(cpu);
 
@@ -286,7 +185,7 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 		item_len = sizeof(void *);
 
 	/* Align item_len on next power of two. */
-	order = get_count_order_ulong(item_len);
+	order = rseq_get_count_order_ulong(item_len);
 	if (order < 0) {
 		errno = EINVAL;
 		return NULL;
