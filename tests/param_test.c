@@ -353,10 +353,6 @@ struct percpu_lock {
 	intptr_t v;
 };
 
-struct test_data_entry {
-	intptr_t count;
-};
-
 struct spinlock_test_data {
 	struct percpu_lock lock;
 	intptr_t count;
@@ -369,11 +365,11 @@ struct spinlock_thread_test_data {
 };
 
 struct inc_test_data {
-	struct test_data_entry c[CPU_SETSIZE];
+	intptr_t count;
 };
 
 struct inc_thread_test_data {
-	struct inc_test_data *data;
+	struct inc_test_data __rseq_percpu *data;
 	long long reps;
 	int reg;
 };
@@ -562,7 +558,7 @@ static void test_percpu_spinlock(void)
 static void *test_percpu_inc_thread(void *arg)
 {
 	struct inc_thread_test_data *thread_data = (struct inc_thread_test_data *) arg;
-	struct inc_test_data *data = thread_data->data;
+	struct inc_test_data __rseq_percpu *data = thread_data->data;
 	long long i, reps;
 
 	if (!opt_disable_rseq && thread_data->reg &&
@@ -577,7 +573,7 @@ static void *test_percpu_inc_thread(void *arg)
 
 			cpu = get_current_cpu_id();
 			ret = rseq_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
-					&data->c[cpu].count, 1, cpu);
+					&rseq_percpu_ptr(data, cpu)->count, 1, cpu);
 		} while (rseq_unlikely(ret));
 #ifndef BENCHMARK
 		if (i != 0 && !(i % (reps / 10)))
@@ -599,17 +595,30 @@ static void test_percpu_inc(void)
 	int i, ret;
 	uint64_t sum;
 	pthread_t test_threads[num_threads];
-	struct inc_test_data data;
+	struct inc_test_data __rseq_percpu *data;
 	struct inc_thread_test_data thread_data[num_threads];
+	struct rseq_percpu_pool *mempool;
 
-	memset(&data, 0, sizeof(data));
+	mempool = rseq_percpu_pool_create(sizeof(struct inc_test_data),
+			PERCPU_POOL_LEN, CPU_SETSIZE, PROT_READ | PROT_WRITE,
+			MAP_ANONYMOUS | MAP_PRIVATE, -1, 0, 0);
+	if (!mempool) {
+		perror("rseq_percpu_pool_create");
+		abort();
+	}
+	data = (struct inc_test_data __rseq_percpu *)rseq_percpu_zmalloc(mempool);
+	if (!data) {
+		perror("rseq_percpu_zmalloc");
+		abort();
+	}
+
 	for (i = 0; i < num_threads; i++) {
 		thread_data[i].reps = opt_reps;
 		if (opt_disable_mod <= 0 || (i % opt_disable_mod))
 			thread_data[i].reg = 1;
 		else
 			thread_data[i].reg = 0;
-		thread_data[i].data = &data;
+		thread_data[i].data = data;
 		ret = pthread_create(&test_threads[i], NULL,
 				     test_percpu_inc_thread,
 				     &thread_data[i]);
@@ -631,9 +640,15 @@ static void test_percpu_inc(void)
 
 	sum = 0;
 	for (i = 0; i < CPU_SETSIZE; i++)
-		sum += data.c[i].count;
+		sum += rseq_percpu_ptr(data, i)->count;
 
 	assert(sum == (uint64_t)opt_reps * num_threads);
+	rseq_percpu_free(data);
+	ret = rseq_percpu_pool_destroy(mempool);
+	if (ret) {
+		perror("rseq_percpu_pool_destroy");
+		abort();
+	}
 }
 
 static void this_cpu_list_push(struct percpu_list *list,
