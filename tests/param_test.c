@@ -363,7 +363,7 @@ struct spinlock_test_data {
 };
 
 struct spinlock_thread_test_data {
-	struct spinlock_test_data *data;	/* Per-cpu pointer */
+	struct spinlock_test_data __rseq_percpu *data;
 	long long reps;
 	int reg;
 };
@@ -425,7 +425,7 @@ struct percpu_memcpy_buffer {
 };
 
 /* A simple percpu spinlock. Grabs lock on current cpu. */
-static int rseq_this_cpu_lock(struct percpu_lock *lock /* Per-cpu pointer */)
+static int rseq_this_cpu_lock(struct percpu_lock __rseq_percpu *lock)
 {
 	int cpu;
 
@@ -453,7 +453,7 @@ static int rseq_this_cpu_lock(struct percpu_lock *lock /* Per-cpu pointer */)
 	return cpu;
 }
 
-static void rseq_percpu_unlock(struct percpu_lock *lock /* Per-cpu pointer */, int cpu)
+static void rseq_percpu_unlock(struct percpu_lock __rseq_percpu *lock, int cpu)
 {
 	assert(rseq_percpu_ptr(lock, cpu)->v == 1);
 	/*
@@ -466,7 +466,7 @@ static void rseq_percpu_unlock(struct percpu_lock *lock /* Per-cpu pointer */, i
 static void *test_percpu_spinlock_thread(void *arg)
 {
 	struct spinlock_thread_test_data *thread_data = (struct spinlock_thread_test_data *) arg;
-	struct spinlock_test_data *data = thread_data->data;	/* Per-cpu pointer */
+	struct spinlock_test_data __rseq_percpu *data = thread_data->data;
 	long long i, reps;
 
 	if (!opt_disable_rseq && thread_data->reg &&
@@ -503,7 +503,7 @@ static void test_percpu_spinlock(void)
 	int i, ret;
 	uint64_t sum;
 	pthread_t test_threads[num_threads];
-	struct spinlock_test_data *data;	/* Per-cpu pointer */
+	struct spinlock_test_data __rseq_percpu *data;
 	struct spinlock_thread_test_data thread_data[num_threads];
 	struct rseq_percpu_pool *mempool;
 
@@ -514,7 +514,7 @@ static void test_percpu_spinlock(void)
 		perror("rseq_percpu_pool_create");
 		abort();
 	}
-	data = (struct spinlock_test_data *)rseq_percpu_zmalloc(mempool);
+	data = (struct spinlock_test_data __rseq_percpu *)rseq_percpu_zmalloc(mempool);
 	if (!data) {
 		perror("rseq_percpu_zmalloc");
 		abort();
