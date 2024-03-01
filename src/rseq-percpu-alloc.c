@@ -116,7 +116,7 @@ void *__rseq_pool_percpu_ptr(struct rseq_percpu_pool *pool, int cpu, uintptr_t i
 	return pool->base + (pool->percpu_len * cpu) + item_offset;
 }
 
-void *__rseq_percpu_ptr(void *_ptr, int cpu)
+void *__rseq_percpu_ptr(void __rseq_percpu *_ptr, int cpu)
 {
 	uintptr_t ptr = (uintptr_t) _ptr;
 	uintptr_t item_offset = ptr & MAX_POOL_LEN_MASK;
@@ -140,8 +140,7 @@ void rseq_percpu_zero_item(struct rseq_percpu_pool *pool, uintptr_t item_offset)
 
 #ifdef HAVE_LIBNUMA
 static
-void rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool,
-		int numa_flags)
+void rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool, int numa_flags)
 {
 	unsigned long nr_pages, page;
 	long ret, page_len;
@@ -264,11 +263,11 @@ end:
 }
 
 static
-void *__rseq_percpu_malloc(struct rseq_percpu_pool *pool, bool zeroed)
+void __rseq_percpu *__rseq_percpu_malloc(struct rseq_percpu_pool *pool, bool zeroed)
 {
 	struct free_list_node *node;
 	uintptr_t item_offset;
-	void *addr;
+	void __rseq_percpu *addr;
 
 	pthread_mutex_lock(&pool->lock);
 	/* Get first entry from free list. */
@@ -295,17 +294,17 @@ end:
 	return addr;
 }
 
-void *rseq_percpu_malloc(struct rseq_percpu_pool *pool)
+void __rseq_percpu *rseq_percpu_malloc(struct rseq_percpu_pool *pool)
 {
 	return __rseq_percpu_malloc(pool, false);
 }
 
-void *rseq_percpu_zmalloc(struct rseq_percpu_pool *pool)
+void __rseq_percpu *rseq_percpu_zmalloc(struct rseq_percpu_pool *pool)
 {
 	return __rseq_percpu_malloc(pool, true);
 }
 
-void rseq_percpu_free(void *_ptr)
+void rseq_percpu_free(void __rseq_percpu *_ptr)
 {
 	uintptr_t ptr = (uintptr_t) _ptr;
 	uintptr_t item_offset = ptr & MAX_POOL_LEN_MASK;
@@ -372,11 +371,11 @@ end:
 }
 
 static
-void *__rseq_percpu_pool_set_malloc(struct rseq_percpu_pool_set *pool_set, size_t len, bool zeroed)
+void __rseq_percpu *__rseq_percpu_pool_set_malloc(struct rseq_percpu_pool_set *pool_set, size_t len, bool zeroed)
 {
 	int order, min_order = POOL_SET_MIN_ENTRY;
 	struct rseq_percpu_pool *pool;
-	void *addr;
+	void __rseq_percpu *addr;
 
 	order = rseq_get_count_order_ulong(len);
 	if (order > POOL_SET_MIN_ENTRY)
@@ -413,12 +412,12 @@ found:
 	return addr;
 }
 
-void *rseq_percpu_pool_set_malloc(struct rseq_percpu_pool_set *pool_set, size_t len)
+void __rseq_percpu *rseq_percpu_pool_set_malloc(struct rseq_percpu_pool_set *pool_set, size_t len)
 {
 	return __rseq_percpu_pool_set_malloc(pool_set, len, false);
 }
 
-void *rseq_percpu_pool_set_zmalloc(struct rseq_percpu_pool_set *pool_set, size_t len)
+void __rseq_percpu *rseq_percpu_pool_set_zmalloc(struct rseq_percpu_pool_set *pool_set, size_t len)
 {
 	return __rseq_percpu_pool_set_malloc(pool_set, len, true);
 }
