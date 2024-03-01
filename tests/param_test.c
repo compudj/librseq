@@ -289,7 +289,7 @@ static int sys_membarrier(int cmd, int flags, int cpu_id)
 	return syscall(__NR_membarrier, cmd, flags, cpu_id);
 }
 
-#ifdef RSEQ_ARCH_HAS_OFFSET_DEREF_ADDV
+#ifdef rseq_arch_has_load_cbne_load_add_store
 #define TEST_MEMBARRIER
 #endif
 
@@ -379,12 +379,8 @@ struct percpu_list_node {
 	struct percpu_list_node *next;
 };
 
-struct percpu_list_entry {
-	struct percpu_list_node *head;
-} __attribute__((aligned(128)));
-
 struct percpu_list {
-	struct percpu_list_entry c[CPU_SETSIZE];
+	struct percpu_list_node *head;
 };
 
 #define BUFFER_ITEM_PER_CPU	100
@@ -651,7 +647,7 @@ static void test_percpu_inc(void)
 	}
 }
 
-static void this_cpu_list_push(struct percpu_list *list,
+static void this_cpu_list_push(struct percpu_list __rseq_percpu *list,
 			struct percpu_list_node *node,
 			int *_cpu)
 {
@@ -659,13 +655,15 @@ static void this_cpu_list_push(struct percpu_list *list,
 
 	for (;;) {
 		intptr_t *targetptr, newval, expect;
+		struct percpu_list *cpulist;
 		int ret;
 
 		cpu = get_current_cpu_id();
+		cpulist = rseq_percpu_ptr(list, cpu);
 		/* Load list->c[cpu].head with single-copy atomicity. */
-		expect = (intptr_t)RSEQ_READ_ONCE(list->c[cpu].head);
+		expect = (intptr_t)RSEQ_READ_ONCE(cpulist->head);
 		newval = (intptr_t)node;
-		targetptr = (intptr_t *)&list->c[cpu].head;
+		targetptr = (intptr_t *)&cpulist->head;
 		node->next = (struct percpu_list_node *)expect;
 		ret = rseq_load_cbne_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 					 targetptr, expect, newval, cpu);
@@ -682,7 +680,7 @@ static void this_cpu_list_push(struct percpu_list *list,
  * rseq primitive allows us to implement pop without concerns over
  * ABA-type races.
  */
-static struct percpu_list_node *this_cpu_list_pop(struct percpu_list *list,
+static struct percpu_list_node *this_cpu_list_pop(struct percpu_list __rseq_percpu *list,
 					   int *_cpu)
 {
 	struct percpu_list_node *node = NULL;
@@ -691,11 +689,13 @@ static struct percpu_list_node *this_cpu_list_pop(struct percpu_list *list,
 	for (;;) {
 		struct percpu_list_node *head;
 		intptr_t *targetptr, expectnot, *load;
+		struct percpu_list *cpulist;
 		long offset;
 		int ret;
 
 		cpu = get_current_cpu_id();
-		targetptr = (intptr_t *)&list->c[cpu].head;
+		cpulist = rseq_percpu_ptr(list, cpu);
+		targetptr = (intptr_t *)&cpulist->head;
 		expectnot = (intptr_t)NULL;
 		offset = offsetof(struct percpu_list_node, next);
 		load = (intptr_t *)&head;
@@ -719,21 +719,22 @@ static struct percpu_list_node *this_cpu_list_pop(struct percpu_list *list,
  * __percpu_list_pop is not safe against concurrent accesses. Should
  * only be used on lists that are not concurrently modified.
  */
-static struct percpu_list_node *__percpu_list_pop(struct percpu_list *list, int cpu)
+static struct percpu_list_node *__percpu_list_pop(struct percpu_list __rseq_percpu *list, int cpu)
 {
+	struct percpu_list *cpulist = rseq_percpu_ptr(list, cpu);
 	struct percpu_list_node *node;
 
-	node = list->c[cpu].head;
+	node = cpulist->head;
 	if (!node)
 		return NULL;
-	list->c[cpu].head = node->next;
+	cpulist->head = node->next;
 	return node;
 }
 
 static void *test_percpu_list_thread(void *arg)
 {
 	long long i, reps;
-	struct percpu_list *list = (struct percpu_list *)arg;
+	struct percpu_list __rseq_percpu *list = (struct percpu_list __rseq_percpu *)arg;
 
 	if (!opt_disable_rseq && rseq_register_current_thread())
 		abort();
@@ -763,11 +764,23 @@ static void test_percpu_list(void)
 	const int num_threads = opt_threads;
 	int i, j, ret;
 	uint64_t sum = 0, expected_sum = 0;
-	struct percpu_list list;
+	struct percpu_list __rseq_percpu *list;
 	pthread_t test_threads[num_threads];
 	cpu_set_t allowed_cpus;
+	struct rseq_percpu_pool *mempool;
 
-	memset(&list, 0, sizeof(list));
+	mempool = rseq_percpu_pool_create(sizeof(struct percpu_list),
+			PERCPU_POOL_LEN, CPU_SETSIZE, PROT_READ | PROT_WRITE,
+			MAP_ANONYMOUS | MAP_PRIVATE, -1, 0, 0);
+	if (!mempool) {
+		perror("rseq_percpu_pool_create");
+		abort();
+	}
+	list = (struct percpu_list __rseq_percpu *)rseq_percpu_zmalloc(mempool);
+	if (!list) {
+		perror("rseq_percpu_zmalloc");
+		abort();
+	}
 
 	/* Generate list entries for every usable cpu. */
 	sched_getaffinity(0, sizeof(allowed_cpus), &allowed_cpus);
@@ -775,6 +788,7 @@ static void test_percpu_list(void)
 		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
 			continue;
 		for (j = 1; j <= 100; j++) {
+			struct percpu_list *cpulist = rseq_percpu_ptr(list, i);
 			struct percpu_list_node *node;
 
 			expected_sum += j;
@@ -782,14 +796,14 @@ static void test_percpu_list(void)
 			node = (struct percpu_list_node *) malloc(sizeof(*node));
 			assert(node);
 			node->data = j;
-			node->next = list.c[i].head;
-			list.c[i].head = node;
+			node->next = cpulist->head;
+			cpulist->head = node;
 		}
 	}
 
 	for (i = 0; i < num_threads; i++) {
 		ret = pthread_create(&test_threads[i], NULL,
-				     test_percpu_list_thread, &list);
+				     test_percpu_list_thread, list);
 		if (ret) {
 			errno = ret;
 			perror("pthread_create");
@@ -812,7 +826,7 @@ static void test_percpu_list(void)
 		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
 			continue;
 
-		while ((node = __percpu_list_pop(&list, i))) {
+		while ((node = __percpu_list_pop(list, i))) {
 			sum += node->data;
 			free(node);
 		}
@@ -824,6 +838,12 @@ static void test_percpu_list(void)
 	 * test is running).
 	 */
 	assert(sum == expected_sum);
+	rseq_percpu_free(list);
+	ret = rseq_percpu_pool_destroy(mempool);
+	if (ret) {
+		perror("rseq_percpu_pool_destroy");
+		abort();
+	}
 }
 
 static bool this_cpu_buffer_push(struct percpu_buffer *buffer,
@@ -1286,8 +1306,8 @@ bool membarrier_private_expedited_rseq_available(void)
 /* Test MEMBARRIER_CMD_PRIVATE_RESTART_RSEQ_ON_CPU membarrier command. */
 #ifdef TEST_MEMBARRIER
 struct test_membarrier_thread_args {
+	struct percpu_list __rseq_percpu *percpu_list_ptr;
 	int stop;
-	intptr_t percpu_list_ptr;
 };
 
 /* Worker threads modify data in their "active" percpu lists. */
@@ -1313,10 +1333,12 @@ void *test_membarrier_worker_thread(void *arg)
 
 		do {
 			int cpu = get_current_cpu_id();
+			struct percpu_list __rseq_percpu *list = RSEQ_READ_ONCE(args->percpu_list_ptr);
+			struct percpu_list *cpulist = rseq_percpu_ptr(list, cpu);
 
-			ret = rseq_load_add_load_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
-				&args->percpu_list_ptr,
-				sizeof(struct percpu_list_entry) * cpu, 1, cpu);
+			ret = rseq_load_cbne_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+				(intptr_t *) &args->percpu_list_ptr, (intptr_t) list,
+				&cpulist->head->data, 1, cpu);
 		} while (rseq_unlikely(ret));
 	}
 
@@ -1329,29 +1351,37 @@ void *test_membarrier_worker_thread(void *arg)
 }
 
 static
-void test_membarrier_init_percpu_list(struct percpu_list *list)
+struct percpu_list __rseq_percpu *test_membarrier_alloc_percpu_list(struct rseq_percpu_pool *mempool)
 {
+	struct percpu_list __rseq_percpu *list;
 	int i;
 
-	memset(list, 0, sizeof(*list));
+	list = (struct percpu_list __rseq_percpu *)rseq_percpu_zmalloc(mempool);
+	if (!list) {
+		perror("rseq_percpu_zmalloc");
+		return NULL;
+	}
 	for (i = 0; i < CPU_SETSIZE; i++) {
+		struct percpu_list *cpulist = rseq_percpu_ptr(list, i);
 		struct percpu_list_node *node;
 
 		node = (struct percpu_list_node *) malloc(sizeof(*node));
 		assert(node);
 		node->data = 0;
 		node->next = NULL;
-		list->c[i].head = node;
+		cpulist->head = node;
 	}
+	return list;
 }
 
 static
-void test_membarrier_free_percpu_list(struct percpu_list *list)
+void test_membarrier_free_percpu_list(struct percpu_list __rseq_percpu *list)
 {
 	int i;
 
 	for (i = 0; i < CPU_SETSIZE; i++)
-		free(list->c[i].head);
+		free(rseq_percpu_ptr(list, i)->head);
+	rseq_percpu_free(list);
 }
 
 /*
@@ -1363,9 +1393,19 @@ void *test_membarrier_manager_thread(void *arg)
 {
 	struct test_membarrier_thread_args *args =
 		(struct test_membarrier_thread_args *)arg;
-	struct percpu_list list_a, list_b;
+	struct percpu_list __rseq_percpu *list_a, __rseq_percpu *list_b;
 	intptr_t expect_a = 0, expect_b = 0;
 	int cpu_a = 0, cpu_b = 0;
+	struct rseq_percpu_pool *mempool;
+	int ret;
+
+	mempool = rseq_percpu_pool_create(sizeof(struct percpu_list),
+			PERCPU_POOL_LEN, CPU_SETSIZE, PROT_READ | PROT_WRITE,
+			MAP_ANONYMOUS | MAP_PRIVATE, -1, 0, 0);
+	if (!mempool) {
+		perror("rseq_percpu_pool_create");
+		abort();
+	}
 
 	if (rseq_register_current_thread()) {
 		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
@@ -1374,13 +1414,15 @@ void *test_membarrier_manager_thread(void *arg)
 	}
 
 	/* Init lists. */
-	test_membarrier_init_percpu_list(&list_a);
-	test_membarrier_init_percpu_list(&list_b);
+	list_a = test_membarrier_alloc_percpu_list(mempool);
+	assert(list_a);
+	list_b = test_membarrier_alloc_percpu_list(mempool);
+	assert(list_b);
 
 	/* Initialize lists before publishing them. */
 	rseq_smp_wmb();
 
-	RSEQ_WRITE_ONCE(args->percpu_list_ptr, (intptr_t)&list_a);
+	RSEQ_WRITE_ONCE(args->percpu_list_ptr, list_a);
 
 	while (!RSEQ_READ_ONCE(args->stop)) {
 		/* list_a is "active". */
@@ -1389,13 +1431,13 @@ void *test_membarrier_manager_thread(void *arg)
 		 * As list_b is "inactive", we should never see changes
 		 * to list_b.
 		 */
-		if (expect_b != RSEQ_READ_ONCE(list_b.c[cpu_b].head->data)) {
+		if (expect_b != RSEQ_READ_ONCE(rseq_percpu_ptr(list_b, cpu_b)->head->data)) {
 			fprintf(stderr, "Membarrier test failed\n");
 			abort();
 		}
 
 		/* Make list_b "active". */
-		RSEQ_WRITE_ONCE(args->percpu_list_ptr, (intptr_t)&list_b);
+		RSEQ_WRITE_ONCE(args->percpu_list_ptr, list_b);
 		if (rseq_membarrier_expedited(cpu_a) &&
 				errno != ENXIO /* missing CPU */) {
 			perror("sys_membarrier");
@@ -1405,37 +1447,43 @@ void *test_membarrier_manager_thread(void *arg)
 		 * Cpu A should now only modify list_b, so the values
 		 * in list_a should be stable.
 		 */
-		expect_a = RSEQ_READ_ONCE(list_a.c[cpu_a].head->data);
+		expect_a = RSEQ_READ_ONCE(rseq_percpu_ptr(list_a, cpu_a)->head->data);
 
 		cpu_b = rand() % CPU_SETSIZE;
 		/*
 		 * As list_a is "inactive", we should never see changes
 		 * to list_a.
 		 */
-		if (expect_a != RSEQ_READ_ONCE(list_a.c[cpu_a].head->data)) {
+		if (expect_a != RSEQ_READ_ONCE(rseq_percpu_ptr(list_a, cpu_a)->head->data)) {
 			fprintf(stderr, "Membarrier test failed\n");
 			abort();
 		}
 
 		/* Make list_a "active". */
-		RSEQ_WRITE_ONCE(args->percpu_list_ptr, (intptr_t)&list_a);
+		RSEQ_WRITE_ONCE(args->percpu_list_ptr, list_a);
 		if (rseq_membarrier_expedited(cpu_b) &&
 				errno != ENXIO /* missing CPU */) {
 			perror("sys_membarrier");
 			abort();
 		}
 		/* Remember a value from list_b. */
-		expect_b = RSEQ_READ_ONCE(list_b.c[cpu_b].head->data);
+		expect_b = RSEQ_READ_ONCE(rseq_percpu_ptr(list_b, cpu_b)->head->data);
 	}
 
-	test_membarrier_free_percpu_list(&list_a);
-	test_membarrier_free_percpu_list(&list_b);
+	test_membarrier_free_percpu_list(list_a);
+	test_membarrier_free_percpu_list(list_b);
 
 	if (rseq_unregister_current_thread()) {
 		fprintf(stderr, "Error: rseq_unregister_current_thread(...) failed(%d): %s\n",
 			errno, strerror(errno));
 		abort();
 	}
+	ret = rseq_percpu_pool_destroy(mempool);
+	if (ret) {
+		perror("rseq_percpu_pool_destroy");
+		abort();
+	}
+
 	return NULL;
 }
 
@@ -1458,8 +1506,8 @@ void test_membarrier(void)
 		abort();
 	}
 
+	thread_args.percpu_list_ptr = NULL;
 	thread_args.stop = 0;
-	thread_args.percpu_list_ptr = 0;
 	ret = pthread_create(&manager_thread, NULL,
 			test_membarrier_manager_thread, &thread_args);
 	if (ret) {
