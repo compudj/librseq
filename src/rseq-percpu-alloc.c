@@ -60,6 +60,12 @@
 # define POOL_SET_MIN_ENTRY	2	/* Smallest item_len=4 */
 #endif
 
+/*
+ * Skip pool index 0 to ensure allocated entries at index 0 do not match
+ * a NULL pointer.
+ */
+#define FIRST_POOL		1
+
 struct free_list_node;
 
 struct free_list_node {
@@ -208,7 +214,7 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 
 	pthread_mutex_lock(&pool_lock);
 	/* Linear scan in array of pools to find empty spot. */
-	for (i = 0; i < MAX_NR_POOLS; i++) {
+	for (i = FIRST_POOL; i < MAX_NR_POOLS; i++) {
 		pool = &rseq_percpu_pool[i];
 		if (!pool->base)
 			goto found_empty;
