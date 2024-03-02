@@ -86,14 +86,19 @@ int yield_mod_cnt, nr_abort;
  * /usr/bin/ld: param_test.o: warning: relocation in read-only section `.text'
  * /usr/bin/ld: warning: creating DT_TEXTREL in a PIE
  */
-#define RSEQ_INJECT_ASM(n) \
-	"mov asm_loop_cnt_" #n ", %%" INJECT_ASM_REG "\n\t" \
+#define __RSEQ_INJECT_ASM(n, ref_ip, ref_label) \
+	"movl " __rseq_str(ref_ip) ", %%" INJECT_ASM_REG "\n\t" \
+	"leal ( asm_loop_cnt_" #n " - " __rseq_str(ref_label) "b)(%%" INJECT_ASM_REG "), %%" INJECT_ASM_REG "\n\t" \
+	"movl (%%" INJECT_ASM_REG "), %%" INJECT_ASM_REG "\n\t" \
 	"test %%" INJECT_ASM_REG ",%%" INJECT_ASM_REG "\n\t" \
 	"jz 333f\n\t" \
 	"222:\n\t" \
 	"dec %%" INJECT_ASM_REG "\n\t" \
 	"jnz 222b\n\t" \
 	"333:\n\t"
+
+#define RSEQ_INJECT_ASM(n) \
+	__RSEQ_INJECT_ASM(n, %[ref_ip], RSEQ_ASM_REF_LABEL)
 
 #elif defined(__x86_64__)
 
