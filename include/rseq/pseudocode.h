@@ -77,7 +77,7 @@
  */
 
 /*
- * rseq_load_add_load_add_store(ptr, off, inc)
+ * rseq_load_add_load_load_add_store(ptr, off, inc)
  *
  * Pseudo-code:
  *   load(r1, [ptr])

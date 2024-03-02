@@ -1314,7 +1314,7 @@ void *test_membarrier_worker_thread(void *arg)
 		do {
 			int cpu = get_current_cpu_id();
 
-			ret = rseq_load_add_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+			ret = rseq_load_add_load_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 				&args->percpu_list_ptr,
 				sizeof(struct percpu_list_entry) * cpu, 1, cpu);
 		} while (rseq_unlikely(ret));
@@ -1505,7 +1505,7 @@ void test_membarrier(void)
 				"Skipping membarrier test.\n");
 		return;
 	}
-	fprintf(stderr, "rseq_load_add_load_add_store__ptr is not implemented on this architecture. "
+	fprintf(stderr, "rseq_load_add_load_load_add_store__ptr is not implemented on this architecture. "
 			"Skipping membarrier test.\n");
 }
 #endif

@@ -275,16 +275,16 @@ int rseq_load_add_store__ptr(enum rseq_mo rseq_mo, enum rseq_percpu_mode percpu_
 
 #ifdef RSEQ_ARCH_HAS_OFFSET_DEREF_ADDV
 static inline __attribute__((always_inline))
-int rseq_load_add_load_add_store__ptr(enum rseq_mo rseq_mo, enum rseq_percpu_mode percpu_mode,
+int rseq_load_add_load_load_add_store__ptr(enum rseq_mo rseq_mo, enum rseq_percpu_mode percpu_mode,
 			   intptr_t *ptr, long off, intptr_t inc, int cpu)
 {
 	if (rseq_mo != RSEQ_MO_RELAXED)
 		return -1;
 	switch (percpu_mode) {
 	case RSEQ_PERCPU_CPU_ID:
-		return rseq_load_add_load_add_store__ptr_relaxed_cpu_id(ptr, off, inc, cpu);
+		return rseq_load_add_load_load_add_store__ptr_relaxed_cpu_id(ptr, off, inc, cpu);
 	case RSEQ_PERCPU_MM_CID:
-		return rseq_load_add_load_add_store__ptr_relaxed_mm_cid(ptr, off, inc, cpu);
+		return rseq_load_add_load_load_add_store__ptr_relaxed_mm_cid(ptr, off, inc, cpu);
 	default:
 		return -1;
 	}
