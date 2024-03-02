@@ -156,15 +156,25 @@ do {									\
 		__rseq_str(label) ":\n\t"
 #else
 /*
- * "movl $" __rseq_str(cs_label) ", " __rseq_str(rseq_cs) "\n\t" causes
- * the following linker warning:
- *
- * /usr/bin/ld: param_test.o: warning: relocation in read-only section `.text'
- * /usr/bin/ld: warning: creating DT_TEXTREL in a PIE
+ * Use ip-relative addressing to get the address to the rseq critical
+ * section descriptor. On x86-32, this requires a "call" instruction to
+ * get the instruction pointer, which modifies the stack. Beware of this
+ * side-effect if this scheme is used within a rseq critical section.
+ * This computation is performed immediately before storing the rseq_cs,
+ * which is outside of the critical section.
+ * Balance call/ret to help speculation.
  */
 # define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs)		\
 		RSEQ_INJECT_ASM(1)					\
-		"movl $" __rseq_str(cs_label) ", " __rseq_str(rseq_cs) "\n\t"	\
+		"call 880f\n\t"						\
+		"880:\n\t"						\
+		"popl %%eax\n\t"					\
+		"leal (881f-880b)(%%eax), %%eax\n\t"			\
+		"pushl %%eax\n\t"					\
+		"ret\n\t"						\
+		"881:\n\t"						\
+		"leal (" __rseq_str(cs_label) " - 881b)(%%eax), %%eax\n\t" \
+		"movl %%eax, " __rseq_str(rseq_cs) "\n\t"		\
 		__rseq_str(label) ":\n\t"
 #endif
 
