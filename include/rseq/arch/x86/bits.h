@@ -586,6 +586,14 @@ error2:
 static inline __attribute__((always_inline))
 int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t expect, intptr_t newv, int cpu)
 {
+	/*
+	 * ref_ip is used to store a reference instruction pointer
+	 * for ip-relative addressing.
+	 */
+	struct rseq_local {
+		uint32_t ref_ip;
+	} rseq_local;
+
 	RSEQ_INJECT_C(9)
 
 	__asm__ __volatile__ goto (
@@ -596,7 +604,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t ex
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
 #endif
 		/* Start rseq by storing table entry pointer into rseq_cs. */
-		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]))
+		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]), %[ref_ip], RSEQ_ASM_REF_LABEL)
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_INDEX_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"cmpl %[v], %[expect]\n\t"
@@ -617,7 +625,8 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t ex
 		  [rseq_offset]		"r" (rseq_offset),
 		  [v]			"m" (*v),
 		  [expect]		"r" (expect),
-		  [newv]		"r" (newv)
+		  [newv]		"r" (newv),
+		  [ref_ip]		"m" (rseq_local.ref_ip)
 		: "memory", "cc", "eax"
 		  RSEQ_INJECT_CLOBBER
 		: abort, ne
@@ -649,6 +658,14 @@ static inline __attribute__((always_inline))
 int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_add_store__ptr)(intptr_t *v, intptr_t expect,
 		intptr_t *v2, intptr_t count, int cpu)
 {
+	/*
+	 * ref_ip is used to store a reference instruction pointer
+	 * for ip-relative addressing.
+	 */
+	struct rseq_local {
+		uint32_t ref_ip;
+	} rseq_local;
+
 	RSEQ_INJECT_C(9)
 
 	__asm__ __volatile__ goto (
@@ -658,7 +675,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_add_store__ptr)(intptr_t *v, in
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error1])
 #endif
 		/* Start rseq by storing table entry pointer into rseq_cs. */
-		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]))
+		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]), %[ref_ip], RSEQ_ASM_REF_LABEL)
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_INDEX_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"cmpl %[v], %[expect]\n\t"
@@ -675,7 +692,8 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_add_store__ptr)(intptr_t *v, in
 		  [v]			"m" (*v),
 		  [expect]		"r" (expect),
 		  [v2]			"m" (*v2),
-		  [count]		"ir" (count)
+		  [count]		"ir" (count),
+		  [ref_ip]		"m" (rseq_local.ref_ip)
 		: "memory", "cc", "eax"
 		  RSEQ_INJECT_CLOBBER
 		: abort, ne
@@ -704,6 +722,14 @@ static inline __attribute__((always_inline))
 int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbeq_store_add_load_store__ptr)(intptr_t *v, intptr_t expectnot,
 			       long voffp, intptr_t *load, int cpu)
 {
+	/*
+	 * ref_ip is used to store a reference instruction pointer
+	 * for ip-relative addressing.
+	 */
+	struct rseq_local {
+		uint32_t ref_ip;
+	} rseq_local;
+
 	RSEQ_INJECT_C(9)
 
 	__asm__ __volatile__ goto (
@@ -714,7 +740,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbeq_store_add_load_store__ptr)(intptr_t 
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
 #endif
 		/* Start rseq by storing table entry pointer into rseq_cs. */
-		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]))
+		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]), %[ref_ip], RSEQ_ASM_REF_LABEL)
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_INDEX_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"movl %[v], %%ebx\n\t"
@@ -742,7 +768,8 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbeq_store_add_load_store__ptr)(intptr_t 
 		  [v]			"m" (*v),
 		  [expectnot]		"r" (expectnot),
 		  [voffp]		"ir" (voffp),
-		  [load]		"m" (*load)
+		  [load]		"m" (*load),
+		  [ref_ip]		"m" (rseq_local.ref_ip)
 		: "memory", "cc", "eax", "ebx"
 		  RSEQ_INJECT_CLOBBER
 		: abort, eq
@@ -772,6 +799,14 @@ error2:
 static inline __attribute__((always_inline))
 int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_add_store__ptr)(intptr_t *v, intptr_t count, int cpu)
 {
+	/*
+	 * ref_ip is used to store a reference instruction pointer
+	 * for ip-relative addressing.
+	 */
+	struct rseq_local {
+		uint32_t ref_ip;
+	} rseq_local;
+
 	RSEQ_INJECT_C(9)
 
 	__asm__ __volatile__ goto (
@@ -780,7 +815,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_add_store__ptr)(intptr_t *v, intptr_t cou
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error1])
 #endif
 		/* Start rseq by storing table entry pointer into rseq_cs. */
-		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]))
+		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]), %[ref_ip], RSEQ_ASM_REF_LABEL)
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_INDEX_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 #ifdef RSEQ_COMPARE_TWICE
@@ -796,7 +831,8 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_add_store__ptr)(intptr_t *v, intptr_t cou
 		  [rseq_offset]		"r" (rseq_offset),
 		  /* final store input */
 		  [v]			"m" (*v),
-		  [count]		"ir" (count)
+		  [count]		"ir" (count),
+		  [ref_ip]		"m" (rseq_local.ref_ip)
 		: "memory", "cc", "eax"
 		  RSEQ_INJECT_CLOBBER
 		: abort
@@ -822,6 +858,14 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_cbne_store__ptr)(intptr_t *v, i
 			      intptr_t *v2, intptr_t expect2,
 			      intptr_t newv, int cpu)
 {
+	/*
+	 * ref_ip is used to store a reference instruction pointer
+	 * for ip-relative addressing.
+	 */
+	struct rseq_local {
+		uint32_t ref_ip;
+	} rseq_local;
+
 	RSEQ_INJECT_C(9)
 
 	__asm__ __volatile__ goto (
@@ -833,7 +877,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_cbne_store__ptr)(intptr_t *v, i
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error3])
 #endif
 		/* Start rseq by storing table entry pointer into rseq_cs. */
-		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]))
+		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]), %[ref_ip], RSEQ_ASM_REF_LABEL)
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_INDEX_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"cmpl %[v], %[expect]\n\t"
@@ -864,7 +908,8 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_cbne_store__ptr)(intptr_t *v, i
 		  /* final store input */
 		  [v]			"m" (*v),
 		  [expect]		"r" (expect),
-		  [newv]		"m" (newv)
+		  [newv]		"m" (newv),
+		  [ref_ip]		"m" (rseq_local.ref_ip)
 		: "memory", "cc", "eax"
 		  RSEQ_INJECT_CLOBBER
 		: abort, ne
@@ -905,6 +950,14 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store_store__ptr)(intptr_t *v, intpt
 					 intptr_t *v2, intptr_t newv2,
 					 intptr_t newv, int cpu)
 {
+	/*
+	 * ref_ip is used to store a reference instruction pointer
+	 * for ip-relative addressing.
+	 */
+	struct rseq_local {
+		uint32_t ref_ip;
+	} rseq_local;
+
 	RSEQ_INJECT_C(9)
 
 	__asm__ __volatile__ goto (
@@ -915,7 +968,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store_store__ptr)(intptr_t *v, intpt
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
 #endif
 		/* Start rseq by storing table entry pointer into rseq_cs. */
-		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]))
+		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]), %[ref_ip], RSEQ_ASM_REF_LABEL)
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_INDEX_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		"movl %[expect], %%eax\n\t"
@@ -948,7 +1001,8 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store_store__ptr)(intptr_t *v, intpt
 		  /* final store input */
 		  [v]			"m" (*v),
 		  [expect]		"m" (expect),
-		  [newv]		"r" (newv)
+		  [newv]		"r" (newv),
+		  [ref_ip]		"m" (rseq_local.ref_ip)
 		: "memory", "cc", "eax"
 		  RSEQ_INJECT_CLOBBER
 		: abort, ne
@@ -987,15 +1041,18 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 	 * Old gcc does not support output operands for asm goto, so
 	 * input registers cannot simply be re-used as output registers.
 	 * This is why clobbered registers are used.
+	 * ref_ip is used to store a reference instruction pointer
+	 * for ip-relative addressing.
 	 */
 	struct rseq_local {
-		uint32_t expect, dst, src, len, newv;
+		uint32_t expect, dst, src, len, newv, ref_ip;
 	} rseq_local = {
 		.expect = (uint32_t) expect,
 		.dst = (uint32_t) dst,
 		.src = (uint32_t) src,
 		.len = (uint32_t) len,
 		.newv = (uint32_t) newv,
+		.ref_ip = 0,
 	};
 
 	RSEQ_INJECT_C(9)
@@ -1008,7 +1065,7 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
 #endif
 		/* Start rseq by storing table entry pointer into rseq_cs. */
-		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]))
+		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]), %[ref_ip], RSEQ_ASM_REF_LABEL)
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_INDEX_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
 		/* load expect into ebx */
@@ -1059,7 +1116,8 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 		  [dst]			"m" (rseq_local.dst),		/* ebx */
 		  [src]			"m" (rseq_local.src),		/* ecx */
 		  [len]			"m" (rseq_local.len),		/* edx */
-		  [newv]		"m" (rseq_local.newv)		/* ebx */
+		  [newv]		"m" (rseq_local.newv),		/* ebx */
+		  [ref_ip]		"m" (rseq_local.ref_ip)
 		: "memory", "cc", "eax", "ebx", "ecx", "edx"
 		  RSEQ_INJECT_CLOBBER
 		: abort, ne

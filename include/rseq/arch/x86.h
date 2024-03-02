@@ -155,6 +155,7 @@ do {									\
 		"movq %%rax, " __rseq_str(rseq_cs) "\n\t"		\
 		__rseq_str(label) ":\n\t"
 #else
+# define RSEQ_ASM_REF_LABEL	881
 /*
  * Use ip-relative addressing to get the address to the rseq critical
  * section descriptor. On x86-32, this requires a "call" instruction to
@@ -163,17 +164,21 @@ do {									\
  * This computation is performed immediately before storing the rseq_cs,
  * which is outside of the critical section.
  * Balance call/ret to help speculation.
+ * Save this ip address to ref_ip for use by the critical section so
+ * ip-relative addressing can be done without modifying the stack
+ * pointer by using ref_ip and calculating the relative offset from
+ * ref_label.
  */
-# define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs)		\
-		RSEQ_INJECT_ASM(1)					\
+# define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs, ref_ip, ref_label) \
 		"call 880f\n\t"						\
 		"880:\n\t"						\
 		"popl %%eax\n\t"					\
-		"leal (881f-880b)(%%eax), %%eax\n\t"			\
+		"leal (" __rseq_str(ref_label) "f-880b)(%%eax), %%eax\n\t" \
 		"pushl %%eax\n\t"					\
 		"ret\n\t"						\
-		"881:\n\t"						\
-		"leal (" __rseq_str(cs_label) " - 881b)(%%eax), %%eax\n\t" \
+		__rseq_str(ref_label) ":\n\t"				\
+		"movl %%eax, " __rseq_str(ref_ip) "\n\t"		\
+		"leal (" __rseq_str(cs_label) " - " __rseq_str(ref_label) "b)(%%eax), %%eax\n\t" \
 		"movl %%eax, " __rseq_str(rseq_cs) "\n\t"		\
 		__rseq_str(label) ":\n\t"
 #endif
