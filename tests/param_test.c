@@ -389,14 +389,10 @@ struct percpu_buffer_node {
 	intptr_t data;
 };
 
-struct percpu_buffer_entry {
+struct percpu_buffer {
 	intptr_t offset;
 	intptr_t buflen;
 	struct percpu_buffer_node **array;
-} __attribute__((aligned(128)));
-
-struct percpu_buffer {
-	struct percpu_buffer_entry c[CPU_SETSIZE];
 };
 
 #define MEMCPY_BUFFER_ITEM_PER_CPU	100
@@ -846,7 +842,7 @@ static void test_percpu_list(void)
 	}
 }
 
-static bool this_cpu_buffer_push(struct percpu_buffer *buffer,
+static bool this_cpu_buffer_push(struct percpu_buffer __rseq_percpu *buffer,
 			  struct percpu_buffer_node *node,
 			  int *_cpu)
 {
@@ -854,19 +850,21 @@ static bool this_cpu_buffer_push(struct percpu_buffer *buffer,
 	int cpu;
 
 	for (;;) {
+		struct percpu_buffer *cpubuffer;
 		intptr_t *targetptr_spec, newval_spec;
 		intptr_t *targetptr_final, newval_final;
 		intptr_t offset;
 		int ret;
 
 		cpu = get_current_cpu_id();
-		offset = RSEQ_READ_ONCE(buffer->c[cpu].offset);
-		if (offset == buffer->c[cpu].buflen)
+		cpubuffer = rseq_percpu_ptr(buffer, cpu);
+		offset = RSEQ_READ_ONCE(cpubuffer->offset);
+		if (offset == cpubuffer->buflen)
 			break;
 		newval_spec = (intptr_t)node;
-		targetptr_spec = (intptr_t *)&buffer->c[cpu].array[offset];
+		targetptr_spec = (intptr_t *)&cpubuffer->array[offset];
 		newval_final = offset + 1;
-		targetptr_final = &buffer->c[cpu].offset;
+		targetptr_final = &cpubuffer->offset;
 		ret = rseq_load_cbne_store_store__ptr(opt_mo, RSEQ_PERCPU,
 			targetptr_final, offset, targetptr_spec,
 			newval_spec, newval_final, cpu);
@@ -881,30 +879,32 @@ static bool this_cpu_buffer_push(struct percpu_buffer *buffer,
 	return result;
 }
 
-static struct percpu_buffer_node *this_cpu_buffer_pop(struct percpu_buffer *buffer,
+static struct percpu_buffer_node *this_cpu_buffer_pop(struct percpu_buffer __rseq_percpu *buffer,
 					       int *_cpu)
 {
 	struct percpu_buffer_node *head;
 	int cpu;
 
 	for (;;) {
+		struct percpu_buffer *cpubuffer;
 		intptr_t *targetptr, newval;
 		intptr_t offset;
 		int ret;
 
 		cpu = get_current_cpu_id();
+		cpubuffer = rseq_percpu_ptr(buffer, cpu);
 		/* Load offset with single-copy atomicity. */
-		offset = RSEQ_READ_ONCE(buffer->c[cpu].offset);
+		offset = RSEQ_READ_ONCE(cpubuffer->offset);
 		if (offset == 0) {
 			head = NULL;
 			break;
 		}
-		head = RSEQ_READ_ONCE(buffer->c[cpu].array[offset - 1]);
+		head = RSEQ_READ_ONCE(cpubuffer->array[offset - 1]);
 		newval = offset - 1;
-		targetptr = (intptr_t *)&buffer->c[cpu].offset;
+		targetptr = (intptr_t *)&cpubuffer->offset;
 		ret = rseq_load_cbne_load_cbne_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 			targetptr, offset,
-			(intptr_t *)&buffer->c[cpu].array[offset - 1],
+			(intptr_t *)&cpubuffer->array[offset - 1],
 			(intptr_t)head, newval, cpu);
 		if (rseq_likely(!ret))
 			break;
@@ -919,24 +919,26 @@ static struct percpu_buffer_node *this_cpu_buffer_pop(struct percpu_buffer *buff
  * __percpu_buffer_pop is not safe against concurrent accesses. Should
  * only be used on buffers that are not concurrently modified.
  */
-static struct percpu_buffer_node *__percpu_buffer_pop(struct percpu_buffer *buffer,
+static struct percpu_buffer_node *__percpu_buffer_pop(struct percpu_buffer __rseq_percpu *buffer,
 					       int cpu)
 {
+	struct percpu_buffer *cpubuffer;
 	struct percpu_buffer_node *head;
 	intptr_t offset;
 
-	offset = buffer->c[cpu].offset;
+	cpubuffer = rseq_percpu_ptr(buffer, cpu);
+	offset = cpubuffer->offset;
 	if (offset == 0)
 		return NULL;
-	head = buffer->c[cpu].array[offset - 1];
-	buffer->c[cpu].offset = offset - 1;
+	head = cpubuffer->array[offset - 1];
+	cpubuffer->offset = offset - 1;
 	return head;
 }
 
 static void *test_percpu_buffer_thread(void *arg)
 {
 	long long i, reps;
-	struct percpu_buffer *buffer = (struct percpu_buffer *)arg;
+	struct percpu_buffer __rseq_percpu *buffer = (struct percpu_buffer __rseq_percpu *)arg;
 
 	if (!opt_disable_rseq && rseq_register_current_thread())
 		abort();
@@ -970,24 +972,39 @@ static void test_percpu_buffer(void)
 	const int num_threads = opt_threads;
 	int i, j, ret;
 	uint64_t sum = 0, expected_sum = 0;
-	struct percpu_buffer buffer;
+	struct percpu_buffer __rseq_percpu *buffer;
 	pthread_t test_threads[num_threads];
 	cpu_set_t allowed_cpus;
+	struct rseq_percpu_pool *mempool;
 
-	memset(&buffer, 0, sizeof(buffer));
+	mempool = rseq_percpu_pool_create(sizeof(struct percpu_buffer),
+			PERCPU_POOL_LEN, CPU_SETSIZE, PROT_READ | PROT_WRITE,
+			MAP_ANONYMOUS | MAP_PRIVATE, -1, 0, 0);
+	if (!mempool) {
+		perror("rseq_percpu_pool_create");
+		abort();
+	}
+	buffer = (struct percpu_buffer __rseq_percpu *)rseq_percpu_zmalloc(mempool);
+	if (!buffer) {
+		perror("rseq_percpu_zmalloc");
+		abort();
+	}
 
 	/* Generate list entries for every usable cpu. */
 	sched_getaffinity(0, sizeof(allowed_cpus), &allowed_cpus);
 	for (i = 0; i < CPU_SETSIZE; i++) {
+		struct percpu_buffer *cpubuffer;
+
 		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
 			continue;
+		cpubuffer = rseq_percpu_ptr(buffer, i);
 		/* Worse-case is every item in same CPU. */
-		buffer.c[i].array =
+		cpubuffer->array =
 			(struct percpu_buffer_node **)
-			malloc(sizeof(*buffer.c[i].array) * CPU_SETSIZE *
+			malloc(sizeof(*cpubuffer->array) * CPU_SETSIZE *
 			       BUFFER_ITEM_PER_CPU);
-		assert(buffer.c[i].array);
-		buffer.c[i].buflen = CPU_SETSIZE * BUFFER_ITEM_PER_CPU;
+		assert(cpubuffer->array);
+		cpubuffer->buflen = CPU_SETSIZE * BUFFER_ITEM_PER_CPU;
 		for (j = 1; j <= BUFFER_ITEM_PER_CPU; j++) {
 			struct percpu_buffer_node *node;
 
@@ -1003,14 +1020,14 @@ static void test_percpu_buffer(void)
 			node = (struct percpu_buffer_node *) malloc(sizeof(*node));
 			assert(node);
 			node->data = j;
-			buffer.c[i].array[j - 1] = node;
-			buffer.c[i].offset++;
+			cpubuffer->array[j - 1] = node;
+			cpubuffer->offset++;
 		}
 	}
 
 	for (i = 0; i < num_threads; i++) {
 		ret = pthread_create(&test_threads[i], NULL,
-				     test_percpu_buffer_thread, &buffer);
+				     test_percpu_buffer_thread, buffer);
 		if (ret) {
 			errno = ret;
 			perror("pthread_create");
@@ -1028,16 +1045,18 @@ static void test_percpu_buffer(void)
 	}
 
 	for (i = 0; i < CPU_SETSIZE; i++) {
+		struct percpu_buffer *cpubuffer;
 		struct percpu_buffer_node *node;
 
 		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
 			continue;
 
-		while ((node = __percpu_buffer_pop(&buffer, i))) {
+		cpubuffer = rseq_percpu_ptr(buffer, i);
+		while ((node = __percpu_buffer_pop(buffer, i))) {
 			sum += node->data;
 			free(node);
 		}
-		free(buffer.c[i].array);
+		free(cpubuffer->array);
 	}
 
 	/*
@@ -1046,6 +1065,12 @@ static void test_percpu_buffer(void)
 	 * test is running).
 	 */
 	assert(sum == expected_sum);
+	rseq_percpu_free(buffer);
+	ret = rseq_percpu_pool_destroy(mempool);
+	if (ret) {
+		perror("rseq_percpu_pool_destroy");
+		abort();
+	}
 }
 
 static bool this_cpu_memcpy_buffer_push(struct percpu_memcpy_buffer *buffer,
