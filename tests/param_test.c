@@ -79,6 +79,13 @@ int yield_mod_cnt, nr_abort;
 #define RSEQ_INJECT_CLOBBER \
 	, INJECT_ASM_REG
 
+/*
+ * "mov asm_loop_cnt_" #n ", %%" INJECT_ASM_REG "\n\t" causes the
+ * following linker warning:
+ *
+ * /usr/bin/ld: param_test.o: warning: relocation in read-only section `.text'
+ * /usr/bin/ld: warning: creating DT_TEXTREL in a PIE
+ */
 #define RSEQ_INJECT_ASM(n) \
 	"mov asm_loop_cnt_" #n ", %%" INJECT_ASM_REG "\n\t" \
 	"test %%" INJECT_ASM_REG ",%%" INJECT_ASM_REG "\n\t" \
