@@ -982,7 +982,21 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 					 void *dst, void *src, size_t len,
 					 intptr_t newv, int cpu)
 {
-	uint32_t rseq_scratch[3];
+	/*
+	 * Work-around register pressure limitations.
+	 * Old gcc does not support output operands for asm goto, so
+	 * input registers cannot simply be re-used as output registers.
+	 * This is why clobbered registers are used.
+	 */
+	struct rseq_local {
+		uint32_t expect, dst, src, len, newv;
+	} rseq_local = {
+		.expect = (uint32_t) expect,
+		.dst = (uint32_t) dst,
+		.src = (uint32_t) src,
+		.len = (uint32_t) len,
+		.newv = (uint32_t) newv,
+	};
 
 	RSEQ_INJECT_C(9)
 
@@ -993,84 +1007,60 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_memcpy_store__ptr)(intptr_t *v, intp
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error1])
 		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[error2])
 #endif
-		"movl %[src], %[rseq_scratch0]\n\t"
-		"movl %[dst], %[rseq_scratch1]\n\t"
-		"movl %[len], %[rseq_scratch2]\n\t"
 		/* Start rseq by storing table entry pointer into rseq_cs. */
 		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]))
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_INDEX_CPU_ID_OFFSET(%[rseq_offset]), 4f)
 		RSEQ_INJECT_ASM(3)
-		"movl %[expect], %%eax\n\t"
-		"cmpl %%eax, %[v]\n\t"
-		"jne 5f\n\t"
+		/* load expect into ebx */
+		"movl %[expect], %%ebx\n\t"
+		"cmpl %%ebx, %[v]\n\t"
+		"jne %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
 #ifdef RSEQ_COMPARE_TWICE
-		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_INDEX_CPU_ID_OFFSET(%[rseq_offset]), 6f)
-		"movl %[expect], %%eax\n\t"
-		"cmpl %%eax, %[v]\n\t"
-		"jne 7f\n\t"
+		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_INDEX_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
+		"cmpl %%ebx, %[v]\n\t"
+		"jne %l[error2]\n\t"
 #endif
 		/* try memcpy */
-		"test %[len], %[len]\n\t" \
-		"je 333f\n\t" \
-		"222:\n\t" \
-		"movb (%[src]), %%al\n\t" \
-		"movb %%al, (%[dst])\n\t" \
-		"inc %[src]\n\t" \
-		"inc %[dst]\n\t" \
-		"dec %[len]\n\t" \
-		"jnz 222b\n\t" \
-		"333:\n\t" \
+		/* load dst into ebx */
+		"movl %[dst], %%ebx\n\t"
+		/* load src into ecx */
+		"movl %[src], %%ecx\n\t"
+		/* load len into edx */
+		"movl %[len], %%edx\n\t"
+		"test %%edx, %%edx\n\t"
+		"je 333f\n\t"
+		"222:\n\t"
+		"movb (%%ecx), %%al\n\t"
+		"movb %%al, (%%ebx)\n\t"
+		"inc %%ecx\n\t"
+		"inc %%ebx\n\t"
+		"dec %%edx\n\t"
+		"jnz 222b\n\t"
+		"333:\n\t"
 		RSEQ_INJECT_ASM(5)
 #ifdef RSEQ_TEMPLATE_MO_RELEASE
 		"lock; addl $0,-128(%%esp)\n\t"
 #endif
-		"movl %[newv], %%eax\n\t"
+		/* load newv into ebx */
+		"movl %[newv], %%ebx\n\t"
 		/* final store */
-		"movl %%eax, %[v]\n\t"
+		"movl %%ebx, %[v]\n\t"
 		"2:\n\t"
 		RSEQ_INJECT_ASM(6)
-		/* teardown */
-		"movl %[rseq_scratch2], %[len]\n\t"
-		"movl %[rseq_scratch1], %[dst]\n\t"
-		"movl %[rseq_scratch0], %[src]\n\t"
-		RSEQ_ASM_DEFINE_ABORT(4,
-			"movl %[rseq_scratch2], %[len]\n\t"
-			"movl %[rseq_scratch1], %[dst]\n\t"
-			"movl %[rseq_scratch0], %[src]\n\t",
-			abort)
-		RSEQ_ASM_DEFINE_TEARDOWN(5,
-			"movl %[rseq_scratch2], %[len]\n\t"
-			"movl %[rseq_scratch1], %[dst]\n\t"
-			"movl %[rseq_scratch0], %[src]\n\t",
-			ne)
-#ifdef RSEQ_COMPARE_TWICE
-		RSEQ_ASM_DEFINE_TEARDOWN(6,
-			"movl %[rseq_scratch2], %[len]\n\t"
-			"movl %[rseq_scratch1], %[dst]\n\t"
-			"movl %[rseq_scratch0], %[src]\n\t",
-			error1)
-		RSEQ_ASM_DEFINE_TEARDOWN(7,
-			"movl %[rseq_scratch2], %[len]\n\t"
-			"movl %[rseq_scratch1], %[dst]\n\t"
-			"movl %[rseq_scratch0], %[src]\n\t",
-			error2)
-#endif
+		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [rseq_offset]		"r" (rseq_offset),
 		  /* final store input */
 		  [v]			"m" (*v),
-		  [expect]		"m" (expect),
-		  [newv]		"m" (newv),
 		  /* try memcpy input */
-		  [dst]			"r" (dst),
-		  [src]			"r" (src),
-		  [len]			"r" (len),
-		  [rseq_scratch0]	"m" (rseq_scratch[0]),
-		  [rseq_scratch1]	"m" (rseq_scratch[1]),
-		  [rseq_scratch2]	"m" (rseq_scratch[2])
-		: "memory", "cc", "eax"
+		  [expect]		"m" (rseq_local.expect),	/* ebx */
+		  [dst]			"m" (rseq_local.dst),		/* ebx */
+		  [src]			"m" (rseq_local.src),		/* ecx */
+		  [len]			"m" (rseq_local.len),		/* edx */
+		  [newv]		"m" (rseq_local.newv)		/* ebx */
+		: "memory", "cc", "eax", "ebx", "ecx", "edx"
 		  RSEQ_INJECT_CLOBBER
 		: abort, ne
 #ifdef RSEQ_COMPARE_TWICE
