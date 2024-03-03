@@ -170,12 +170,12 @@ do {									\
  * ref_label.
  */
 # define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs, ref_ip, ref_label) \
-		"call 880f\n\t"						\
+		"jmp 779f\n\t"						\
 		"880:\n\t"						\
-		"popl %%eax\n\t"					\
-		"leal (" __rseq_str(ref_label) "f-880b)(%%eax), %%eax\n\t" \
-		"pushl %%eax\n\t"					\
+		"movl (%%esp), %%eax\n\t"				\
 		"ret\n\t"						\
+		"779:\n\t"						\
+		"call 880b\n\t"						\
 		__rseq_str(ref_label) ":\n\t"				\
 		"movl %%eax, " __rseq_str(ref_ip) "\n\t"		\
 		"leal (" __rseq_str(cs_label) " - " __rseq_str(ref_label) "b)(%%eax), %%eax\n\t" \
