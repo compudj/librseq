@@ -240,25 +240,6 @@ int rseq_load_cbne_store__ptr(enum rseq_mo rseq_mo, enum rseq_percpu_mode percpu
 	}
 }
 
-#ifdef rseq_arch_has_load_cbne_load_add_store
-static inline __attribute__((always_inline))
-int rseq_load_cbne_load_add_store__ptr(enum rseq_mo rseq_mo, enum rseq_percpu_mode percpu_mode,
-		       intptr_t *v, intptr_t expect,
-		       intptr_t *v2, intptr_t count, int cpu)
-{
-	if (rseq_mo != RSEQ_MO_RELAXED)
-		return -1;
-	switch (percpu_mode) {
-	case RSEQ_PERCPU_CPU_ID:
-		return rseq_load_cbne_load_add_store__ptr_relaxed_cpu_id(v, expect, v2, count, cpu);
-	case RSEQ_PERCPU_MM_CID:
-		return rseq_load_cbne_load_add_store__ptr_relaxed_mm_cid(v, expect, v2, count, cpu);
-	default:
-		return -1;
-	}
-}
-#endif
-
 static inline __attribute__((always_inline))
 int rseq_load_cbeq_store_add_load_store__ptr(enum rseq_mo rseq_mo, enum rseq_percpu_mode percpu_mode,
 			       intptr_t *v, intptr_t expectnot, long voffp, intptr_t *load,
