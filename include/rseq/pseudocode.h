@@ -60,21 +60,6 @@
  */
 
 /*
- * rseq_load_cbne_load_add_store(v, expect, v2, count)
- *
- * Pseudo-code:
- *   load(r1, [v])
- *   cbne(r1, [expect], [ne])
- *   load(r2, [v2])
- *   add(r2, [count])
- *   store(r2, [v])
- *
- * Return values:
- *   success: 0
- *   abort: -1
- */
-
-/*
  * rseq_load_cbeq_store_add_load_store(v, expectnot, voffp, load)
  *
  * Pseudo-code:
