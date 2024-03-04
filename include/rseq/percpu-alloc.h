@@ -41,7 +41,7 @@ void rseq_percpu_free(void __rseq_percpu *ptr);
 
 void *__rseq_percpu_ptr(void __rseq_percpu *ptr, int cpu);
 
-#define rseq_percpu_ptr(ptr, cpu)	((__typeof__(ptr)) __rseq_percpu_ptr(ptr, cpu))
+#define rseq_percpu_ptr(ptr, cpu)	((__typeof__(*(ptr)) *) __rseq_percpu_ptr(ptr, cpu))
 
 struct rseq_percpu_pool_set *rseq_percpu_pool_set_create(void);
 int rseq_percpu_pool_set_destroy(struct rseq_percpu_pool_set *pool_set);
