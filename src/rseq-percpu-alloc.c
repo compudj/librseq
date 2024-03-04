@@ -26,8 +26,8 @@
  *
  * The rseq per-CPU memory allocator allows the application the request
  * memory pools of CPU-Local memory each of containing objects of a
- * given size (rounded to next power of 2), a given virtual address size
- * per CPU, for a given maximum number of CPUs.
+ * given size (rounded to next power of 2), reserving a given virtual
+ * address size per CPU, for a given maximum number of CPUs.
  *
  * The per-CPU memory allocator is analogous to TLS (Thread-Local
  * Storage) memory: TLS is Thread-Local Storage, whereas the per-CPU
