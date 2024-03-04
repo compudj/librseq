@@ -169,6 +169,16 @@ void *__rseq_percpu_ptr(void __rseq_percpu *ptr, int cpu);
 #define rseq_percpu_ptr(ptr, cpu)	((__typeof__(*(ptr)) *) __rseq_percpu_ptr(ptr, cpu))
 
 /*
+ * rseq_percpu_pool_cpu_offset: Return the offset from encoded to decoded percpu pointer.
+ *
+ * Calculate the offset from any __rseq_percpu pointer allocated from
+ * the pool to its associated per-cpu data for @cpu.
+ *
+ * This API is MT-safe.
+ */
+ptrdiff_t rseq_percpu_pool_ptr_offset(struct rseq_percpu_pool *pool, int cpu);
+
+/*
  * rseq_percpu_pool_set_create: Create a pool set.
  *
  * Create a set of pools. Its purpose is to offer a memory allocator API

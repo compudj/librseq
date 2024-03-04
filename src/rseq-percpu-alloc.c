@@ -116,6 +116,14 @@ void *__rseq_pool_percpu_ptr(struct rseq_percpu_pool *pool, int cpu, uintptr_t i
 	return pool->base + (pool->percpu_len * cpu) + item_offset;
 }
 
+ptrdiff_t rseq_percpu_pool_ptr_offset(struct rseq_percpu_pool *pool, int cpu)
+{
+	uintptr_t rseq_percpu_base = (uintptr_t) pool->index << POOL_INDEX_SHIFT;
+	uintptr_t refptr = (uintptr_t) __rseq_pool_percpu_ptr(pool, cpu, 0);
+
+	return (ptrdiff_t) (refptr - rseq_percpu_base);
+}
+
 void *__rseq_percpu_ptr(void __rseq_percpu *_ptr, int cpu)
 {
 	uintptr_t ptr = (uintptr_t) _ptr;
