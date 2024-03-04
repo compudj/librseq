@@ -75,6 +75,12 @@ struct free_list_node {
 /* This lock protects pool create/destroy. */
 static pthread_mutex_t pool_lock = PTHREAD_MUTEX_INITIALIZER;
 
+struct rseq_mmap_attr {
+	void *(*mmap_func)(void *priv, size_t len);
+	int (*munmap_func)(void *priv, void *ptr, size_t len);
+	void *mmap_priv;
+};
+
 struct rseq_percpu_pool {
 	void *base;
 	unsigned int index;
@@ -94,6 +100,8 @@ struct rseq_percpu_pool {
 	size_t next_unused;
 	/* This lock protects allocation/free within the pool. */
 	pthread_mutex_t lock;
+
+	struct rseq_mmap_attr mmap_attr;
 };
 
 //TODO: the array of pools should grow dynamically on create.
@@ -147,15 +155,14 @@ void rseq_percpu_zero_item(struct rseq_percpu_pool *pool, uintptr_t item_offset)
 }
 
 #ifdef HAVE_LIBNUMA
-static
-void rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool, int numa_flags)
+int rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool, int numa_flags)
 {
 	unsigned long nr_pages, page;
 	long ret, page_len;
 	int cpu;
 
 	if (!numa_flags)
-		return;
+		return 0;
 	page_len = rseq_get_page_len();
 	nr_pages = pool->percpu_len >> rseq_get_count_order_ulong(page_len);
 	for (cpu = 0; cpu < pool->max_nr_cpus; cpu++) {
@@ -167,32 +174,45 @@ void rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool, int numa_flags)
 			int status = -EPERM;
 
 			ret = move_pages(0, 1, &pageptr, &node, &status, numa_flags);
-			if (ret) {
-				perror("move_pages");
-				abort();
-			}
+			if (ret)
+				return ret;
 		}
 	}
+	return 0;
 }
 #else
-static
 void rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool __attribute__((unused)),
 		int numa_flags __attribute__((unused)))
 {
+	return 0;
 }
 #endif
 
-/*
- * Expected numa_flags:
- *   0:                do not move pages to specific numa nodes (use for e.g. mm_cid indexing).
- *   MPOL_MF_MOVE:     move process-private pages to cpu-specific numa nodes.
- *   MPOL_MF_MOVE_ALL: move shared pages to cpu-specific numa nodes (requires CAP_SYS_NICE).
- */
+static
+void *default_mmap_func(void *priv __attribute__((unused)), size_t len)
+{
+	void *base;
+
+	base = mmap(NULL, len, PROT_READ | PROT_WRITE,
+			MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	if (base == MAP_FAILED)
+		return NULL;
+	return base;
+}
+
+static
+int default_munmap_func(void *priv __attribute__((unused)), void *ptr, size_t len)
+{
+	return munmap(ptr, len);
+}
+
 struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 		size_t percpu_len, int max_nr_cpus,
-		int mmap_prot, int mmap_flags, int mmap_fd,
-		off_t mmap_offset, int numa_flags)
+		const struct rseq_mmap_attr *mmap_attr)
 {
+	void *(*mmap_func)(void *priv, size_t len);
+	int (*munmap_func)(void *priv, void *ptr, size_t len);
+	void *mmap_priv;
 	struct rseq_percpu_pool *pool;
 	void *base;
 	unsigned int i;
@@ -219,6 +239,15 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 		return NULL;
 	}
 
+	if (mmap_attr) {
+		mmap_func = mmap_attr->mmap_func;
+		munmap_func = mmap_attr->munmap_func;
+		mmap_priv = mmap_attr->mmap_priv;
+	} else {
+		mmap_func = default_mmap_func;
+		munmap_func = default_munmap_func;
+		mmap_priv = NULL;
+	}
 	pthread_mutex_lock(&pool_lock);
 	/* Linear scan in array of pools to find empty spot. */
 	for (i = FIRST_POOL; i < MAX_NR_POOLS; i++) {
@@ -231,13 +260,11 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 	goto end;
 
 found_empty:
-	base = mmap(NULL, percpu_len * max_nr_cpus, mmap_prot,
-			mmap_flags, mmap_fd, mmap_offset);
-	if (base == MAP_FAILED) {
+	base = mmap_func(mmap_priv, percpu_len * max_nr_cpus);
+	if (!base) {
 		pool = NULL;
 		goto end;
 	}
-	rseq_percpu_pool_init_numa(pool, numa_flags);
 	pthread_mutex_init(&pool->lock, NULL);
 	pool->base = base;
 	pool->percpu_len = percpu_len;
@@ -245,6 +272,9 @@ found_empty:
 	pool->index = i;
 	pool->item_len = item_len;
 	pool->item_order = order;
+	pool->mmap_attr.mmap_func = mmap_func;
+	pool->mmap_attr.munmap_func = munmap_func;
+	pool->mmap_attr.mmap_priv = mmap_priv;
 end:
 	pthread_mutex_unlock(&pool_lock);
 	return pool;
@@ -260,7 +290,8 @@ int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
 		ret = -1;
 		goto end;
 	}
-	ret = munmap(pool->base, pool->percpu_len * pool->max_nr_cpus);
+	ret = pool->mmap_attr.munmap_func(pool->mmap_attr.mmap_priv, pool->base,
+			pool->percpu_len * pool->max_nr_cpus);
 	if (ret)
 		goto end;
 	pthread_mutex_destroy(&pool->lock);
@@ -428,4 +459,23 @@ void __rseq_percpu *rseq_percpu_pool_set_malloc(struct rseq_percpu_pool_set *poo
 void __rseq_percpu *rseq_percpu_pool_set_zmalloc(struct rseq_percpu_pool_set *pool_set, size_t len)
 {
 	return __rseq_percpu_pool_set_malloc(pool_set, len, true);
+}
+
+struct rseq_mmap_attr *rseq_mmap_attr_create(void *(*mmap_func)(void *priv, size_t len),
+		int (*munmap_func)(void *priv, void *ptr, size_t len),
+		void *mmap_priv)
+{
+	struct rseq_mmap_attr *attr = calloc(1, sizeof(struct rseq_mmap_attr));
+
+	if (!attr)
+		return NULL;
+	attr->mmap_func = mmap_func;
+	attr->munmap_func = munmap_func;
+	attr->mmap_priv = mmap_priv;
+	return attr;
+}
+
+void rseq_mmap_attr_destroy(struct rseq_mmap_attr *attr)
+{
+	free(attr);
 }

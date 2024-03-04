@@ -40,6 +40,7 @@ extern "C" {
  */
 #define __rseq_percpu
 
+struct rseq_mmap_attr;
 struct rseq_percpu_pool;
 
 /*
@@ -49,17 +50,11 @@ struct rseq_percpu_pool;
  * next power of two). The reserved allocation size is @percpu_len, and
  * the maximum CPU value expected is (@max_nr_cpus - 1).
  *
- * Arguments @mmap_prot, @mmap_flags, @mmap_fd, @mmap_offset are passed
- * as arguments to mmap(2) when allocating the memory area holding the
- * percpu pool.
- *
- * Argument @numa_flags are passed to move_pages(2). The expected flags
- * are:
- *   0:                do not move pages to specific numa nodes
- *                     (use for e.g. mm_cid indexing).
- *   MPOL_MF_MOVE:     move process-private pages to cpu-specific numa nodes.
- *   MPOL_MF_MOVE_ALL: move shared pages to cpu-specific numa nodes
- *                     (requires CAP_SYS_NICE).
+ * The @mmap_attr pointer used to specify the memory allocator callbacks
+ * to use to manage the memory for the pool. If NULL, use a default
+ * internal implementation. The @mmap_attr can be destroyed immediately
+ * after rseq_percpu_pool_create() returns. The caller keeps ownership
+ * of @mmap_attr.
  *
  * Returns a pointer to the created percpu pool. Return NULL on error,
  * with errno set accordingly:
@@ -67,15 +62,15 @@ struct rseq_percpu_pool;
  *   ENOMEM: Not enough resources (memory or pool indexes) available to
  *           allocate pool.
  *
- * In addition, if mmap(2) fails, NULL is returned and errno is
- * propagated from mmap(2).
+ * In addition, if the mmap_attr mmap callback fails, NULL is returned
+ * and errno is propagated from the callback. The default callback can
+ * return errno=ENOMEM.
  *
  * This API is MT-safe.
  */
 struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 		size_t percpu_len, int max_nr_cpus,
-		int mmap_prot, int mmap_flags, int mmap_fd, off_t mmap_offset,
-		int numa_flags);
+		const struct rseq_mmap_attr *mmap_attr);
 
 /*
  * rseq_percpu_pool_destroy: Destroy a per-cpu memory pool.
@@ -89,8 +84,9 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
  * Return values: 0 on success, -1 on error, with errno set accordingly:
  *   ENOENT: Trying to free a pool which was not allocated.
  *
- * If munmap(2) fails, -1 is returned and errno is propagated from
- * munmap(2).
+ * If the munmap_func callback fails, -1 is returned and errno is
+ * propagated from the callback. The default callback can return
+ * errno=EINVAL.
  *
  * This API is MT-safe.
  */
@@ -259,6 +255,42 @@ void __rseq_percpu *rseq_percpu_pool_set_malloc(struct rseq_percpu_pool_set *poo
  * This API is MT-safe.
  */
 void __rseq_percpu *rseq_percpu_pool_set_zmalloc(struct rseq_percpu_pool_set *pool_set, size_t len);
+
+/*
+ * rseq_percpu_pool_init_numa: Move pages to the NUMA node associated to their CPU topology.
+ *
+ * For pages allocated within @pool, invoke move_pages(2) with the given
+ * @numa_flags to move the pages to the NUMA node associated to their
+ * CPU topology.
+ *
+ * Argument @numa_flags are passed to move_pages(2). The expected flags are:
+ *   MPOL_MF_MOVE:     move process-private pages to cpu-specific numa nodes.
+ *   MPOL_MF_MOVE_ALL: move shared pages to cpu-specific numa nodes
+ *                     (requires CAP_SYS_NICE).
+ *
+ * Returns 0 on success, else return -1 with errno set by move_pages(2).
+ */
+int rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool, int numa_flags);
+
+/*
+ * rseq_mmap_attr_create: Create a mmap attribute structure.
+ *
+ * The @mmap_func callback used to map the memory for the pool.
+ *
+ * The @munmap_func callback used to unmap the memory when the pool
+ * is destroyed.
+ *
+ * The @mmap_priv argument is a private data pointer passed to both
+ * @mmap_func and @munmap_func callbacks.
+ */
+struct rseq_mmap_attr *rseq_mmap_attr_create(void *(*mmap_func)(void *priv, size_t len),
+		int (*munmap_func)(void *priv, void *ptr, size_t len),
+		void *mmap_priv);
+
+/*
+ * rseq_mmap_attr_destroy: Destroy a mmap attribute structure.
+ */
+void rseq_mmap_attr_destroy(struct rseq_mmap_attr *attr);
 
 #ifdef __cplusplus
 }
