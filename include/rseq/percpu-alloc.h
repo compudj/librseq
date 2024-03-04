@@ -25,7 +25,6 @@
 extern "C" {
 #endif
 
-
 /*
  * Tag pointers returned by:
  * - rseq_percpu_malloc(),
