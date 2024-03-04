@@ -1363,6 +1363,7 @@ bool membarrier_private_expedited_rseq_available(void)
 /* Test MEMBARRIER_CMD_PRIVATE_RESTART_RSEQ_ON_CPU membarrier command. */
 #ifdef TEST_MEMBARRIER
 struct test_membarrier_thread_args {
+	struct rseq_percpu_pool *mempool;
 	struct percpu_list __rseq_percpu *percpu_list_ptr;
 	int stop;
 };
@@ -1390,12 +1391,12 @@ void *test_membarrier_worker_thread(void *arg)
 
 		do {
 			int cpu = get_current_cpu_id();
-			struct percpu_list __rseq_percpu *list = RSEQ_READ_ONCE(args->percpu_list_ptr);
-			struct percpu_list *cpulist = rseq_percpu_ptr(list, cpu);
+			ptrdiff_t mempool_offset = rseq_percpu_pool_ptr_offset(args->mempool, cpu);
 
-			ret = rseq_load_cbne_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
-				(intptr_t *) &args->percpu_list_ptr, (intptr_t) list,
-				&cpulist->head->data, 1, cpu);
+			ret = rseq_load_add_load_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+				(intptr_t *) &args->percpu_list_ptr,
+				mempool_offset + offsetof(struct percpu_list, head),
+				1, cpu);
 		} while (rseq_unlikely(ret));
 	}
 
@@ -1463,6 +1464,7 @@ void *test_membarrier_manager_thread(void *arg)
 		perror("rseq_percpu_pool_create");
 		abort();
 	}
+	args->mempool = mempool;
 
 	if (rseq_register_current_thread()) {
 		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
