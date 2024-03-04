@@ -273,7 +273,7 @@ int rseq_load_add_store__ptr(enum rseq_mo rseq_mo, enum rseq_percpu_mode percpu_
 	}
 }
 
-#ifdef RSEQ_ARCH_HAS_OFFSET_DEREF_ADDV
+#ifdef rseq_arch_has_load_add_load_load_add_store
 static inline __attribute__((always_inline))
 int rseq_load_add_load_load_add_store__ptr(enum rseq_mo rseq_mo, enum rseq_percpu_mode percpu_mode,
 			   intptr_t *ptr, long off, intptr_t inc, int cpu)

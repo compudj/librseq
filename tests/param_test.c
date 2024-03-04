@@ -297,7 +297,7 @@ static int sys_membarrier(int cmd, int flags, int cpu_id)
 	return syscall(__NR_membarrier, cmd, flags, cpu_id);
 }
 
-#ifdef rseq_arch_has_load_cbne_load_add_store
+#ifdef rseq_arch_has_load_add_load_load_add_store
 #define TEST_MEMBARRIER
 #endif
 

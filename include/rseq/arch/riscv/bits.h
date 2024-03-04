@@ -229,7 +229,7 @@ error3:
 #endif
 }
 
-#define RSEQ_ARCH_HAS_OFFSET_DEREF_ADDV
+#define rseq_arch_has_load_add_load_load_add_store
 
 static inline __attribute__((always_inline))
 int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_add_load_load_add_store__ptr)(intptr_t *ptr, off_t off, intptr_t inc, int cpu)
