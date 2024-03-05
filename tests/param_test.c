@@ -297,7 +297,7 @@ static int sys_membarrier(int cmd, int flags, int cpu_id)
 	return syscall(__NR_membarrier, cmd, flags, cpu_id);
 }
 
-#ifdef rseq_arch_has_load_add_load_load_add_store
+#ifdef rseq_arch_has_load_cbne_load_add_load_add_store
 #define TEST_MEMBARRIER
 #endif
 
@@ -1386,12 +1386,12 @@ void *test_membarrier_worker_thread(void *arg)
 
 		do {
 			int cpu = get_current_cpu_id();
-			ptrdiff_t mempool_offset = rseq_percpu_pool_ptr_offset(args->mempool, cpu);
+			struct percpu_list __rseq_percpu *list = RSEQ_READ_ONCE(args->percpu_list_ptr);
+			struct percpu_list *cpulist = rseq_percpu_ptr(list, cpu);
 
-			ret = rseq_load_add_load_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
+			ret = rseq_load_cbne_load_add_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 				(intptr_t *) &args->percpu_list_ptr,
-				mempool_offset + offsetof(struct percpu_list, head),
-				1, cpu);
+				(intptr_t) list, (intptr_t *) &cpulist->head, 0, 1, cpu);
 		} while (rseq_unlikely(ret));
 	}
 
@@ -1627,7 +1627,7 @@ void test_membarrier(void)
 				"Skipping membarrier test.\n");
 		return;
 	}
-	fprintf(stderr, "rseq_load_add_load_load_add_store__ptr is not implemented on this architecture. "
+	fprintf(stderr, "rseq_load_cbne_load_add_load_add_store__ptr is not implemented on this architecture. "
 			"Skipping membarrier test.\n");
 }
 #endif

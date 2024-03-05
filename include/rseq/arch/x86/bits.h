@@ -196,10 +196,13 @@ error1:
 #endif
 }
 
-#define rseq_arch_has_load_add_load_load_add_store
+#define rseq_arch_has_load_cbne_load_add_load_add_store
 
 static inline __attribute__((always_inline))
-int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_add_load_load_add_store__ptr)(intptr_t *ptr, long off, intptr_t inc, int cpu)
+int
+RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_load_add_load_add_store__ptr)(intptr_t *ptr,
+		intptr_t expect, intptr_t *ptr2, ptrdiff_t offset,
+		intptr_t inc, int cpu)
 {
 	RSEQ_INJECT_C(9)
 
@@ -215,36 +218,44 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_add_load_load_add_store__ptr)(intptr_t *p
 #ifdef RSEQ_COMPARE_TWICE
 		RSEQ_ASM_CBNE_CPU_ID(cpu_id, RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_INDEX_CPU_ID_OFFSET(%[rseq_offset]), %l[error1])
 #endif
-		/* get p+v */
 		"movq %[ptr], %%rbx\n\t"
-		"addq %[off], %%rbx\n\t"
-		/* get pv */
-		"movq (%%rbx), %%rcx\n\t"
-		/* *pv += inc */
-		"addq %[inc], (%%rcx)\n\t"
-		"2:\n\t"
+		"cmpq %%rbx, %[expect]\n\t"
+		"jne %l[ne]\n\t"
 		RSEQ_INJECT_ASM(4)
+		"movq %[ptr2], %%rbx\n\t"
+		"addq %[offset], %%rbx\n\t"
+		"addq %[inc], (%%rbx)\n\t"
+		"2:\n\t"
+		RSEQ_INJECT_ASM(5)
 		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
 		: /* gcc asm goto does not allow outputs */
 		: [cpu_id]		"r" (cpu),
 		  [rseq_offset]		"r" (rseq_offset),
 		  /* final store input */
 		  [ptr]			"m" (*ptr),
-		  [off]			"er" (off),
+		  [expect]		"r" (expect),
+		  [ptr2]		"m" (*ptr2),
+		  [offset]		"er" (offset),
 		  [inc]			"er" (inc)
-		: "memory", "cc", "rax", "rbx", "rcx"
+		: "memory", "cc", "rax", "rbx"
 		  RSEQ_INJECT_CLOBBER
-		: abort
+		: abort, ne
 #ifdef RSEQ_COMPARE_TWICE
 		  , error1
 #endif
 	);
+	rseq_after_asm_goto();
 	return 0;
 abort:
+	rseq_after_asm_goto();
 	RSEQ_INJECT_FAILED
 	return -1;
+ne:
+	rseq_after_asm_goto();
+	return 1;
 #ifdef RSEQ_COMPARE_TWICE
 error1:
+	rseq_after_asm_goto();
 	rseq_bug("cpu_id comparison failed");
 #endif
 }
