@@ -500,7 +500,7 @@ static void test_percpu_spinlock(void)
 	struct rseq_percpu_pool *mempool;
 
 	mempool = rseq_percpu_pool_create(sizeof(struct spinlock_test_data),
-			PERCPU_POOL_LEN, CPU_SETSIZE, NULL);
+			PERCPU_POOL_LEN, CPU_SETSIZE, NULL, 0);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
 		abort();
@@ -595,7 +595,7 @@ static void test_percpu_inc(void)
 	struct rseq_percpu_pool *mempool;
 
 	mempool = rseq_percpu_pool_create(sizeof(struct inc_test_data),
-			PERCPU_POOL_LEN, CPU_SETSIZE, NULL);
+			PERCPU_POOL_LEN, CPU_SETSIZE, NULL, 0);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
 		abort();
@@ -768,7 +768,7 @@ static void test_percpu_list(void)
 	struct rseq_percpu_pool *mempool;
 
 	mempool = rseq_percpu_pool_create(sizeof(struct percpu_list),
-			PERCPU_POOL_LEN, CPU_SETSIZE, NULL);
+			PERCPU_POOL_LEN, CPU_SETSIZE, NULL, 0);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
 		abort();
@@ -979,7 +979,7 @@ static void test_percpu_buffer(void)
 	struct rseq_percpu_pool *mempool;
 
 	mempool = rseq_percpu_pool_create(sizeof(struct percpu_buffer),
-			PERCPU_POOL_LEN, CPU_SETSIZE, NULL);
+			PERCPU_POOL_LEN, CPU_SETSIZE, NULL, 0);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
 		abort();
@@ -1219,7 +1219,7 @@ static void test_percpu_memcpy_buffer(void)
 	struct rseq_percpu_pool *mempool;
 
 	mempool = rseq_percpu_pool_create(sizeof(struct percpu_memcpy_buffer),
-			PERCPU_POOL_LEN, CPU_SETSIZE, NULL);
+			PERCPU_POOL_LEN, CPU_SETSIZE, NULL, 0);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
 		abort();
@@ -1453,7 +1453,7 @@ void *test_membarrier_manager_thread(void *arg)
 	int ret;
 
 	mempool = rseq_percpu_pool_create(sizeof(struct percpu_list),
-			PERCPU_POOL_LEN, CPU_SETSIZE, NULL);
+			PERCPU_POOL_LEN, CPU_SETSIZE, NULL, 0);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
 		abort();

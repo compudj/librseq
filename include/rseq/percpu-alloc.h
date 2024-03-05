@@ -56,6 +56,9 @@ struct rseq_percpu_pool;
  * after rseq_percpu_pool_create() returns. The caller keeps ownership
  * of @mmap_attr.
  *
+ * Argument @flags is currently expected to be 0. This is for future
+ * extensions.
+ *
  * Returns a pointer to the created percpu pool. Return NULL on error,
  * with errno set accordingly:
  *   EINVAL: Invalid argument.
@@ -70,7 +73,8 @@ struct rseq_percpu_pool;
  */
 struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 		size_t percpu_len, int max_nr_cpus,
-		const struct rseq_mmap_attr *mmap_attr);
+		const struct rseq_mmap_attr *mmap_attr,
+		int flags);
 
 /*
  * rseq_percpu_pool_destroy: Destroy a per-cpu memory pool.

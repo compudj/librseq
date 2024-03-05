@@ -208,7 +208,8 @@ int default_munmap_func(void *priv __attribute__((unused)), void *ptr, size_t le
 
 struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 		size_t percpu_len, int max_nr_cpus,
-		const struct rseq_mmap_attr *mmap_attr)
+		const struct rseq_mmap_attr *mmap_attr,
+		int flags)
 {
 	void *(*mmap_func)(void *priv, size_t len);
 	int (*munmap_func)(void *priv, void *ptr, size_t len);
@@ -217,6 +218,11 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 	void *base;
 	unsigned int i;
 	int order;
+
+	if (flags) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	/* Make sure each item is large enough to contain free list pointers. */
 	if (item_len < sizeof(void *))
