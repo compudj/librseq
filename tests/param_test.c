@@ -1369,8 +1369,8 @@ void *test_membarrier_worker_thread(void *arg)
 {
 	struct test_membarrier_thread_args *args =
 		(struct test_membarrier_thread_args *)arg;
-	const int iters = opt_reps;
-	int i;
+	const long long iters = opt_reps;
+	long long i;
 
 	if (rseq_register_current_thread()) {
 		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
@@ -1437,6 +1437,17 @@ void test_membarrier_free_percpu_list(struct percpu_list __rseq_percpu *list)
 	rseq_percpu_free(list);
 }
 
+static
+long long test_membarrier_count_percpu_list(struct percpu_list __rseq_percpu *list)
+{
+	long long total_count = 0;
+	int i;
+
+	for (i = 0; i < CPU_SETSIZE; i++)
+		total_count += rseq_percpu_ptr(list, i)->head->data;
+	return total_count;
+}
+
 /*
  * The manager thread swaps per-cpu lists that worker threads see,
  * and validates that there are no unexpected modifications.
@@ -1451,6 +1462,7 @@ void *test_membarrier_manager_thread(void *arg)
 	int cpu_a = 0, cpu_b = 0;
 	struct rseq_percpu_pool *mempool;
 	int ret;
+	long long total_count = 0;
 
 	mempool = rseq_percpu_pool_create(sizeof(struct percpu_list),
 			PERCPU_POOL_LEN, CPU_SETSIZE, NULL, 0);
@@ -1523,6 +1535,15 @@ void *test_membarrier_manager_thread(void *arg)
 		expect_b = RSEQ_READ_ONCE(rseq_percpu_ptr(list_b, cpu_b)->head->data);
 	}
 
+	total_count += test_membarrier_count_percpu_list(list_a);
+	total_count += test_membarrier_count_percpu_list(list_b);
+
+	/* Validate that we observe the right number of increments. */
+	if (total_count != opt_threads * opt_reps) {
+		fprintf(stderr, "Error: Observed %lld increments, expected %lld\n",
+			total_count, opt_threads * opt_reps);
+		abort();
+	}
 	test_membarrier_free_percpu_list(list_a);
 	test_membarrier_free_percpu_list(list_b);
 
