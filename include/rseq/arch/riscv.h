@@ -207,17 +207,6 @@ do {									\
 	"bnez	" RSEQ_ASM_TMP_REG_1 ", 222b\n"				\
 	"333:\n"
 
-/*
- * Load pointer address from @ptr. Add @off to offset from this pointer.
- * Add @inc to the resulting address as an end-of-sequence store.
- */
-#define RSEQ_ASM_OP_R_DEREF_ADDV(ptr, off, inc, post_commit_label)	\
-	"mv	" RSEQ_ASM_TMP_REG_1 ", %[" __rseq_str(ptr) "]\n"	\
-	RSEQ_ASM_OP_R_ADD(off)						\
-	RSEQ_ASM_REG_L	  RSEQ_ASM_TMP_REG_1 ", 0(" RSEQ_ASM_TMP_REG_1 ")\n" \
-	RSEQ_ASM_OP_R_ADD(inc)						\
-	__rseq_str(post_commit_label) ":\n"
-
 /* Per-cpu-id indexing. */
 
 #define RSEQ_TEMPLATE_INDEX_CPU_ID
