@@ -651,13 +651,18 @@ void rseq_pool_attr_destroy(struct rseq_pool_attr *attr)
 	free(attr);
 }
 
-void rseq_pool_attr_set_mmap(struct rseq_pool_attr *attr,
+int rseq_pool_attr_set_mmap(struct rseq_pool_attr *attr,
 		void *(*mmap_func)(void *priv, size_t len),
 		int (*munmap_func)(void *priv, void *ptr, size_t len),
 		void *mmap_priv)
 {
+	if (!attr) {
+		errno = EINVAL;
+		return -1;
+	}
 	attr->mmap_set = true;
 	attr->mmap_func = mmap_func;
 	attr->munmap_func = munmap_func;
 	attr->mmap_priv = mmap_priv;
+	return 0;
 }

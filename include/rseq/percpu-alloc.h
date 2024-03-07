@@ -303,8 +303,10 @@ void rseq_pool_attr_destroy(struct rseq_pool_attr *attr);
  *
  * The @mmap_priv argument is a private data pointer passed to both
  * @mmap_func and @munmap_func callbacks.
+ *
+ * Returns 0 on success, -1 with errno=EINVAL if arguments are invalid.
  */
-void rseq_pool_attr_set_mmap(struct rseq_pool_attr *attr,
+int rseq_pool_attr_set_mmap(struct rseq_pool_attr *attr,
 		void *(*mmap_func)(void *priv, size_t len),
 		int (*munmap_func)(void *priv, void *ptr, size_t len),
 		void *mmap_priv);
