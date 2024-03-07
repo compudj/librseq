@@ -44,21 +44,6 @@ struct rseq_pool_attr;
 struct rseq_percpu_pool;
 
 /*
- * Create a robust pool.  This enables the following runtime checks:
- *
- *   - Check for double free of pointers.
- *
- *   - Check that all items were freed when destroying the pool, i.e. no memory
- *     leak.
- *
- *  There is a marginal runtime overhead on malloc/free operations.
- *
- *  The memory overhead is (pool->percpu_len / pool->item_len) / CHAR_BIT
- *  bytes, over the lifetime of the pool.
- */
-#define RSEQ_POOL_ROBUST    (1 << 0)
-
-/*
  * rseq_percpu_pool_create: Create a per-cpu memory pool.
  *
  * Create a per-cpu memory pool for items of size @item_len (rounded to
