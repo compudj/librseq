@@ -4,6 +4,8 @@
 #ifndef _RSEQ_ALLOC_UTILS_H
 #define _RSEQ_ALLOC_UTILS_H
 
+#define RSEQ_ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
 #define __rseq_align_mask(v, mask)	(((v) + (mask)) & ~(mask))
 #define rseq_align(v, align)		__rseq_align_mask(v, (__typeof__(v)) (align) - 1)
 

@@ -68,6 +68,8 @@
 
 #define BIT_PER_ULONG		(8 * sizeof(unsigned long))
 
+#define MOVE_PAGES_BATCH_SIZE	4096
+
 struct free_list_node;
 
 struct free_list_node {
@@ -158,7 +160,7 @@ void rseq_percpu_zero_item(struct rseq_percpu_pool *pool, uintptr_t item_offset)
 #ifdef HAVE_LIBNUMA
 int rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool, int numa_flags)
 {
-	unsigned long nr_pages, page;
+	unsigned long nr_pages;
 	long ret, page_len;
 	int cpu;
 
@@ -167,16 +169,44 @@ int rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool, int numa_flags)
 	page_len = rseq_get_page_len();
 	nr_pages = pool->percpu_len >> rseq_get_count_order_ulong(page_len);
 	for (cpu = 0; cpu < pool->max_nr_cpus; cpu++) {
-		int node = numa_node_of_cpu(cpu);
 
-		/* TODO: batch move_pages() call with an array of pages. */
-		for (page = 0; page < nr_pages; page++) {
-			void *pageptr = __rseq_pool_percpu_ptr(pool, cpu, page * page_len);
-			int status = -EPERM;
+		int status[MOVE_PAGES_BATCH_SIZE];
+		int nodes[MOVE_PAGES_BATCH_SIZE];
+		void *pages[MOVE_PAGES_BATCH_SIZE];
 
-			ret = move_pages(0, 1, &pageptr, &node, &status, numa_flags);
-			if (ret)
+		nodes[0] = numa_node_of_cpu(cpu);
+		for (size_t k = 1; k < RSEQ_ARRAY_SIZE(nodes); ++k) {
+			nodes[k] = nodes[0];
+		}
+
+		for (unsigned long page = 0; page < nr_pages;) {
+
+			size_t max_k = RSEQ_ARRAY_SIZE(pages);
+			size_t left = nr_pages - page;
+
+			if (left < max_k) {
+				max_k = left;
+			}
+
+			for (size_t k = 0; k < max_k; ++k, ++page) {
+				pages[k] = __rseq_pool_percpu_ptr(pool, cpu, page * page_len);
+				status[k] = -EPERM;
+			}
+
+			ret = move_pages(0, max_k, pages, nodes, status, numa_flags);
+
+			if (ret < 0)
 				return ret;
+
+			if (ret > 0) {
+				fprintf(stderr, "%lu pages were not migrated\n", ret);
+				for (size_t k = 0; k < max_k; ++k) {
+					if (status[k] < 0)
+						fprintf(stderr,
+							"Error while moving page %p to numa node %d: %u\n",
+							pages[k], nodes[k], -status[k]);
+				}
+			}
 		}
 	}
 	return 0;
