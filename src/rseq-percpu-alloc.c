@@ -222,7 +222,8 @@ int create_alloc_bitmap(struct rseq_percpu_pool *pool)
 	return 0;
 }
 
-static
+/* Always inline for __builtin_return_address(0). */
+static inline __attribute__((always_inline))
 void destroy_alloc_bitmap(struct rseq_percpu_pool *pool)
 {
 	unsigned long *bitmap = pool->alloc_bitmap;
@@ -237,15 +238,16 @@ void destroy_alloc_bitmap(struct rseq_percpu_pool *pool)
 	for (size_t k = 0; k < count; ++k)
 		total_leaks += rseq_hweight_ulong(bitmap[k]);
 	if (total_leaks) {
-		fprintf(stderr, "%s: Pool has %zu leaked items on destroy.\n", __func__,
-			total_leaks);
+		fprintf(stderr, "%s: Pool has %zu leaked items on destroy, caller: %p.\n",
+			__func__, total_leaks, (void *) __builtin_return_address(0));
 		abort();
 	}
 
 	free(bitmap);
 }
 
-static
+/* Always inline for __builtin_return_address(0). */
+static inline __attribute__((always_inline))
 int __rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
 {
 	int ret;
@@ -365,7 +367,8 @@ error_alloc:
 	return NULL;
 }
 
-static
+/* Always inline for __builtin_return_address(0). */
+static inline __attribute__((always_inline))
 void set_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
 {
 	unsigned long *bitmap = pool->alloc_bitmap;
@@ -381,8 +384,8 @@ void set_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
 
 	/* Print error if bit is already set. */
 	if (bitmap[k] & mask) {
-		fprintf(stderr, "%s: Allocator corruption detected for pool %p, item offset %zu.\n",
-			__func__, pool, item_offset);
+		fprintf(stderr, "%s: Allocator corruption detected for pool: %p, item offset: %zu, caller: %p.\n",
+			__func__, pool, item_offset, (void *) __builtin_return_address(0));
 		abort();
 	}
 	bitmap[k] |= mask;
@@ -431,7 +434,8 @@ void __rseq_percpu *rseq_percpu_zmalloc(struct rseq_percpu_pool *pool)
 	return __rseq_percpu_malloc(pool, true);
 }
 
-static
+/* Always inline for __builtin_return_address(0). */
+static inline __attribute__((always_inline))
 void clear_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
 {
 	unsigned long *bitmap = pool->alloc_bitmap;
@@ -447,8 +451,8 @@ void clear_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
 
 	/* Print error if bit is not set. */
 	if (!(bitmap[k] & mask)) {
-		fprintf(stderr, "%s: Double-free detected for pool %p, item offset %zu.\n",
-			__func__, pool, item_offset);
+		fprintf(stderr, "%s: Double-free detected for pool: %p, item offset: %zu, caller: %p.\n",
+			__func__, pool, item_offset, (void *) __builtin_return_address(0));
 		abort();
 	}
 	bitmap[k] &= ~mask;
