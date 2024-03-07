@@ -226,13 +226,12 @@ static
 void destroy_alloc_bitmap(struct rseq_percpu_pool *pool)
 {
 	unsigned long *bitmap = pool->alloc_bitmap;
-	size_t item_len = pool->item_len;
 	size_t count, total_leaks = 0;
 
 	if (!bitmap)
 		return;
 
-	count = (item_len + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
+	count = ((pool->percpu_len >> pool->item_order) + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
 
 	/* Assert that all items in the pool were freed. */
 	for (size_t k = 0; k < count; ++k)
