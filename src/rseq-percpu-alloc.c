@@ -381,7 +381,7 @@ void set_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
 
 	/* Print error if bit is already set. */
 	if (bitmap[k] & mask) {
-		fprintf(stderr, "%s: Allocator corruption detected for pool %p, item offset %zu.",
+		fprintf(stderr, "%s: Allocator corruption detected for pool %p, item offset %zu.\n",
 			__func__, pool, item_offset);
 		abort();
 	}
@@ -447,7 +447,7 @@ void clear_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
 
 	/* Print error if bit is not set. */
 	if (!(bitmap[k] & mask)) {
-		fprintf(stderr, "%s: Double-free detected for pool %p, item offset %zu.",
+		fprintf(stderr, "%s: Double-free detected for pool %p, item offset %zu.\n",
 			__func__, pool, item_offset);
 		abort();
 	}
