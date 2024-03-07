@@ -107,8 +107,8 @@ struct rseq_percpu_pool {
 
 	struct rseq_mmap_attr mmap_attr;
 
-	/* Tracks allocation where free slots are set to 0. */
-	unsigned long *free_bitmap;
+	/* Track alloc/free. */
+	unsigned long *alloc_bitmap;
 };
 
 //TODO: the array of pools should grow dynamically on create.
@@ -206,36 +206,75 @@ int default_munmap_func(void *priv __attribute__((unused)), void *ptr, size_t le
 }
 
 static
-unsigned long *create_free_bitmap(size_t item_len)
+int create_alloc_bitmap(struct rseq_percpu_pool *pool)
 {
 	size_t count;
 
-	count = (item_len + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
+	count = ((pool->percpu_len >> pool->item_order) + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
 
 	/*
-	 * No need to check for NULL, since all paths using the free_bitmap will
-	 * be NO OP in that case.
+	 * Not being able to create the validation bitmap is an error
+	 * that needs to be reported.
 	 */
-	return calloc(count, sizeof(unsigned long));
+	pool->alloc_bitmap = calloc(count, sizeof(unsigned long));
+	if (!pool->alloc_bitmap)
+		return -1;
+	return 0;
 }
 
 static
-void destroy_free_bitmap(unsigned long *bitmap, size_t item_len)
+void destroy_alloc_bitmap(struct rseq_percpu_pool *pool)
 {
-	size_t count;
+	unsigned long *bitmap = pool->alloc_bitmap;
+	size_t item_len = pool->item_len;
+	size_t count, total_leaks = 0;
 
-	if (!bitmap) {
+	if (!bitmap)
 		return;
-	}
 
 	count = (item_len + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
 
 	/* Assert that all items in the pool were freed. */
-	for (size_t k = 0; k < count; ++k) {
-		assert(0 == bitmap[k]);
+	for (size_t k = 0; k < count; ++k)
+		total_leaks += rseq_hweight_ulong(bitmap[k]);
+	if (total_leaks) {
+		fprintf(stderr, "%s: Pool has %zu leaked items on destroy.\n", __func__,
+			total_leaks);
+		abort();
 	}
 
 	free(bitmap);
+}
+
+static
+int __rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
+{
+	int ret;
+
+	if (!pool->base) {
+		errno = ENOENT;
+		ret = -1;
+		goto end;
+	}
+	ret = pool->mmap_attr.munmap_func(pool->mmap_attr.mmap_priv, pool->base,
+			pool->percpu_len * pool->max_nr_cpus);
+	if (ret)
+		goto end;
+	pthread_mutex_destroy(&pool->lock);
+	destroy_alloc_bitmap(pool);
+	memset(pool, 0, sizeof(*pool));
+end:
+	return 0;
+}
+
+int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
+{
+	int ret;
+
+	pthread_mutex_lock(&pool_lock);
+	ret = __rseq_percpu_pool_destroy(pool);
+	pthread_mutex_unlock(&pool_lock);
+	return ret;
 }
 
 struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
@@ -299,10 +338,8 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 
 found_empty:
 	base = mmap_func(mmap_priv, percpu_len * max_nr_cpus);
-	if (!base) {
-		pool = NULL;
-		goto end;
-	}
+	if (!base)
+		goto error_alloc;
 	pthread_mutex_init(&pool->lock, NULL);
 	pool->base = base;
 	pool->percpu_len = percpu_len;
@@ -315,52 +352,40 @@ found_empty:
 	pool->mmap_attr.mmap_priv = mmap_priv;
 
 	if (RSEQ_POOL_ROBUST & flags) {
-		pool->free_bitmap = create_free_bitmap(percpu_len >> order);
+		if (create_alloc_bitmap(pool))
+			goto error_alloc;
 	}
 end:
 	pthread_mutex_unlock(&pool_lock);
 	return pool;
-}
 
-int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
-{
-	int ret;
-
-	pthread_mutex_lock(&pool_lock);
-	if (!pool->base) {
-		errno = ENOENT;
-		ret = -1;
-		goto end;
-	}
-	ret = pool->mmap_attr.munmap_func(pool->mmap_attr.mmap_priv, pool->base,
-			pool->percpu_len * pool->max_nr_cpus);
-	if (ret)
-		goto end;
-	pthread_mutex_destroy(&pool->lock);
-	destroy_free_bitmap(pool->free_bitmap,
-			    pool->percpu_len >> pool->item_order);
-	memset(pool, 0, sizeof(*pool));
-end:
+error_alloc:
+	__rseq_percpu_pool_destroy(pool);
 	pthread_mutex_unlock(&pool_lock);
-	return 0;
+	errno = ENOMEM;
+	return NULL;
 }
 
 static
-void mask_free_slot(unsigned long *bitmap, size_t item_index)
+void set_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
 {
+	unsigned long *bitmap = pool->alloc_bitmap;
+	size_t item_index = item_offset >> pool->item_order;
 	unsigned long mask;
 	size_t k;
 
-	if (!bitmap) {
+	if (!bitmap)
 		return;
-	}
 
-	k    = item_index / BIT_PER_ULONG;
+	k = item_index / BIT_PER_ULONG;
 	mask = 1ULL << (item_index % BIT_PER_ULONG);
 
-	/* Assert that the item is free. */
-	assert(0 == (bitmap[k] & mask));
-
+	/* Print error if bit is already set. */
+	if (bitmap[k] & mask) {
+		fprintf(stderr, "%s: Allocator corruption detected for pool %p, item offset %zu.",
+			__func__, pool, item_offset);
+		abort();
+	}
 	bitmap[k] |= mask;
 }
 
@@ -389,7 +414,7 @@ void __rseq_percpu *__rseq_percpu_malloc(struct rseq_percpu_pool *pool, bool zer
 	item_offset = pool->next_unused;
 	addr = (void *) (((uintptr_t) pool->index << POOL_INDEX_SHIFT) | item_offset);
 	pool->next_unused += pool->item_len;
-	mask_free_slot(pool->free_bitmap, item_offset >> pool->item_order);
+	set_alloc_slot(pool, item_offset);
 end:
 	pthread_mutex_unlock(&pool->lock);
 	if (zeroed && addr)
@@ -408,21 +433,25 @@ void __rseq_percpu *rseq_percpu_zmalloc(struct rseq_percpu_pool *pool)
 }
 
 static
-void unmask_free_slot(unsigned long *bitmap, size_t item_index)
+void clear_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
 {
+	unsigned long *bitmap = pool->alloc_bitmap;
+	size_t item_index = item_offset >> pool->item_order;
 	unsigned long mask;
 	size_t k;
 
-	if (!bitmap) {
+	if (!bitmap)
 		return;
+
+	k = item_index / BIT_PER_ULONG;
+	mask = 1ULL << (item_index % BIT_PER_ULONG);
+
+	/* Print error if bit is not set. */
+	if (!(bitmap[k] & mask)) {
+		fprintf(stderr, "%s: Double-free detected for pool %p, item offset %zu.",
+			__func__, pool, item_offset);
+		abort();
 	}
-
-	k    = item_index / BIT_PER_ULONG;
-	mask = 1 << (item_index % BIT_PER_ULONG);
-
-	/* Assert that the item is not free. */
-	assert(mask == (bitmap[k] & mask));
-
 	bitmap[k] &= ~mask;
 }
 
@@ -435,7 +464,7 @@ void rseq_percpu_free(void __rseq_percpu *_ptr)
 	struct free_list_node *head, *item;
 
 	pthread_mutex_lock(&pool->lock);
-	unmask_free_slot(pool->free_bitmap, item_offset >> pool->item_order);
+	clear_alloc_slot(pool, item_offset);
 	/* Add ptr to head of free list */
 	head = pool->free_list_head;
 	/* Free-list is in CPU 0 range. */

@@ -107,4 +107,14 @@ long rseq_get_page_len(void)
 	return page_len;
 }
 
+static inline
+int rseq_hweight_ulong(unsigned long v)
+{
+	int count;
+
+	for (count = 0; v; count++)
+		v &= v - 1;
+	return count;
+}
+
 #endif /* _RSEQ_ALLOC_UTILS_H */
