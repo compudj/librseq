@@ -40,7 +40,7 @@ extern "C" {
  */
 #define __rseq_percpu
 
-struct rseq_mmap_attr;
+struct rseq_pool_attr;
 struct rseq_percpu_pool;
 
 /*
@@ -65,11 +65,10 @@ struct rseq_percpu_pool;
  * next power of two). The reserved allocation size is @percpu_len, and
  * the maximum CPU value expected is (@max_nr_cpus - 1).
  *
- * The @mmap_attr pointer used to specify the memory allocator callbacks
- * to use to manage the memory for the pool. If NULL, use a default
- * internal implementation. The @mmap_attr can be destroyed immediately
- * after rseq_percpu_pool_create() returns. The caller keeps ownership
- * of @mmap_attr.
+ * The @pool_attr pointer used to specify the pool attributes. If NULL,
+ * use a default attribute values. The @pool_attr can be destroyed
+ * immediately after rseq_percpu_pool_create() returns. The caller keeps
+ * ownership of @pool_attr.
  *
  * The argument @pool_name can be used to given a name to the pool for
  * debugging purposes. It can be NULL if no name is given.
@@ -83,15 +82,15 @@ struct rseq_percpu_pool;
  *   ENOMEM: Not enough resources (memory or pool indexes) available to
  *           allocate pool.
  *
- * In addition, if the mmap_attr mmap callback fails, NULL is returned
- * and errno is propagated from the callback. The default callback can
+ * In addition, if the attr mmap callback fails, NULL is returned and
+ * errno is propagated from the callback. The default callback can
  * return errno=ENOMEM.
  *
  * This API is MT-safe.
  */
 struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
 		size_t item_len, size_t percpu_len, int max_nr_cpus,
-		const struct rseq_mmap_attr *mmap_attr,
+		const struct rseq_pool_attr *attr,
 		int flags);
 
 /*
@@ -285,7 +284,17 @@ void __rseq_percpu *rseq_percpu_pool_set_zmalloc(struct rseq_percpu_pool_set *po
 int rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool, int numa_flags);
 
 /*
- * rseq_mmap_attr_create: Create a mmap attribute structure.
+ * rseq_pool_attr_create: Create a pool attribute structure.
+ */
+struct rseq_pool_attr *rseq_pool_attr_create(void);
+
+/*
+ * rseq_pool_attr_destroy: Destroy a pool attribute structure.
+ */
+void rseq_pool_attr_destroy(struct rseq_pool_attr *attr);
+
+/*
+ * rseq_pool_attr_set_mmap: Set pool attribute structure mmap functions.
  *
  * The @mmap_func callback used to map the memory for the pool.
  *
@@ -295,14 +304,10 @@ int rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool, int numa_flags);
  * The @mmap_priv argument is a private data pointer passed to both
  * @mmap_func and @munmap_func callbacks.
  */
-struct rseq_mmap_attr *rseq_mmap_attr_create(void *(*mmap_func)(void *priv, size_t len),
+void rseq_pool_attr_set_mmap(struct rseq_pool_attr *attr,
+		void *(*mmap_func)(void *priv, size_t len),
 		int (*munmap_func)(void *priv, void *ptr, size_t len),
 		void *mmap_priv);
-
-/*
- * rseq_mmap_attr_destroy: Destroy a mmap attribute structure.
- */
-void rseq_mmap_attr_destroy(struct rseq_mmap_attr *attr);
 
 #ifdef __cplusplus
 }

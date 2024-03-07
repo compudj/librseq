@@ -79,7 +79,8 @@ struct free_list_node {
 /* This lock protects pool create/destroy. */
 static pthread_mutex_t pool_lock = PTHREAD_MUTEX_INITIALIZER;
 
-struct rseq_mmap_attr {
+struct rseq_pool_attr {
+	bool mmap_set;
 	void *(*mmap_func)(void *priv, size_t len);
 	int (*munmap_func)(void *priv, void *ptr, size_t len);
 	void *mmap_priv;
@@ -105,7 +106,7 @@ struct rseq_percpu_pool {
 	/* This lock protects allocation/free within the pool. */
 	pthread_mutex_t lock;
 
-	struct rseq_mmap_attr mmap_attr;
+	struct rseq_pool_attr attr;
 
 	char *name;
 	/* Track alloc/free. */
@@ -318,7 +319,7 @@ int __rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
 	 * free-list.
 	 */
 	destroy_alloc_bitmap(pool);
-	ret = pool->mmap_attr.munmap_func(pool->mmap_attr.mmap_priv, pool->base,
+	ret = pool->attr.munmap_func(pool->attr.mmap_priv, pool->base,
 			pool->percpu_len * pool->max_nr_cpus);
 	if (ret)
 		goto end;
@@ -341,13 +342,11 @@ int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
 
 struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
 		size_t item_len, size_t percpu_len, int max_nr_cpus,
-		const struct rseq_mmap_attr *mmap_attr,
+		const struct rseq_pool_attr *_attr,
 		int flags)
 {
-	void *(*mmap_func)(void *priv, size_t len);
-	int (*munmap_func)(void *priv, void *ptr, size_t len);
-	void *mmap_priv;
 	struct rseq_percpu_pool *pool;
+	struct rseq_pool_attr attr = {};
 	void *base;
 	unsigned int i;
 	int order;
@@ -378,15 +377,14 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
 		return NULL;
 	}
 
-	if (mmap_attr) {
-		mmap_func = mmap_attr->mmap_func;
-		munmap_func = mmap_attr->munmap_func;
-		mmap_priv = mmap_attr->mmap_priv;
-	} else {
-		mmap_func = default_mmap_func;
-		munmap_func = default_munmap_func;
-		mmap_priv = NULL;
+	if (_attr)
+		memcpy(&attr, _attr, sizeof(attr));
+	if (!attr.mmap_set) {
+		attr.mmap_func = default_mmap_func;
+		attr.munmap_func = default_munmap_func;
+		attr.mmap_priv = NULL;
 	}
+
 	pthread_mutex_lock(&pool_lock);
 	/* Linear scan in array of pools to find empty spot. */
 	for (i = FIRST_POOL; i < MAX_NR_POOLS; i++) {
@@ -399,7 +397,7 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
 	goto end;
 
 found_empty:
-	base = mmap_func(mmap_priv, percpu_len * max_nr_cpus);
+	base = attr.mmap_func(attr.mmap_priv, percpu_len * max_nr_cpus);
 	if (!base)
 		goto error_alloc;
 	pthread_mutex_init(&pool->lock, NULL);
@@ -409,9 +407,7 @@ found_empty:
 	pool->index = i;
 	pool->item_len = item_len;
 	pool->item_order = order;
-	pool->mmap_attr.mmap_func = mmap_func;
-	pool->mmap_attr.munmap_func = munmap_func;
-	pool->mmap_attr.mmap_priv = mmap_priv;
+	memcpy(&pool->attr, &attr, sizeof(attr));
 
 	if (pool_name) {
 		pool->name = strdup(pool_name);
@@ -645,21 +641,23 @@ void __rseq_percpu *rseq_percpu_pool_set_zmalloc(struct rseq_percpu_pool_set *po
 	return __rseq_percpu_pool_set_malloc(pool_set, len, true);
 }
 
-struct rseq_mmap_attr *rseq_mmap_attr_create(void *(*mmap_func)(void *priv, size_t len),
+struct rseq_pool_attr *rseq_pool_attr_create(void)
+{
+	return calloc(1, sizeof(struct rseq_pool_attr));
+}
+
+void rseq_pool_attr_destroy(struct rseq_pool_attr *attr)
+{
+	free(attr);
+}
+
+void rseq_pool_attr_set_mmap(struct rseq_pool_attr *attr,
+		void *(*mmap_func)(void *priv, size_t len),
 		int (*munmap_func)(void *priv, void *ptr, size_t len),
 		void *mmap_priv)
 {
-	struct rseq_mmap_attr *attr = calloc(1, sizeof(struct rseq_mmap_attr));
-
-	if (!attr)
-		return NULL;
+	attr->mmap_set = true;
 	attr->mmap_func = mmap_func;
 	attr->munmap_func = munmap_func;
 	attr->mmap_priv = mmap_priv;
-	return attr;
-}
-
-void rseq_mmap_attr_destroy(struct rseq_mmap_attr *attr)
-{
-	free(attr);
 }
