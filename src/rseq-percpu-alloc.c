@@ -250,9 +250,9 @@ void check_free_list(const struct rseq_percpu_pool *pool)
 		    (node_addr >= pool->base + pool->next_unused)) {
 			if (prev)
 				fprintf(stderr, "%s: Corrupted free-list node %p -> [out-of-range %p] in pool %p, caller %p.\n",
-					__func__, prev, node, poo, __builtin_return_address(0));
+					__func__, prev, node, pool, __builtin_return_address(0));
 			else
-				fprintf(stderr, "%s: Corrupted free-list node [out-of-range %p] in pool % p, caller %p.\n",
+				fprintf(stderr, "%s: Corrupted free-list node [out-of-range %p] in pool %p, caller %p.\n",
 					__func__, node, pool, __builtin_return_address(0));
 			abort();
 		}
