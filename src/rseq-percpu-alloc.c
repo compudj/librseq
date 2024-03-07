@@ -224,6 +224,53 @@ int create_alloc_bitmap(struct rseq_percpu_pool *pool)
 
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
+void check_free_list(const struct rseq_percpu_pool *pool)
+{
+	size_t total_item = pool->percpu_len >> pool->item_order;
+	size_t total_never_allocated = (pool->percpu_len - pool->next_unused) >> pool->item_order;
+	size_t total_freed = 0;
+	size_t max_list_traversal = total_item - total_never_allocated;
+	size_t traversal_iteration = 0;
+
+	for (struct free_list_node *node = pool->free_list_head, *prev = NULL;
+	     node;
+	     prev = node,
+	     node = node->next) {
+
+		void *node_addr = node;
+
+		if (traversal_iteration >= max_list_traversal) {
+			fprintf(stderr, "%s: Corrupted free-list; Possibly infinite loop in pool %p, caller %p.\n",
+				__func__, pool, __builtin_return_address(0));
+			abort();
+		}
+
+		/* Node is out of range. */
+		if ((node_addr < pool->base) ||
+		    (node_addr >= pool->base + pool->next_unused)) {
+			if (prev)
+				fprintf(stderr, "%s: Corrupted free-list node %p -> [out-of-range %p] in pool %p, caller %p.\n",
+					__func__, prev, node, poo, __builtin_return_address(0));
+			else
+				fprintf(stderr, "%s: Corrupted free-list node [out-of-range %p] in pool % p, caller %p.\n",
+					__func__, node, pool, __builtin_return_address(0));
+			abort();
+		}
+
+		traversal_iteration += 1;
+		total_freed += 1;
+	}
+
+	if (total_never_allocated + total_freed != total_item) {
+		fprintf(stderr, "%s: Corrupted free-list in pool %p; total-item: %zu total-never-used: %zu total-freed: %zu, caller %p.\n",
+			__func__, pool, total_item, total_never_allocated, total_freed, __builtin_return_address(0));
+		abort();
+	}
+
+}
+
+/* Always inline for __builtin_return_address(0). */
+static inline __attribute__((always_inline))
 void destroy_alloc_bitmap(struct rseq_percpu_pool *pool)
 {
 	unsigned long *bitmap = pool->alloc_bitmap;
@@ -243,6 +290,8 @@ void destroy_alloc_bitmap(struct rseq_percpu_pool *pool)
 		abort();
 	}
 
+	check_free_list(pool);
+
 	free(bitmap);
 }
 
@@ -257,12 +306,16 @@ int __rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
 		ret = -1;
 		goto end;
 	}
+	/*
+	 * This must be done before releasing pool->base for checking the
+	 * free-list.
+	 */
+	destroy_alloc_bitmap(pool);
 	ret = pool->mmap_attr.munmap_func(pool->mmap_attr.mmap_priv, pool->base,
 			pool->percpu_len * pool->max_nr_cpus);
 	if (ret)
 		goto end;
 	pthread_mutex_destroy(&pool->lock);
-	destroy_alloc_bitmap(pool);
 	memset(pool, 0, sizeof(*pool));
 end:
 	return 0;
