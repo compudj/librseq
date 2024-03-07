@@ -44,6 +44,21 @@ struct rseq_mmap_attr;
 struct rseq_percpu_pool;
 
 /*
+ * Create a robust pool.  This enables the following runtime checks:
+ *
+ *   - Check for double free of pointers.
+ *
+ *   - Check that all items were freed when destroying the pool, i.e. no memory
+ *     leak.
+ *
+ *  There is a marginal runtime overhead on malloc/free operations.
+ *
+ *  The memory overhead is (pool->percpu_len / pool->item_len) / CHAR_BIT
+ *  bytes, over the lifetime of the pool.
+ */
+#define RSEQ_POOL_ROBUST    (1 << 0)
+
+/*
  * rseq_percpu_pool_create: Create a per-cpu memory pool.
  *
  * Create a per-cpu memory pool for items of size @item_len (rounded to
@@ -56,8 +71,8 @@ struct rseq_percpu_pool;
  * after rseq_percpu_pool_create() returns. The caller keeps ownership
  * of @mmap_attr.
  *
- * Argument @flags is currently expected to be 0. This is for future
- * extensions.
+ * Argument @flags is a bitwise-or'd selector of:
+ *   - RSEQ_POOL_ROBUST
  *
  * Returns a pointer to the created percpu pool. Return NULL on error,
  * with errno set accordingly:

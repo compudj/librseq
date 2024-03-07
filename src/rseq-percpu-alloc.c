@@ -66,6 +66,10 @@
  */
 #define FIRST_POOL		1
 
+#define RSEQ_POOL_FLAGS		(RSEQ_POOL_ROBUST)
+
+#define BIT_PER_ULONG		(8 * sizeof(unsigned long))
+
 struct free_list_node;
 
 struct free_list_node {
@@ -102,6 +106,9 @@ struct rseq_percpu_pool {
 	pthread_mutex_t lock;
 
 	struct rseq_mmap_attr mmap_attr;
+
+	/* Tracks allocation where free slots are set to 0. */
+	unsigned long *free_bitmap;
 };
 
 //TODO: the array of pools should grow dynamically on create.
@@ -198,6 +205,39 @@ int default_munmap_func(void *priv __attribute__((unused)), void *ptr, size_t le
 	return munmap(ptr, len);
 }
 
+static
+unsigned long *create_free_bitmap(size_t item_len)
+{
+	size_t count;
+
+	count = (item_len + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
+
+	/*
+	 * No need to check for NULL, since all paths using the free_bitmap will
+	 * be NO OP in that case.
+	 */
+	return calloc(count, sizeof(unsigned long));
+}
+
+static
+void destroy_free_bitmap(unsigned long *bitmap, size_t item_len)
+{
+	size_t count;
+
+	if (!bitmap) {
+		return;
+	}
+
+	count = (item_len + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
+
+	/* Assert that all items in the pool were freed. */
+	for (size_t k = 0; k < count; ++k) {
+		assert(0 == bitmap[k]);
+	}
+
+	free(bitmap);
+}
+
 struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 		size_t percpu_len, int max_nr_cpus,
 		const struct rseq_mmap_attr *mmap_attr,
@@ -211,7 +251,7 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
 	unsigned int i;
 	int order;
 
-	if (flags) {
+	if (flags & ~RSEQ_POOL_FLAGS) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -273,6 +313,10 @@ found_empty:
 	pool->mmap_attr.mmap_func = mmap_func;
 	pool->mmap_attr.munmap_func = munmap_func;
 	pool->mmap_attr.mmap_priv = mmap_priv;
+
+	if (RSEQ_POOL_ROBUST & flags) {
+		pool->free_bitmap = create_free_bitmap(percpu_len >> order);
+	}
 end:
 	pthread_mutex_unlock(&pool_lock);
 	return pool;
@@ -293,10 +337,31 @@ int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
 	if (ret)
 		goto end;
 	pthread_mutex_destroy(&pool->lock);
+	destroy_free_bitmap(pool->free_bitmap,
+			    pool->percpu_len >> pool->item_order);
 	memset(pool, 0, sizeof(*pool));
 end:
 	pthread_mutex_unlock(&pool_lock);
 	return 0;
+}
+
+static
+void mask_free_slot(unsigned long *bitmap, size_t item_index)
+{
+	unsigned long mask;
+	size_t k;
+
+	if (!bitmap) {
+		return;
+	}
+
+	k    = item_index / BIT_PER_ULONG;
+	mask = 1ULL << (item_index % BIT_PER_ULONG);
+
+	/* Assert that the item is free. */
+	assert(0 == (bitmap[k] & mask));
+
+	bitmap[k] |= mask;
 }
 
 static
@@ -324,6 +389,7 @@ void __rseq_percpu *__rseq_percpu_malloc(struct rseq_percpu_pool *pool, bool zer
 	item_offset = pool->next_unused;
 	addr = (void *) (((uintptr_t) pool->index << POOL_INDEX_SHIFT) | item_offset);
 	pool->next_unused += pool->item_len;
+	mask_free_slot(pool->free_bitmap, item_offset >> pool->item_order);
 end:
 	pthread_mutex_unlock(&pool->lock);
 	if (zeroed && addr)
@@ -341,6 +407,25 @@ void __rseq_percpu *rseq_percpu_zmalloc(struct rseq_percpu_pool *pool)
 	return __rseq_percpu_malloc(pool, true);
 }
 
+static
+void unmask_free_slot(unsigned long *bitmap, size_t item_index)
+{
+	unsigned long mask;
+	size_t k;
+
+	if (!bitmap) {
+		return;
+	}
+
+	k    = item_index / BIT_PER_ULONG;
+	mask = 1 << (item_index % BIT_PER_ULONG);
+
+	/* Assert that the item is not free. */
+	assert(mask == (bitmap[k] & mask));
+
+	bitmap[k] &= ~mask;
+}
+
 void rseq_percpu_free(void __rseq_percpu *_ptr)
 {
 	uintptr_t ptr = (uintptr_t) _ptr;
@@ -350,6 +435,7 @@ void rseq_percpu_free(void __rseq_percpu *_ptr)
 	struct free_list_node *head, *item;
 
 	pthread_mutex_lock(&pool->lock);
+	unmask_free_slot(pool->free_bitmap, item_offset >> pool->item_order);
 	/* Add ptr to head of free list */
 	head = pool->free_list_head;
 	/* Free-list is in CPU 0 range. */
