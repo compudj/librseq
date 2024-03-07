@@ -71,6 +71,9 @@ struct rseq_percpu_pool;
  * after rseq_percpu_pool_create() returns. The caller keeps ownership
  * of @mmap_attr.
  *
+ * The argument @pool_name can be used to given a name to the pool for
+ * debugging purposes. It can be NULL if no name is given.
+ *
  * Argument @flags is a bitwise-or'd selector of:
  *   - RSEQ_POOL_ROBUST
  *
@@ -86,8 +89,8 @@ struct rseq_percpu_pool;
  *
  * This API is MT-safe.
  */
-struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
-		size_t percpu_len, int max_nr_cpus,
+struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
+		size_t item_len, size_t percpu_len, int max_nr_cpus,
 		const struct rseq_mmap_attr *mmap_attr,
 		int flags);
 

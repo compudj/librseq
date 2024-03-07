@@ -107,6 +107,7 @@ struct rseq_percpu_pool {
 
 	struct rseq_mmap_attr mmap_attr;
 
+	char *name;
 	/* Track alloc/free. */
 	unsigned long *alloc_bitmap;
 };
@@ -222,6 +223,12 @@ int create_alloc_bitmap(struct rseq_percpu_pool *pool)
 	return 0;
 }
 
+static
+const char *get_pool_name(const struct rseq_percpu_pool *pool)
+{
+	return pool->name ? : "<anonymous>";
+}
+
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
 void check_free_list(const struct rseq_percpu_pool *pool)
@@ -240,8 +247,8 @@ void check_free_list(const struct rseq_percpu_pool *pool)
 		void *node_addr = node;
 
 		if (traversal_iteration >= max_list_traversal) {
-			fprintf(stderr, "%s: Corrupted free-list; Possibly infinite loop in pool %p, caller %p.\n",
-				__func__, pool, __builtin_return_address(0));
+			fprintf(stderr, "%s: Corrupted free-list; Possibly infinite loop in pool \"%s\" (%p), caller %p.\n",
+				__func__, get_pool_name(pool), pool, __builtin_return_address(0));
 			abort();
 		}
 
@@ -249,11 +256,11 @@ void check_free_list(const struct rseq_percpu_pool *pool)
 		if ((node_addr < pool->base) ||
 		    (node_addr >= pool->base + pool->next_unused)) {
 			if (prev)
-				fprintf(stderr, "%s: Corrupted free-list node %p -> [out-of-range %p] in pool %p, caller %p.\n",
-					__func__, prev, node, pool, __builtin_return_address(0));
+				fprintf(stderr, "%s: Corrupted free-list node %p -> [out-of-range %p] in pool \"%s\" (%p), caller %p.\n",
+					__func__, prev, node, get_pool_name(pool), pool, __builtin_return_address(0));
 			else
-				fprintf(stderr, "%s: Corrupted free-list node [out-of-range %p] in pool %p, caller %p.\n",
-					__func__, node, pool, __builtin_return_address(0));
+				fprintf(stderr, "%s: Corrupted free-list node [out-of-range %p] in pool \"%s\" (%p), caller %p.\n",
+					__func__, node, get_pool_name(pool), pool, __builtin_return_address(0));
 			abort();
 		}
 
@@ -262,8 +269,8 @@ void check_free_list(const struct rseq_percpu_pool *pool)
 	}
 
 	if (total_never_allocated + total_freed != total_item) {
-		fprintf(stderr, "%s: Corrupted free-list in pool %p; total-item: %zu total-never-used: %zu total-freed: %zu, caller %p.\n",
-			__func__, pool, total_item, total_never_allocated, total_freed, __builtin_return_address(0));
+		fprintf(stderr, "%s: Corrupted free-list in pool \"%s\" (%p); total-item: %zu total-never-used: %zu total-freed: %zu, caller %p.\n",
+			__func__, get_pool_name(pool), pool, total_item, total_never_allocated, total_freed, __builtin_return_address(0));
 		abort();
 	}
 
@@ -285,8 +292,8 @@ void destroy_alloc_bitmap(struct rseq_percpu_pool *pool)
 	for (size_t k = 0; k < count; ++k)
 		total_leaks += rseq_hweight_ulong(bitmap[k]);
 	if (total_leaks) {
-		fprintf(stderr, "%s: Pool has %zu leaked items on destroy, caller: %p.\n",
-			__func__, total_leaks, (void *) __builtin_return_address(0));
+		fprintf(stderr, "%s: Pool \"%s\" (%p) has %zu leaked items on destroy, caller: %p.\n",
+			__func__, get_pool_name(pool), pool, total_leaks, (void *) __builtin_return_address(0));
 		abort();
 	}
 
@@ -316,6 +323,7 @@ int __rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
 	if (ret)
 		goto end;
 	pthread_mutex_destroy(&pool->lock);
+	free(pool->name);
 	memset(pool, 0, sizeof(*pool));
 end:
 	return 0;
@@ -331,8 +339,8 @@ int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
 	return ret;
 }
 
-struct rseq_percpu_pool *rseq_percpu_pool_create(size_t item_len,
-		size_t percpu_len, int max_nr_cpus,
+struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
+		size_t item_len, size_t percpu_len, int max_nr_cpus,
 		const struct rseq_mmap_attr *mmap_attr,
 		int flags)
 {
@@ -405,6 +413,12 @@ found_empty:
 	pool->mmap_attr.munmap_func = munmap_func;
 	pool->mmap_attr.mmap_priv = mmap_priv;
 
+	if (pool_name) {
+		pool->name = strdup(pool_name);
+		if (!pool->name)
+			goto error_alloc;
+	}
+
 	if (RSEQ_POOL_ROBUST & flags) {
 		if (create_alloc_bitmap(pool))
 			goto error_alloc;
@@ -437,8 +451,8 @@ void set_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
 
 	/* Print error if bit is already set. */
 	if (bitmap[k] & mask) {
-		fprintf(stderr, "%s: Allocator corruption detected for pool: %p, item offset: %zu, caller: %p.\n",
-			__func__, pool, item_offset, (void *) __builtin_return_address(0));
+		fprintf(stderr, "%s: Allocator corruption detected for pool: \"%s\" (%p), item offset: %zu, caller: %p.\n",
+			__func__, get_pool_name(pool), pool, item_offset, (void *) __builtin_return_address(0));
 		abort();
 	}
 	bitmap[k] |= mask;
@@ -504,8 +518,9 @@ void clear_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
 
 	/* Print error if bit is not set. */
 	if (!(bitmap[k] & mask)) {
-		fprintf(stderr, "%s: Double-free detected for pool: %p, item offset: %zu, caller: %p.\n",
-			__func__, pool, item_offset, (void *) __builtin_return_address(0));
+		fprintf(stderr, "%s: Double-free detected for pool: \"%s\" (%p), item offset: %zu, caller: %p.\n",
+			__func__, get_pool_name(pool), pool, item_offset,
+			(void *) __builtin_return_address(0));
 		abort();
 	}
 	bitmap[k] &= ~mask;

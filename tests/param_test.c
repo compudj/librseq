@@ -499,7 +499,8 @@ static void test_percpu_spinlock(void)
 	struct spinlock_thread_test_data thread_data[num_threads];
 	struct rseq_percpu_pool *mempool;
 
-	mempool = rseq_percpu_pool_create(sizeof(struct spinlock_test_data),
+	mempool = rseq_percpu_pool_create("spinlock_test_data",
+			sizeof(struct spinlock_test_data),
 			PERCPU_POOL_LEN, CPU_SETSIZE, NULL, 0);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
@@ -594,7 +595,8 @@ static void test_percpu_inc(void)
 	struct inc_thread_test_data thread_data[num_threads];
 	struct rseq_percpu_pool *mempool;
 
-	mempool = rseq_percpu_pool_create(sizeof(struct inc_test_data),
+	mempool = rseq_percpu_pool_create("inc_test_data",
+			sizeof(struct inc_test_data),
 			PERCPU_POOL_LEN, CPU_SETSIZE, NULL, 0);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
@@ -767,7 +769,7 @@ static void test_percpu_list(void)
 	cpu_set_t allowed_cpus;
 	struct rseq_percpu_pool *mempool;
 
-	mempool = rseq_percpu_pool_create(sizeof(struct percpu_list),
+	mempool = rseq_percpu_pool_create("percpu_list", sizeof(struct percpu_list),
 			PERCPU_POOL_LEN, CPU_SETSIZE, NULL, 0);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
@@ -978,7 +980,7 @@ static void test_percpu_buffer(void)
 	cpu_set_t allowed_cpus;
 	struct rseq_percpu_pool *mempool;
 
-	mempool = rseq_percpu_pool_create(sizeof(struct percpu_buffer),
+	mempool = rseq_percpu_pool_create("percpu_buffer", sizeof(struct percpu_buffer),
 			PERCPU_POOL_LEN, CPU_SETSIZE, NULL, 0);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
@@ -1218,7 +1220,8 @@ static void test_percpu_memcpy_buffer(void)
 	cpu_set_t allowed_cpus;
 	struct rseq_percpu_pool *mempool;
 
-	mempool = rseq_percpu_pool_create(sizeof(struct percpu_memcpy_buffer),
+	mempool = rseq_percpu_pool_create("percpu_memcpy_buffer",
+			sizeof(struct percpu_memcpy_buffer),
 			PERCPU_POOL_LEN, CPU_SETSIZE, NULL, 0);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
@@ -1464,7 +1467,7 @@ void *test_membarrier_manager_thread(void *arg)
 	int ret;
 	long long total_count = 0;
 
-	mempool = rseq_percpu_pool_create(sizeof(struct percpu_list),
+	mempool = rseq_percpu_pool_create("percpu_list", sizeof(struct percpu_list),
 			PERCPU_POOL_LEN, CPU_SETSIZE, NULL, 0);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
