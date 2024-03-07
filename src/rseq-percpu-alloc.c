@@ -66,8 +66,6 @@
  */
 #define FIRST_POOL		1
 
-#define RSEQ_POOL_FLAGS		(RSEQ_POOL_ROBUST)
-
 #define BIT_PER_ULONG		(8 * sizeof(unsigned long))
 
 struct free_list_node;
@@ -84,6 +82,8 @@ struct rseq_pool_attr {
 	void *(*mmap_func)(void *priv, size_t len);
 	int (*munmap_func)(void *priv, void *ptr, size_t len);
 	void *mmap_priv;
+
+	bool robust_set;
 };
 
 struct rseq_percpu_pool {
@@ -342,19 +342,13 @@ int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
 
 struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
 		size_t item_len, size_t percpu_len, int max_nr_cpus,
-		const struct rseq_pool_attr *_attr,
-		int flags)
+		const struct rseq_pool_attr *_attr)
 {
 	struct rseq_percpu_pool *pool;
 	struct rseq_pool_attr attr = {};
 	void *base;
 	unsigned int i;
 	int order;
-
-	if (flags & ~RSEQ_POOL_FLAGS) {
-		errno = EINVAL;
-		return NULL;
-	}
 
 	/* Make sure each item is large enough to contain free list pointers. */
 	if (item_len < sizeof(void *))
@@ -415,7 +409,7 @@ found_empty:
 			goto error_alloc;
 	}
 
-	if (RSEQ_POOL_ROBUST & flags) {
+	if (attr.robust_set) {
 		if (create_alloc_bitmap(pool))
 			goto error_alloc;
 	}
@@ -664,5 +658,15 @@ int rseq_pool_attr_set_mmap(struct rseq_pool_attr *attr,
 	attr->mmap_func = mmap_func;
 	attr->munmap_func = munmap_func;
 	attr->mmap_priv = mmap_priv;
+	return 0;
+}
+
+int rseq_pool_attr_set_robust(struct rseq_pool_attr *attr)
+{
+	if (!attr) {
+		errno = EINVAL;
+		return -1;
+	}
+	attr->robust_set = true;
 	return 0;
 }

@@ -65,16 +65,13 @@ struct rseq_percpu_pool;
  * next power of two). The reserved allocation size is @percpu_len, and
  * the maximum CPU value expected is (@max_nr_cpus - 1).
  *
- * The @pool_attr pointer used to specify the pool attributes. If NULL,
- * use a default attribute values. The @pool_attr can be destroyed
- * immediately after rseq_percpu_pool_create() returns. The caller keeps
- * ownership of @pool_attr.
+ * The @attr pointer used to specify the pool attributes. If NULL, use a
+ * default attribute values. The @attr can be destroyed immediately
+ * after rseq_percpu_pool_create() returns. The caller keeps ownership
+ * of @attr.
  *
  * The argument @pool_name can be used to given a name to the pool for
  * debugging purposes. It can be NULL if no name is given.
- *
- * Argument @flags is a bitwise-or'd selector of:
- *   - RSEQ_POOL_ROBUST
  *
  * Returns a pointer to the created percpu pool. Return NULL on error,
  * with errno set accordingly:
@@ -90,8 +87,7 @@ struct rseq_percpu_pool;
  */
 struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
 		size_t item_len, size_t percpu_len, int max_nr_cpus,
-		const struct rseq_pool_attr *attr,
-		int flags);
+		const struct rseq_pool_attr *attr);
 
 /*
  * rseq_percpu_pool_destroy: Destroy a per-cpu memory pool.
@@ -310,6 +306,26 @@ int rseq_pool_attr_set_mmap(struct rseq_pool_attr *attr,
 		void *(*mmap_func)(void *priv, size_t len),
 		int (*munmap_func)(void *priv, void *ptr, size_t len),
 		void *mmap_priv);
+
+/*
+ * rseq_pool_attr_set_robust: Set pool robust attribute.
+ *
+ * The robust pool attribute enables runtime validation of the pool:
+ *
+ *   - Check for double-free of pointers.
+ *
+ *   - Detect memory leaks on pool destruction.
+  *
+ *   - Detect free-list corruption on pool destruction.
+ *
+ * There is a marginal runtime overhead on malloc/free operations.
+ *
+ * The memory overhead is (pool->percpu_len / pool->item_len) / CHAR_BIT
+ * bytes, over the lifetime of the pool.
+ *
+ * Returns 0 on success, -1 with errno=EINVAL if arguments are invalid.
+ */
+int rseq_pool_attr_set_robust(struct rseq_pool_attr *attr);
 
 #ifdef __cplusplus
 }
