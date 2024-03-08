@@ -30,7 +30,7 @@ struct test_data {
 static void test_mempool_fill(size_t len)
 {
 	struct test_data __rseq_percpu *ptr;
-	struct test_data *iter;
+	struct test_data *iter, *tmp;
 	struct rseq_percpu_pool *mempool;
 	struct rseq_pool_attr *attr;
 	uint64_t count = 0;
@@ -79,7 +79,7 @@ static void test_mempool_fill(size_t len)
 
 	ok(1, "Check for pool content corruption");
 
-	list_for_each_entry(iter, &list, node) {
+	list_for_each_entry_safe(iter, tmp, &list, node) {
 		ptr = iter->backref;
 		rseq_percpu_free(ptr);
 	}
