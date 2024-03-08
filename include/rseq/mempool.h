@@ -26,6 +26,15 @@
 extern "C" {
 #endif
 
+/*
+ * The percpu offset stride can be overridden by the user code.
+ * The stride *must* match for all objects belonging to a given pool
+ * between arguments to:
+ *
+ * - rseq_percpu_pool_create(),
+ * - __rseq_percpu_free(),
+ * - __rseq_percpu_ptr().
+ */
 #if RSEQ_BITS_PER_LONG == 64
 # define RSEQ_PERCPU_STRIDE	(1U << 24)	/* 64-bit stride: 16MB */
 #else
@@ -54,8 +63,9 @@ struct rseq_percpu_pool;
  * rseq_percpu_pool_create: Create a per-cpu memory pool.
  *
  * Create a per-cpu memory pool for items of size @item_len (rounded to
- * next power of two). The reserved allocation size is @percpu_len, and
- * the maximum CPU value expected is (@max_nr_cpus - 1).
+ * next power of two). The reserved allocation size is @percpu_stride, and
+ * the maximum CPU value expected is (@max_nr_cpus - 1). A
+ * @percpu_stride of 0 uses the default RSEQ_PERCPU_STRIDE.
  *
  * The @attr pointer used to specify the pool attributes. If NULL, use a
  * default attribute values. The @attr can be destroyed immediately
