@@ -56,8 +56,8 @@ extern "C" {
  */
 #define __rseq_percpu
 
-struct rseq_pool_attr;
-struct rseq_percpu_pool;
+struct rseq_mempool_attr;
+struct rseq_mempool;
 
 /*
  * rseq_percpu_pool_create: Create a per-cpu memory pool.
@@ -87,12 +87,12 @@ struct rseq_percpu_pool;
  *
  * This API is MT-safe.
  */
-struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
+struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 		size_t item_len, size_t percpu_stride, int max_nr_cpus,
-		const struct rseq_pool_attr *attr);
+		const struct rseq_mempool_attr *attr);
 
 /*
- * rseq_percpu_pool_destroy: Destroy a per-cpu memory pool.
+ * rseq_mempool_destroy: Destroy a per-cpu memory pool.
  *
  * Destroy a per-cpu memory pool, unmapping its memory and removing the
  * pool entry from the global index. No pointers allocated from the
@@ -109,7 +109,7 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
  *
  * This API is MT-safe.
  */
-int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool);
+int rseq_mempool_destroy(struct rseq_mempool *pool);
 
 /*
  * rseq_percpu_malloc: Allocate memory from a per-cpu pool.
@@ -128,7 +128,7 @@ int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool);
  *
  * This API is MT-safe.
  */
-void __rseq_percpu *rseq_percpu_malloc(struct rseq_percpu_pool *pool);
+void __rseq_percpu *rseq_percpu_malloc(struct rseq_mempool *pool);
 
 /*
  * rseq_percpu_zmalloc: Allocated zero-initialized memory from a per-cpu pool.
@@ -138,7 +138,7 @@ void __rseq_percpu *rseq_percpu_malloc(struct rseq_percpu_pool *pool);
  *
  * This API is MT-safe.
  */
-void __rseq_percpu *rseq_percpu_zmalloc(struct rseq_percpu_pool *pool);
+void __rseq_percpu *rseq_percpu_zmalloc(struct rseq_mempool *pool);
 
 /*
  * rseq_percpu_free: Free memory from a per-cpu pool.
@@ -191,7 +191,7 @@ void __rseq_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
 #define rseq_percpu_ptr(ptr, cpu) __rseq_percpu_ptr(ptr, cpu, RSEQ_PERCPU_STRIDE)
 
 /*
- * rseq_percpu_pool_set_create: Create a pool set.
+ * rseq_mempool_set_create: Create a pool set.
  *
  * Create a set of pools. Its purpose is to offer a memory allocator API
  * for variable-length items (e.g. variable length strings). When
@@ -206,10 +206,10 @@ void __rseq_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
  *
  * This API is MT-safe.
  */
-struct rseq_percpu_pool_set *rseq_percpu_pool_set_create(void);
+struct rseq_mempool_set *rseq_mempool_set_create(void);
 
 /*
- * rseq_percpu_pool_set_destroy: Destroy a pool set.
+ * rseq_mempool_set_destroy: Destroy a pool set.
  *
  * Destroy a pool set and its associated resources. The pools that were
  * added to the pool set are destroyed as well.
@@ -220,10 +220,10 @@ struct rseq_percpu_pool_set *rseq_percpu_pool_set_create(void);
  *
  * This API is MT-safe.
  */
-int rseq_percpu_pool_set_destroy(struct rseq_percpu_pool_set *pool_set);
+int rseq_mempool_set_destroy(struct rseq_mempool_set *pool_set);
 
 /*
- * rseq_percpu_pool_set_add_pool: Add a pool to a pool set.
+ * rseq_mempool_set_add_pool: Add a pool to a pool set.
  *
  * Add a @pool to the @pool_set. On success, its ownership is handed
  * over to the pool set, so the caller should not destroy it explicitly.
@@ -236,11 +236,11 @@ int rseq_percpu_pool_set_destroy(struct rseq_percpu_pool_set *pool_set);
  *
  * This API is MT-safe.
  */
-int rseq_percpu_pool_set_add_pool(struct rseq_percpu_pool_set *pool_set,
-		struct rseq_percpu_pool *pool);
+int rseq_mempool_set_add_pool(struct rseq_mempool_set *pool_set,
+		struct rseq_mempool *pool);
 
 /*
- * rseq_percpu_pool_set_malloc: Allocate memory from a per-cpu pool set.
+ * rseq_percpu_mempool_set_malloc: Allocate memory from a per-cpu pool set.
  *
  * Allocate an item from a per-cpu @pool. The allocation will reserve
  * an item of the size specified by @len (rounded to next power of
@@ -261,20 +261,20 @@ int rseq_percpu_pool_set_add_pool(struct rseq_percpu_pool_set *pool_set,
  *
  * This API is MT-safe.
  */
-void __rseq_percpu *rseq_percpu_pool_set_malloc(struct rseq_percpu_pool_set *pool_set, size_t len);
+void __rseq_percpu *rseq_percpu_mempool_set_malloc(struct rseq_mempool_set *pool_set, size_t len);
 
 /*
- * rseq_percpu_pool_set_zmalloc: Allocated zero-initialized memory from a per-cpu pool set.
+ * rseq_percpu_mempool_set_zmalloc: Allocated zero-initialized memory from a per-cpu pool set.
  *
  * Allocate memory for an item within the pool, and zero-initialize its
- * memory on all CPUs. See rseq_percpu_pool_set_malloc for details.
+ * memory on all CPUs. See rseq_percpu_mempool_set_malloc for details.
  *
  * This API is MT-safe.
  */
-void __rseq_percpu *rseq_percpu_pool_set_zmalloc(struct rseq_percpu_pool_set *pool_set, size_t len);
+void __rseq_percpu *rseq_percpu_mempool_set_zmalloc(struct rseq_mempool_set *pool_set, size_t len);
 
 /*
- * rseq_percpu_pool_init_numa: Move pages to the NUMA node associated to their CPU topology.
+ * rseq_mempool_init_numa: Move pages to the NUMA node associated to their CPU topology.
  *
  * For pages allocated within @pool, invoke move_pages(2) with the given
  * @numa_flags to move the pages to the NUMA node associated to their
@@ -287,20 +287,20 @@ void __rseq_percpu *rseq_percpu_pool_set_zmalloc(struct rseq_percpu_pool_set *po
  *
  * Returns 0 on success, else return -1 with errno set by move_pages(2).
  */
-int rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool, int numa_flags);
+int rseq_mempool_init_numa(struct rseq_mempool *pool, int numa_flags);
 
 /*
- * rseq_pool_attr_create: Create a pool attribute structure.
+ * rseq_mempool_attr_create: Create a pool attribute structure.
  */
-struct rseq_pool_attr *rseq_pool_attr_create(void);
+struct rseq_mempool_attr *rseq_mempool_attr_create(void);
 
 /*
- * rseq_pool_attr_destroy: Destroy a pool attribute structure.
+ * rseq_mempool_attr_destroy: Destroy a pool attribute structure.
  */
-void rseq_pool_attr_destroy(struct rseq_pool_attr *attr);
+void rseq_mempool_attr_destroy(struct rseq_mempool_attr *attr);
 
 /*
- * rseq_pool_attr_set_mmap: Set pool attribute structure mmap functions.
+ * rseq_mempool_attr_set_mmap: Set pool attribute structure mmap functions.
  *
  * The @mmap_func callback used to map the memory for the pool.
  *
@@ -312,13 +312,13 @@ void rseq_pool_attr_destroy(struct rseq_pool_attr *attr);
  *
  * Returns 0 on success, -1 with errno=EINVAL if arguments are invalid.
  */
-int rseq_pool_attr_set_mmap(struct rseq_pool_attr *attr,
+int rseq_mempool_attr_set_mmap(struct rseq_mempool_attr *attr,
 		void *(*mmap_func)(void *priv, size_t len),
 		int (*munmap_func)(void *priv, void *ptr, size_t len),
 		void *mmap_priv);
 
 /*
- * rseq_pool_attr_set_robust: Set pool robust attribute.
+ * rseq_mempool_attr_set_robust: Set pool robust attribute.
  *
  * The robust pool attribute enables runtime validation of the pool:
  *
@@ -335,7 +335,7 @@ int rseq_pool_attr_set_mmap(struct rseq_pool_attr *attr,
  *
  * Returns 0 on success, -1 with errno=EINVAL if arguments are invalid.
  */
-int rseq_pool_attr_set_robust(struct rseq_pool_attr *attr);
+int rseq_mempool_attr_set_robust(struct rseq_mempool_attr *attr);
 
 #ifdef __cplusplus
 }

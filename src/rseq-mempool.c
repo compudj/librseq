@@ -55,7 +55,7 @@
 
 #define MOVE_PAGES_BATCH_SIZE	4096
 
-#define RANGE_HEADER_OFFSET	sizeof(struct rseq_percpu_pool_range)
+#define RANGE_HEADER_OFFSET	sizeof(struct rseq_mempool_range)
 
 struct free_list_node;
 
@@ -63,7 +63,7 @@ struct free_list_node {
 	struct free_list_node *next;
 };
 
-struct rseq_pool_attr {
+struct rseq_mempool_attr {
 	bool mmap_set;
 	void *(*mmap_func)(void *priv, size_t len);
 	int (*munmap_func)(void *priv, void *ptr, size_t len);
@@ -72,11 +72,11 @@ struct rseq_pool_attr {
 	bool robust_set;
 };
 
-struct rseq_percpu_pool_range;
+struct rseq_mempool_range;
 
-struct rseq_percpu_pool_range {
-	struct rseq_percpu_pool_range *next;
-	struct rseq_percpu_pool *pool;	/* Backward ref. to container pool. */
+struct rseq_mempool_range {
+	struct rseq_mempool_range *next;
+	struct rseq_mempool *pool;	/* Backward ref. to container pool. */
 	void *header;
 	void *base;
 	size_t next_unused;
@@ -84,9 +84,9 @@ struct rseq_percpu_pool_range {
 	unsigned long *alloc_bitmap;
 };
 
-struct rseq_percpu_pool {
+struct rseq_mempool {
 	/* Linked-list of ranges. */
-	struct rseq_percpu_pool_range *ranges;
+	struct rseq_mempool_range *ranges;
 
 	size_t item_len;
 	size_t percpu_stride;
@@ -105,7 +105,7 @@ struct rseq_percpu_pool {
 	/* This lock protects allocation/free within the pool. */
 	pthread_mutex_t lock;
 
-	struct rseq_pool_attr attr;
+	struct rseq_mempool_attr attr;
 	char *name;
 };
 
@@ -114,14 +114,14 @@ struct rseq_percpu_pool {
  * 2. A pool set can contain NULL pool entries, in which case the next
  * large enough entry will be used for allocation.
  */
-struct rseq_percpu_pool_set {
+struct rseq_mempool_set {
 	/* This lock protects add vs malloc/zmalloc within the pool set. */
 	pthread_mutex_t lock;
-	struct rseq_percpu_pool *entries[POOL_SET_NR_ENTRIES];
+	struct rseq_mempool *entries[POOL_SET_NR_ENTRIES];
 };
 
 static
-void *__rseq_pool_percpu_ptr(struct rseq_percpu_pool *pool, int cpu,
+void *__rseq_pool_percpu_ptr(struct rseq_mempool *pool, int cpu,
 		uintptr_t item_offset, size_t stride)
 {
 	/* TODO: Implement multi-ranges support. */
@@ -129,7 +129,7 @@ void *__rseq_pool_percpu_ptr(struct rseq_percpu_pool *pool, int cpu,
 }
 
 static
-void rseq_percpu_zero_item(struct rseq_percpu_pool *pool, uintptr_t item_offset)
+void rseq_percpu_zero_item(struct rseq_mempool *pool, uintptr_t item_offset)
 {
 	int i;
 
@@ -144,7 +144,7 @@ void rseq_percpu_zero_item(struct rseq_percpu_pool *pool, uintptr_t item_offset)
 //which cannot use __rseq_pool_percpu_ptr.
 #if 0 //#ifdef HAVE_LIBNUMA
 static
-int rseq_percpu_pool_range_init_numa(struct rseq_percpu_pool *pool, struct rseq_percpu_pool_range *range, int numa_flags)
+int rseq_mempool_range_init_numa(struct rseq_mempool *pool, struct rseq_mempool_range *range, int numa_flags)
 {
 	unsigned long nr_pages, page_len;
 	long ret;
@@ -198,22 +198,22 @@ int rseq_percpu_pool_range_init_numa(struct rseq_percpu_pool *pool, struct rseq_
 	return 0;
 }
 
-int rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool, int numa_flags)
+int rseq_mempool_init_numa(struct rseq_mempool *pool, int numa_flags)
 {
-	struct rseq_percpu_pool_range *range;
+	struct rseq_mempool_range *range;
 	int ret;
 
 	if (!numa_flags)
 		return 0;
 	for (range = pool->ranges; range; range = range->next) {
-		ret = rseq_percpu_pool_range_init_numa(pool, range, numa_flags);
+		ret = rseq_mempool_range_init_numa(pool, range, numa_flags);
 		if (ret)
 			return ret;
 	}
 	return 0;
 }
 #else
-int rseq_percpu_pool_init_numa(struct rseq_percpu_pool *pool __attribute__((unused)),
+int rseq_mempool_init_numa(struct rseq_mempool *pool __attribute__((unused)),
 		int numa_flags __attribute__((unused)))
 {
 	return 0;
@@ -239,7 +239,7 @@ int default_munmap_func(void *priv __attribute__((unused)), void *ptr, size_t le
 }
 
 static
-int create_alloc_bitmap(struct rseq_percpu_pool *pool, struct rseq_percpu_pool_range *range)
+int create_alloc_bitmap(struct rseq_mempool *pool, struct rseq_mempool_range *range)
 {
 	size_t count;
 
@@ -256,15 +256,15 @@ int create_alloc_bitmap(struct rseq_percpu_pool *pool, struct rseq_percpu_pool_r
 }
 
 static
-const char *get_pool_name(const struct rseq_percpu_pool *pool)
+const char *get_pool_name(const struct rseq_mempool *pool)
 {
 	return pool->name ? : "<anonymous>";
 }
 
 static
-bool addr_in_pool(const struct rseq_percpu_pool *pool, void *addr)
+bool addr_in_pool(const struct rseq_mempool *pool, void *addr)
 {
-	struct rseq_percpu_pool_range *range;
+	struct rseq_mempool_range *range;
 
 	for (range = pool->ranges; range; range = range->next) {
 		if (addr >= range->base && addr < range->base + range->next_unused)
@@ -275,11 +275,11 @@ bool addr_in_pool(const struct rseq_percpu_pool *pool, void *addr)
 
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
-void check_free_list(const struct rseq_percpu_pool *pool)
+void check_free_list(const struct rseq_mempool *pool)
 {
 	size_t total_item = 0, total_never_allocated = 0, total_freed = 0,
 		max_list_traversal = 0, traversal_iteration = 0;
-	struct rseq_percpu_pool_range *range;
+	struct rseq_mempool_range *range;
 
 	if (!pool->attr.robust_set)
 		return;
@@ -327,7 +327,7 @@ void check_free_list(const struct rseq_percpu_pool *pool)
 
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
-void destroy_alloc_bitmap(struct rseq_percpu_pool *pool, struct rseq_percpu_pool_range *range)
+void destroy_alloc_bitmap(struct rseq_mempool *pool, struct rseq_mempool_range *range)
 {
 	unsigned long *bitmap = range->alloc_bitmap;
 	size_t count, total_leaks = 0;
@@ -351,8 +351,8 @@ void destroy_alloc_bitmap(struct rseq_percpu_pool *pool, struct rseq_percpu_pool
 
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
-int rseq_percpu_pool_range_destroy(struct rseq_percpu_pool *pool,
-		struct rseq_percpu_pool_range *range)
+int rseq_mempool_range_destroy(struct rseq_mempool *pool,
+		struct rseq_mempool_range *range)
 {
 	destroy_alloc_bitmap(pool, range);
 	/* range is a header located one page before the aligned mapping. */
@@ -365,7 +365,7 @@ int rseq_percpu_pool_range_destroy(struct rseq_percpu_pool *pool,
  * @pre_header before the mapping.
  */
 static
-void *aligned_mmap_anonymous(struct rseq_percpu_pool *pool,
+void *aligned_mmap_anonymous(struct rseq_mempool *pool,
 		size_t page_size, size_t len, size_t alignment,
 		void **pre_header, size_t pre_header_len)
 {
@@ -443,9 +443,9 @@ alloc_error:
 }
 
 static
-struct rseq_percpu_pool_range *rseq_percpu_pool_range_create(struct rseq_percpu_pool *pool)
+struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 {
-	struct rseq_percpu_pool_range *range;
+	struct rseq_mempool_range *range;
 	unsigned long page_size;
 	void *header;
 	void *base;
@@ -458,7 +458,7 @@ struct rseq_percpu_pool_range *rseq_percpu_pool_range_create(struct rseq_percpu_
 			&header, page_size);
 	if (!base)
 		return NULL;
-	range = (struct rseq_percpu_pool_range *) (base - RANGE_HEADER_OFFSET);
+	range = (struct rseq_mempool_range *) (base - RANGE_HEADER_OFFSET);
 	range->pool = pool;
 	range->base = base;
 	range->header = header;
@@ -469,13 +469,13 @@ struct rseq_percpu_pool_range *rseq_percpu_pool_range_create(struct rseq_percpu_
 	return range;
 
 error_alloc:
-	(void) rseq_percpu_pool_range_destroy(pool, range);
+	(void) rseq_mempool_range_destroy(pool, range);
 	return NULL;
 }
 
-int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
+int rseq_mempool_destroy(struct rseq_mempool *pool)
 {
-	struct rseq_percpu_pool_range *range, *next_range;
+	struct rseq_mempool_range *range, *next_range;
 	int ret = 0;
 
 	if (!pool)
@@ -483,7 +483,7 @@ int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
 	check_free_list(pool);
 	/* Iteration safe against removal. */
 	for (range = pool->ranges; range && (next_range = range->next, 1); range = next_range) {
-		if (rseq_percpu_pool_range_destroy(pool, range))
+		if (rseq_mempool_range_destroy(pool, range))
 			goto end;
 		/* Update list head to keep list coherent in case of partial failure. */
 		pool->ranges = next_range;
@@ -495,12 +495,12 @@ end:
 	return ret;
 }
 
-struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
+struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 		size_t item_len, size_t percpu_stride, int max_nr_cpus,
-		const struct rseq_pool_attr *_attr)
+		const struct rseq_mempool_attr *_attr)
 {
-	struct rseq_percpu_pool *pool;
-	struct rseq_pool_attr attr = {};
+	struct rseq_mempool *pool;
+	struct rseq_mempool_attr attr = {};
 	int order;
 
 	/* Make sure each item is large enough to contain free list pointers. */
@@ -533,7 +533,7 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
 		attr.mmap_priv = NULL;
 	}
 
-	pool = calloc(1, sizeof(struct rseq_percpu_pool));
+	pool = calloc(1, sizeof(struct rseq_mempool));
 	if (!pool)
 		return NULL;
 
@@ -545,7 +545,7 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
 	pool->item_order = order;
 
 	//TODO: implement multi-range support.
-	pool->ranges = rseq_percpu_pool_range_create(pool);
+	pool->ranges = rseq_mempool_range_create(pool);
 	if (!pool->ranges)
 		goto error_alloc;
 
@@ -557,14 +557,14 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
 	return pool;
 
 error_alloc:
-	rseq_percpu_pool_destroy(pool);
+	rseq_mempool_destroy(pool);
 	errno = ENOMEM;
 	return NULL;
 }
 
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
-void set_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
+void set_alloc_slot(struct rseq_mempool *pool, size_t item_offset)
 {
 	unsigned long *bitmap = pool->ranges->alloc_bitmap;
 	size_t item_index = item_offset >> pool->item_order;
@@ -587,7 +587,7 @@ void set_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
 }
 
 static
-void __rseq_percpu *__rseq_percpu_malloc(struct rseq_percpu_pool *pool, bool zeroed)
+void __rseq_percpu *__rseq_percpu_malloc(struct rseq_mempool *pool, bool zeroed)
 {
 	struct free_list_node *node;
 	uintptr_t item_offset;
@@ -620,19 +620,19 @@ end:
 	return addr;
 }
 
-void __rseq_percpu *rseq_percpu_malloc(struct rseq_percpu_pool *pool)
+void __rseq_percpu *rseq_percpu_malloc(struct rseq_mempool *pool)
 {
 	return __rseq_percpu_malloc(pool, false);
 }
 
-void __rseq_percpu *rseq_percpu_zmalloc(struct rseq_percpu_pool *pool)
+void __rseq_percpu *rseq_percpu_zmalloc(struct rseq_mempool *pool)
 {
 	return __rseq_percpu_malloc(pool, true);
 }
 
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
-void clear_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
+void clear_alloc_slot(struct rseq_mempool *pool, size_t item_offset)
 {
 	unsigned long *bitmap = pool->ranges->alloc_bitmap;
 	size_t item_index = item_offset >> pool->item_order;
@@ -659,8 +659,8 @@ void __rseq_percpu_free(void __rseq_percpu *_ptr, size_t percpu_stride)
 {
 	uintptr_t ptr = (uintptr_t) _ptr;
 	void *range_base = (void *) (ptr & (~(percpu_stride - 1)));
-	struct rseq_percpu_pool_range *range = (struct rseq_percpu_pool_range *) (range_base - RANGE_HEADER_OFFSET);
-	struct rseq_percpu_pool *pool = range->pool;
+	struct rseq_mempool_range *range = (struct rseq_mempool_range *) (range_base - RANGE_HEADER_OFFSET);
+	struct rseq_mempool *pool = range->pool;
 	uintptr_t item_offset = ptr & (percpu_stride - 1);
 	struct free_list_node *head, *item;
 
@@ -675,27 +675,27 @@ void __rseq_percpu_free(void __rseq_percpu *_ptr, size_t percpu_stride)
 	pthread_mutex_unlock(&pool->lock);
 }
 
-struct rseq_percpu_pool_set *rseq_percpu_pool_set_create(void)
+struct rseq_mempool_set *rseq_mempool_set_create(void)
 {
-	struct rseq_percpu_pool_set *pool_set;
+	struct rseq_mempool_set *pool_set;
 
-	pool_set = calloc(1, sizeof(struct rseq_percpu_pool_set));
+	pool_set = calloc(1, sizeof(struct rseq_mempool_set));
 	if (!pool_set)
 		return NULL;
 	pthread_mutex_init(&pool_set->lock, NULL);
 	return pool_set;
 }
 
-int rseq_percpu_pool_set_destroy(struct rseq_percpu_pool_set *pool_set)
+int rseq_mempool_set_destroy(struct rseq_mempool_set *pool_set)
 {
 	int order, ret;
 
 	for (order = POOL_SET_MIN_ENTRY; order < POOL_SET_NR_ENTRIES; order++) {
-		struct rseq_percpu_pool *pool = pool_set->entries[order];
+		struct rseq_mempool *pool = pool_set->entries[order];
 
 		if (!pool)
 			continue;
-		ret = rseq_percpu_pool_destroy(pool);
+		ret = rseq_mempool_destroy(pool);
 		if (ret)
 			return ret;
 		pool_set->entries[order] = NULL;
@@ -706,7 +706,7 @@ int rseq_percpu_pool_set_destroy(struct rseq_percpu_pool_set *pool_set)
 }
 
 /* Ownership of pool is handed over to pool set on success. */
-int rseq_percpu_pool_set_add_pool(struct rseq_percpu_pool_set *pool_set, struct rseq_percpu_pool *pool)
+int rseq_mempool_set_add_pool(struct rseq_mempool_set *pool_set, struct rseq_mempool *pool)
 {
 	size_t item_order = pool->item_order;
 	int ret = 0;
@@ -724,10 +724,10 @@ end:
 }
 
 static
-void __rseq_percpu *__rseq_percpu_pool_set_malloc(struct rseq_percpu_pool_set *pool_set, size_t len, bool zeroed)
+void __rseq_percpu *__rseq_mempool_set_malloc(struct rseq_mempool_set *pool_set, size_t len, bool zeroed)
 {
 	int order, min_order = POOL_SET_MIN_ENTRY;
-	struct rseq_percpu_pool *pool;
+	struct rseq_mempool *pool;
 	void __rseq_percpu *addr;
 
 	order = rseq_get_count_order_ulong(len);
@@ -765,27 +765,27 @@ found:
 	return addr;
 }
 
-void __rseq_percpu *rseq_percpu_pool_set_malloc(struct rseq_percpu_pool_set *pool_set, size_t len)
+void __rseq_percpu *rseq_percpu_mempool_set_malloc(struct rseq_mempool_set *pool_set, size_t len)
 {
-	return __rseq_percpu_pool_set_malloc(pool_set, len, false);
+	return __rseq_mempool_set_malloc(pool_set, len, false);
 }
 
-void __rseq_percpu *rseq_percpu_pool_set_zmalloc(struct rseq_percpu_pool_set *pool_set, size_t len)
+void __rseq_percpu *rseq_percpu_mempool_set_zmalloc(struct rseq_mempool_set *pool_set, size_t len)
 {
-	return __rseq_percpu_pool_set_malloc(pool_set, len, true);
+	return __rseq_mempool_set_malloc(pool_set, len, true);
 }
 
-struct rseq_pool_attr *rseq_pool_attr_create(void)
+struct rseq_mempool_attr *rseq_mempool_attr_create(void)
 {
-	return calloc(1, sizeof(struct rseq_pool_attr));
+	return calloc(1, sizeof(struct rseq_mempool_attr));
 }
 
-void rseq_pool_attr_destroy(struct rseq_pool_attr *attr)
+void rseq_mempool_attr_destroy(struct rseq_mempool_attr *attr)
 {
 	free(attr);
 }
 
-int rseq_pool_attr_set_mmap(struct rseq_pool_attr *attr,
+int rseq_mempool_attr_set_mmap(struct rseq_mempool_attr *attr,
 		void *(*mmap_func)(void *priv, size_t len),
 		int (*munmap_func)(void *priv, void *ptr, size_t len),
 		void *mmap_priv)
@@ -801,7 +801,7 @@ int rseq_pool_attr_set_mmap(struct rseq_pool_attr *attr,
 	return 0;
 }
 
-int rseq_pool_attr_set_robust(struct rseq_pool_attr *attr)
+int rseq_mempool_attr_set_robust(struct rseq_mempool_attr *attr)
 {
 	if (!attr) {
 		errno = EINVAL;
