@@ -27,7 +27,7 @@ struct test_data {
 	struct list_head node;
 };
 
-static void test_mempool_fill(size_t len)
+static void test_mempool_fill(size_t stride)
 {
 	struct test_data __rseq_percpu *ptr;
 	struct test_data *iter, *tmp;
@@ -44,8 +44,8 @@ static void test_mempool_fill(size_t len)
 
 	mempool = rseq_percpu_pool_create("test_data",
 			sizeof(struct test_data),
-			len, CPU_SETSIZE, attr);
-	ok(mempool, "Create mempool of size %zu", len);
+			stride, CPU_SETSIZE, attr);
+	ok(mempool, "Create mempool of size %zu", stride);
 	rseq_pool_attr_destroy(attr);
 
 	for (;;) {
@@ -55,7 +55,7 @@ static void test_mempool_fill(size_t len)
 		if (!ptr)
 			break;
 		/* Link items in cpu 0. */
-		cpuptr = rseq_percpu_ptr(ptr, 0);
+		cpuptr = (struct test_data *) __rseq_percpu_ptr(ptr, 0, stride);
 		cpuptr->backref = ptr;
 		/* Randomize items in list. */
 		if (count & 1)
@@ -65,12 +65,12 @@ static void test_mempool_fill(size_t len)
 		count++;
 	}
 
-	ok(count * sizeof(struct test_data) == len, "Allocated %" PRIu64 " objects in pool", count);
+	ok(count * sizeof(struct test_data) == stride, "Allocated %" PRIu64 " objects in pool", count);
 
 	list_for_each_entry(iter, &list, node) {
 		ptr = iter->backref;
 		for (i = 0; i < CPU_SETSIZE; i++) {
-			struct test_data *cpuptr = rseq_percpu_ptr(ptr, i);
+			struct test_data *cpuptr = (struct test_data *) __rseq_percpu_ptr(ptr, i, stride);
 
 			if (cpuptr->value != 0)
 				abort();
@@ -82,7 +82,7 @@ static void test_mempool_fill(size_t len)
 
 	list_for_each_entry_safe(iter, tmp, &list, node) {
 		ptr = iter->backref;
-		rseq_percpu_free(ptr);
+		__rseq_percpu_free(ptr, stride);
 	}
 	ret = rseq_percpu_pool_destroy(mempool);
 	ok(ret == 0, "Destroy mempool");

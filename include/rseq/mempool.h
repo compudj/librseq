@@ -4,6 +4,7 @@
 #ifndef _RSEQ_MEMPOOL_H
 #define _RSEQ_MEMPOOL_H
 
+#include <rseq/compiler.h>
 #include <stddef.h>
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -23,6 +24,12 @@
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#if RSEQ_BITS_PER_LONG == 64
+# define RSEQ_PERCPU_STRIDE	(1U << 24)	/* 64-bit stride: 16MB */
+#else
+# define RSEQ_PERCPU_STRIDE	(1U << 16)	/* 32-bit stride: 64kB */
 #endif
 
 /*
@@ -71,7 +78,7 @@ struct rseq_percpu_pool;
  * This API is MT-safe.
  */
 struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
-		size_t item_len, size_t percpu_len, int max_nr_cpus,
+		size_t item_len, size_t percpu_stride, int max_nr_cpus,
 		const struct rseq_pool_attr *attr);
 
 /*
@@ -138,7 +145,9 @@ void __rseq_percpu *rseq_percpu_zmalloc(struct rseq_percpu_pool *pool);
  *
  * This API is MT-safe.
  */
-void rseq_percpu_free(void __rseq_percpu *ptr);
+void __rseq_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
+
+#define rseq_percpu_free(ptr)	__rseq_percpu_free(ptr, RSEQ_PERCPU_STRIDE)
 
 /*
  * rseq_percpu_ptr: Decode a per-cpu pointer.
@@ -162,8 +171,9 @@ void rseq_percpu_free(void __rseq_percpu *ptr);
  *
  * This API is MT-safe.
  */
-void *__rseq_percpu_ptr(void __rseq_percpu *ptr, int cpu);
-#define rseq_percpu_ptr(ptr, cpu)	((__typeof__(*(ptr)) *) __rseq_percpu_ptr(ptr, cpu))
+void *__rseq_percpu_ptr(void __rseq_percpu *ptr, int cpu, size_t percpu_stride);
+#define rseq_percpu_ptr(ptr, cpu)	\
+	((__typeof__(*(ptr)) *) __rseq_percpu_ptr(ptr, cpu, RSEQ_PERCPU_STRIDE))
 
 /*
  * rseq_percpu_pool_set_create: Create a pool set.

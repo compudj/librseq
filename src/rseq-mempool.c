@@ -105,7 +105,7 @@ struct rseq_percpu_pool {
 
 	unsigned int index;
 	size_t item_len;
-	size_t percpu_len;
+	size_t percpu_stride;
 	int item_order;
 	int max_nr_cpus;
 
@@ -140,13 +140,14 @@ struct rseq_percpu_pool_set {
 };
 
 static
-void *__rseq_pool_percpu_ptr(struct rseq_percpu_pool *pool, int cpu, uintptr_t item_offset)
+void *__rseq_pool_percpu_ptr(struct rseq_percpu_pool *pool, int cpu,
+		uintptr_t item_offset, size_t stride)
 {
 	/* TODO: Implement multi-ranges support. */
-	return pool->ranges->base + (pool->percpu_len * cpu) + item_offset;
+	return pool->ranges->base + (stride * cpu) + item_offset;
 }
 
-void *__rseq_percpu_ptr(void __rseq_percpu *_ptr, int cpu)
+void *__rseq_percpu_ptr(void __rseq_percpu *_ptr, int cpu, size_t stride)
 {
 	uintptr_t ptr = (uintptr_t) _ptr;
 	uintptr_t item_offset = ptr & MAX_POOL_LEN_MASK;
@@ -154,7 +155,7 @@ void *__rseq_percpu_ptr(void __rseq_percpu *_ptr, int cpu)
 	struct rseq_percpu_pool *pool = &rseq_percpu_pool[pool_index];
 
 	assert(cpu >= 0);
-	return __rseq_pool_percpu_ptr(pool, cpu, item_offset);
+	return __rseq_pool_percpu_ptr(pool, cpu, item_offset, stride);
 }
 
 static
@@ -163,7 +164,8 @@ void rseq_percpu_zero_item(struct rseq_percpu_pool *pool, uintptr_t item_offset)
 	int i;
 
 	for (i = 0; i < pool->max_nr_cpus; i++) {
-		char *p = __rseq_pool_percpu_ptr(pool, i, item_offset);
+		char *p = __rseq_pool_percpu_ptr(pool, i,
+				item_offset, pool->percpu_stride);
 		memset(p, 0, pool->item_len);
 	}
 }
@@ -174,14 +176,14 @@ void rseq_percpu_zero_item(struct rseq_percpu_pool *pool, uintptr_t item_offset)
 static
 int rseq_percpu_pool_range_init_numa(struct rseq_percpu_pool *pool, struct rseq_percpu_pool_range *range, int numa_flags)
 {
-	unsigned long nr_pages;
-	long ret, page_len;
+	unsigned long nr_pages, page_len;
+	long ret;
 	int cpu;
 
 	if (!numa_flags)
 		return 0;
 	page_len = rseq_get_page_len();
-	nr_pages = pool->percpu_len >> rseq_get_count_order_ulong(page_len);
+	nr_pages = pool->percpu_stride >> rseq_get_count_order_ulong(page_len);
 	for (cpu = 0; cpu < pool->max_nr_cpus; cpu++) {
 
 		int status[MOVE_PAGES_BATCH_SIZE];
@@ -271,7 +273,7 @@ int create_alloc_bitmap(struct rseq_percpu_pool *pool, struct rseq_percpu_pool_r
 {
 	size_t count;
 
-	count = ((pool->percpu_len >> pool->item_order) + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
+	count = ((pool->percpu_stride >> pool->item_order) + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
 
 	/*
 	 * Not being able to create the validation bitmap is an error
@@ -313,8 +315,8 @@ void check_free_list(const struct rseq_percpu_pool *pool)
 		return;
 
 	for (range = pool->ranges; range; range = range->next) {
-		total_item += pool->percpu_len >> pool->item_order;
-		total_never_allocated += (pool->percpu_len - range->next_unused) >> pool->item_order;
+		total_item += pool->percpu_stride >> pool->item_order;
+		total_never_allocated += (pool->percpu_stride - range->next_unused) >> pool->item_order;
 	}
 	max_list_traversal = total_item - total_never_allocated;
 
@@ -363,7 +365,7 @@ void destroy_alloc_bitmap(struct rseq_percpu_pool *pool, struct rseq_percpu_pool
 	if (!bitmap)
 		return;
 
-	count = ((pool->percpu_len >> pool->item_order) + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
+	count = ((pool->percpu_stride >> pool->item_order) + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
 
 	/* Assert that all items in the pool were freed. */
 	for (size_t k = 0; k < count; ++k)
@@ -384,7 +386,7 @@ int rseq_percpu_pool_range_destroy(struct rseq_percpu_pool *pool,
 {
 	destroy_alloc_bitmap(pool, range);
 	return pool->attr.munmap_func(pool->attr.mmap_priv, range->base,
-			pool->percpu_len * pool->max_nr_cpus);
+			pool->percpu_stride * pool->max_nr_cpus);
 }
 
 static
@@ -398,7 +400,7 @@ struct rseq_percpu_pool_range *rseq_percpu_pool_range_create(struct rseq_percpu_
 		return NULL;
 	range->pool = pool;
 
-	base = pool->attr.mmap_func(pool->attr.mmap_priv, pool->percpu_len * pool->max_nr_cpus);
+	base = pool->attr.mmap_func(pool->attr.mmap_priv, pool->percpu_stride * pool->max_nr_cpus);
 	if (!base)
 		goto error_alloc;
 	range->base = base;
@@ -451,7 +453,7 @@ int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
 }
 
 struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
-		size_t item_len, size_t percpu_len, int max_nr_cpus,
+		size_t item_len, size_t percpu_stride, int max_nr_cpus,
 		const struct rseq_pool_attr *_attr)
 {
 	struct rseq_percpu_pool *pool;
@@ -471,11 +473,13 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
 	}
 	item_len = 1UL << order;
 
-	/* Align percpu_len on page size. */
-	percpu_len = rseq_align(percpu_len, rseq_get_page_len());
+	if (!percpu_stride)
+		percpu_stride = RSEQ_PERCPU_STRIDE;	/* Use default */
 
-	if (max_nr_cpus < 0 || item_len > percpu_len ||
-			percpu_len > (UINTPTR_MAX >> POOL_INDEX_BITS)) {
+	if (max_nr_cpus < 0 || item_len > percpu_stride ||
+			percpu_stride > (UINTPTR_MAX >> POOL_INDEX_BITS) ||
+			percpu_stride < (size_t) rseq_get_page_len() ||
+			!is_pow2(percpu_stride)) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -502,7 +506,7 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
 found_empty:
 	memcpy(&pool->attr, &attr, sizeof(attr));
 	pthread_mutex_init(&pool->lock, NULL);
-	pool->percpu_len = percpu_len;
+	pool->percpu_stride = percpu_stride;
 	pool->max_nr_cpus = max_nr_cpus;
 	pool->index = i;
 	pool->item_len = item_len;
@@ -570,7 +574,7 @@ void __rseq_percpu *__rseq_percpu_malloc(struct rseq_percpu_pool *pool, bool zer
 		addr = (void *) (((uintptr_t) pool->index << POOL_INDEX_SHIFT) | item_offset);
 		goto end;
 	}
-	if (pool->ranges->next_unused + pool->item_len > pool->percpu_len) {
+	if (pool->ranges->next_unused + pool->item_len > pool->percpu_stride) {
 		errno = ENOMEM;
 		addr = NULL;
 		goto end;
@@ -622,7 +626,7 @@ void clear_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
 	bitmap[k] &= ~mask;
 }
 
-void rseq_percpu_free(void __rseq_percpu *_ptr)
+void __rseq_percpu_free(void __rseq_percpu *_ptr, size_t percpu_stride)
 {
 	uintptr_t ptr = (uintptr_t) _ptr;
 	uintptr_t item_offset = ptr & MAX_POOL_LEN_MASK;
@@ -635,7 +639,7 @@ void rseq_percpu_free(void __rseq_percpu *_ptr)
 	/* Add ptr to head of free list */
 	head = pool->free_list_head;
 	/* Free-list is in CPU 0 range. */
-	item = (struct free_list_node *)__rseq_pool_percpu_ptr(pool, 0, item_offset);
+	item = (struct free_list_node *)__rseq_pool_percpu_ptr(pool, 0, item_offset, percpu_stride);
 	item->next = head;
 	pool->free_list_head = item;
 	pthread_mutex_unlock(&pool->lock);

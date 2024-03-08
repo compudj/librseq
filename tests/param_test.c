@@ -22,8 +22,6 @@
 #include <stdbool.h>
 #include <rseq/mempool.h>
 
-#define PERCPU_POOL_LEN		(1024*1024)	/* 1MB */
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0)
 enum {
 	MEMBARRIER_CMD_PRIVATE_EXPEDITED_RSEQ			= (1 << 7),
@@ -501,7 +499,7 @@ static void test_percpu_spinlock(void)
 
 	mempool = rseq_percpu_pool_create("spinlock_test_data",
 			sizeof(struct spinlock_test_data),
-			PERCPU_POOL_LEN, CPU_SETSIZE, NULL);
+			0, CPU_SETSIZE, NULL);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
 		abort();
@@ -597,7 +595,7 @@ static void test_percpu_inc(void)
 
 	mempool = rseq_percpu_pool_create("inc_test_data",
 			sizeof(struct inc_test_data),
-			PERCPU_POOL_LEN, CPU_SETSIZE, NULL);
+			0, CPU_SETSIZE, NULL);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
 		abort();
@@ -770,7 +768,7 @@ static void test_percpu_list(void)
 	struct rseq_percpu_pool *mempool;
 
 	mempool = rseq_percpu_pool_create("percpu_list", sizeof(struct percpu_list),
-			PERCPU_POOL_LEN, CPU_SETSIZE, NULL);
+			0, CPU_SETSIZE, NULL);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
 		abort();
@@ -981,7 +979,7 @@ static void test_percpu_buffer(void)
 	struct rseq_percpu_pool *mempool;
 
 	mempool = rseq_percpu_pool_create("percpu_buffer", sizeof(struct percpu_buffer),
-			PERCPU_POOL_LEN, CPU_SETSIZE, NULL);
+			0, CPU_SETSIZE, NULL);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
 		abort();
@@ -1222,7 +1220,7 @@ static void test_percpu_memcpy_buffer(void)
 
 	mempool = rseq_percpu_pool_create("percpu_memcpy_buffer",
 			sizeof(struct percpu_memcpy_buffer),
-			PERCPU_POOL_LEN, CPU_SETSIZE, NULL);
+			0, CPU_SETSIZE, NULL);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
 		abort();
@@ -1468,7 +1466,7 @@ void *test_membarrier_manager_thread(void *arg)
 	long long total_count = 0;
 
 	mempool = rseq_percpu_pool_create("percpu_list", sizeof(struct percpu_list),
-			PERCPU_POOL_LEN, CPU_SETSIZE, NULL);
+			0, CPU_SETSIZE, NULL);
 	if (!mempool) {
 		perror("rseq_percpu_pool_create");
 		abort();

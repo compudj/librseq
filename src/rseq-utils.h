@@ -100,19 +100,35 @@ int rseq_get_count_order_ulong(unsigned long x)
 #define RSEQ_DEFAULT_PAGE_SIZE	4096
 
 static inline
-long rseq_get_page_len(void)
+unsigned long rseq_get_page_len(void)
 {
 	long page_len = sysconf(_SC_PAGE_SIZE);
 
 	if (page_len < 0)
 		page_len = RSEQ_DEFAULT_PAGE_SIZE;
-	return page_len;
+	return (unsigned long) page_len;
 }
 
 static inline
 int rseq_hweight_ulong(unsigned long v)
 {
 	return __builtin_popcountl(v);
+}
+
+static inline
+bool is_pow2(uint64_t x)
+{
+	return !(x & (x - 1));
+}
+
+/*
+ * Calculate offset needed to align p on alignment towards higher
+ * addresses. Alignment must be a power of 2
+ */
+static inline
+off_t offset_align(uintptr_t p, size_t alignment)
+{
+	return (alignment - p) & (alignment - 1);
 }
 
 #endif /* _RSEQ_UTILS_H */
