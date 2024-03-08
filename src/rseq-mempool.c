@@ -478,11 +478,8 @@ int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
 	struct rseq_percpu_pool_range *range, *next_range;
 	int ret = 0;
 
-	if (!pool->ranges) {
-		errno = ENOENT;
-		ret = -1;
-		goto end;
-	}
+	if (!pool)
+		return 0;
 	check_free_list(pool);
 	/* Iteration safe against removal. */
 	for (range = pool->ranges; range && (next_range = range->next, 1); range = next_range) {
