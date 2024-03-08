@@ -578,8 +578,9 @@ void __rseq_percpu *__rseq_percpu_malloc(struct rseq_percpu_pool *pool, bool zer
 	item_offset = pool->ranges->next_unused;
 	addr = (void *) (((uintptr_t) pool->index << POOL_INDEX_SHIFT) | item_offset);
 	pool->ranges->next_unused += pool->item_len;
-	set_alloc_slot(pool, item_offset);
 end:
+	if (addr)
+		set_alloc_slot(pool, item_offset);
 	pthread_mutex_unlock(&pool->lock);
 	if (zeroed && addr)
 		rseq_percpu_zero_item(pool, item_offset);
