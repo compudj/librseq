@@ -143,6 +143,10 @@ void __rseq_percpu *rseq_percpu_zmalloc(struct rseq_percpu_pool *pool);
  * - rseq_percpu_pool_set_malloc(),
  * - rseq_percpu_pool_set_zmalloc().
  *
+ * The @stride argument to __rseq_percpu_free() is a configurable
+ * stride, which must match the stride received by pool creation.
+ * rseq_percpu_free() uses the default RSEQ_PERCPU_STRIDE stride.
+ *
  * This API is MT-safe.
  */
 void __rseq_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
@@ -150,30 +154,31 @@ void __rseq_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
 #define rseq_percpu_free(ptr)	__rseq_percpu_free(ptr, RSEQ_PERCPU_STRIDE)
 
 /*
- * rseq_percpu_ptr: Decode a per-cpu pointer.
+ * rseq_percpu_ptr: Offset a per-cpu pointer for a given CPU.
  *
- * Decode a per-cpu pointer @ptr to get the associated pointer for the
- * given @cpu. The @ptr argument is a __rseq_percpu encoded pointer
- * returned by either:
+ * Offset a per-cpu pointer @ptr to get the associated pointer for the
+ * given @cpu. The @ptr argument is a __rseq_percpu pointer returned by
+ * either:
  *
  * - rseq_percpu_malloc(),
  * - rseq_percpu_zmalloc(),
  * - rseq_percpu_pool_set_malloc(),
  * - rseq_percpu_pool_set_zmalloc().
  *
- * The __rseq_percpu pointer can be decoded with rseq_percpu_ptr() even
- * after it has been freed, as long as its associated pool has not been
- * destroyed. However, memory pointed to by the decoded pointer should
- * not be accessed after the __rseq_percpu pointer has been freed.
+ * The macros rseq_percpu_ptr() and __rseq_percpu_ptr() preserve the
+ * type of the @ptr parameter for the returned pointer, but removes the
+ * __rseq_percpu annotation.
  *
- * The macro rseq_percpu_ptr() preserves the type of the @ptr parameter
- * for the returned pointer, but removes the __rseq_percpu annotation.
+ * The macro __rseq_percpu_ptr() takes a configurable @stride argument,
+ * whereas rseq_percpu_ptr() uses the RSEQ_PERCPU_STRIDE default stride.
+ * This must match the stride used for pool creation.
  *
  * This API is MT-safe.
  */
-void *__rseq_percpu_ptr(void __rseq_percpu *ptr, int cpu, size_t percpu_stride);
-#define rseq_percpu_ptr(ptr, cpu)	\
-	((__typeof__(*(ptr)) *) __rseq_percpu_ptr(ptr, cpu, RSEQ_PERCPU_STRIDE))
+#define __rseq_percpu_ptr(ptr, cpu, stride) \
+	((__typeof__(*(ptr)) *) ((uintptr_t) (ptr) + ((unsigned int) (cpu) * (uintptr_t) (stride))))
+
+#define rseq_percpu_ptr(ptr, cpu) __rseq_percpu_ptr(ptr, cpu, RSEQ_PERCPU_STRIDE)
 
 /*
  * rseq_percpu_pool_set_create: Create a pool set.

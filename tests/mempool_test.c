@@ -55,7 +55,7 @@ static void test_mempool_fill(size_t stride)
 		if (!ptr)
 			break;
 		/* Link items in cpu 0. */
-		cpuptr = (struct test_data *) __rseq_percpu_ptr(ptr, 0, stride);
+		cpuptr = __rseq_percpu_ptr(ptr, 0, stride);
 		cpuptr->backref = ptr;
 		/* Randomize items in list. */
 		if (count & 1)
@@ -70,7 +70,7 @@ static void test_mempool_fill(size_t stride)
 	list_for_each_entry(iter, &list, node) {
 		ptr = iter->backref;
 		for (i = 0; i < CPU_SETSIZE; i++) {
-			struct test_data *cpuptr = (struct test_data *) __rseq_percpu_ptr(ptr, i, stride);
+			struct test_data *cpuptr = __rseq_percpu_ptr(ptr, i, stride);
 
 			if (cpuptr->value != 0)
 				abort();

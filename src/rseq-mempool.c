@@ -70,6 +70,8 @@
 
 #define MOVE_PAGES_BATCH_SIZE	4096
 
+#define RANGE_HEADER_OFFSET	sizeof(struct rseq_percpu_pool_range)
+
 struct free_list_node;
 
 struct free_list_node {
@@ -93,6 +95,7 @@ struct rseq_percpu_pool_range;
 struct rseq_percpu_pool_range {
 	struct rseq_percpu_pool_range *next;
 	struct rseq_percpu_pool *pool;	/* Backward ref. to container pool. */
+	void *header;
 	void *base;
 	size_t next_unused;
 	/* Track alloc/free. */
@@ -145,17 +148,6 @@ void *__rseq_pool_percpu_ptr(struct rseq_percpu_pool *pool, int cpu,
 {
 	/* TODO: Implement multi-ranges support. */
 	return pool->ranges->base + (stride * cpu) + item_offset;
-}
-
-void *__rseq_percpu_ptr(void __rseq_percpu *_ptr, int cpu, size_t stride)
-{
-	uintptr_t ptr = (uintptr_t) _ptr;
-	uintptr_t item_offset = ptr & MAX_POOL_LEN_MASK;
-	uintptr_t pool_index = ptr >> POOL_INDEX_SHIFT;
-	struct rseq_percpu_pool *pool = &rseq_percpu_pool[pool_index];
-
-	assert(cpu >= 0);
-	return __rseq_pool_percpu_ptr(pool, cpu, item_offset, stride);
 }
 
 static
@@ -386,7 +378,7 @@ int rseq_percpu_pool_range_destroy(struct rseq_percpu_pool *pool,
 {
 	destroy_alloc_bitmap(pool, range);
 	/* range is a header located one page before the aligned mapping. */
-	return pool->attr.munmap_func(pool->attr.mmap_priv, range,
+	return pool->attr.munmap_func(pool->attr.mmap_priv, range->header,
 			(pool->percpu_stride * pool->max_nr_cpus) + rseq_get_page_len());
 }
 
@@ -477,6 +469,7 @@ struct rseq_percpu_pool_range *rseq_percpu_pool_range_create(struct rseq_percpu_
 {
 	struct rseq_percpu_pool_range *range;
 	unsigned long page_size;
+	void *header;
 	void *base;
 
 	page_size = rseq_get_page_len();
@@ -484,11 +477,13 @@ struct rseq_percpu_pool_range *rseq_percpu_pool_range_create(struct rseq_percpu_
 	base = aligned_mmap_anonymous(pool, page_size,
 			pool->percpu_stride * pool->max_nr_cpus,
 			pool->percpu_stride,
-			(void **) &range, page_size);
+			&header, page_size);
 	if (!base)
 		return NULL;
+	range = (struct rseq_percpu_pool_range *) (base - RANGE_HEADER_OFFSET);
 	range->pool = pool;
 	range->base = base;
+	range->header = header;
 	if (pool->attr.robust_set) {
 		if (create_alloc_bitmap(pool, range))
 			goto error_alloc;
@@ -656,7 +651,7 @@ void __rseq_percpu *__rseq_percpu_malloc(struct rseq_percpu_pool *pool, bool zer
 		/* Remove node from free list (update head). */
 		pool->free_list_head = node->next;
 		item_offset = (uintptr_t) ((void *) node - pool->ranges->base);
-		addr = (void *) (((uintptr_t) pool->index << POOL_INDEX_SHIFT) | item_offset);
+		addr = (void __rseq_percpu *) (pool->ranges->base + item_offset);
 		goto end;
 	}
 	if (pool->ranges->next_unused + pool->item_len > pool->percpu_stride) {
@@ -665,7 +660,7 @@ void __rseq_percpu *__rseq_percpu_malloc(struct rseq_percpu_pool *pool, bool zer
 		goto end;
 	}
 	item_offset = pool->ranges->next_unused;
-	addr = (void *) (((uintptr_t) pool->index << POOL_INDEX_SHIFT) | item_offset);
+	addr = (void __rseq_percpu *) (pool->ranges->base + item_offset);
 	pool->ranges->next_unused += pool->item_len;
 end:
 	if (addr)
@@ -714,9 +709,10 @@ void clear_alloc_slot(struct rseq_percpu_pool *pool, size_t item_offset)
 void __rseq_percpu_free(void __rseq_percpu *_ptr, size_t percpu_stride)
 {
 	uintptr_t ptr = (uintptr_t) _ptr;
-	uintptr_t item_offset = ptr & MAX_POOL_LEN_MASK;
-	uintptr_t pool_index = ptr >> POOL_INDEX_SHIFT;
-	struct rseq_percpu_pool *pool = &rseq_percpu_pool[pool_index];
+	void *range_base = (void *) (ptr & (~(percpu_stride - 1)));
+	struct rseq_percpu_pool_range *range = (struct rseq_percpu_pool_range *) (range_base - RANGE_HEADER_OFFSET);
+	struct rseq_percpu_pool *pool = range->pool;
+	uintptr_t item_offset = ptr & (percpu_stride - 1);
 	struct free_list_node *head, *item;
 
 	pthread_mutex_lock(&pool->lock);
@@ -724,7 +720,7 @@ void __rseq_percpu_free(void __rseq_percpu *_ptr, size_t percpu_stride)
 	/* Add ptr to head of free list */
 	head = pool->free_list_head;
 	/* Free-list is in CPU 0 range. */
-	item = (struct free_list_node *)__rseq_pool_percpu_ptr(pool, 0, item_offset, percpu_stride);
+	item = (struct free_list_node *) ptr;
 	item->next = head;
 	pool->free_list_head = item;
 	pthread_mutex_unlock(&pool->lock);
