@@ -78,9 +78,6 @@ struct free_list_node {
 	struct free_list_node *next;
 };
 
-/* This lock protects pool create/destroy. */
-static pthread_mutex_t pool_lock = PTHREAD_MUTEX_INITIALIZER;
-
 struct rseq_pool_attr {
 	bool mmap_set;
 	void *(*mmap_func)(void *priv, size_t len);
@@ -106,7 +103,6 @@ struct rseq_percpu_pool {
 	/* Linked-list of ranges. */
 	struct rseq_percpu_pool_range *ranges;
 
-	unsigned int index;
 	size_t item_len;
 	size_t percpu_stride;
 	int item_order;
@@ -127,9 +123,6 @@ struct rseq_percpu_pool {
 	struct rseq_pool_attr attr;
 	char *name;
 };
-
-//TODO: the array of pools should grow dynamically on create.
-static struct rseq_percpu_pool rseq_percpu_pool[MAX_NR_POOLS];
 
 /*
  * Pool set entries are indexed by item_len rounded to the next power of
@@ -495,9 +488,7 @@ error_alloc:
 	return NULL;
 }
 
-/* Always inline for __builtin_return_address(0). */
-static inline __attribute__((always_inline))
-int __rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
+int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
 {
 	struct rseq_percpu_pool_range *range, *next_range;
 	int ret = 0;
@@ -522,23 +513,12 @@ end:
 	return ret;
 }
 
-int rseq_percpu_pool_destroy(struct rseq_percpu_pool *pool)
-{
-	int ret;
-
-	pthread_mutex_lock(&pool_lock);
-	ret = __rseq_percpu_pool_destroy(pool);
-	pthread_mutex_unlock(&pool_lock);
-	return ret;
-}
-
 struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
 		size_t item_len, size_t percpu_stride, int max_nr_cpus,
 		const struct rseq_pool_attr *_attr)
 {
 	struct rseq_percpu_pool *pool;
 	struct rseq_pool_attr attr = {};
-	unsigned int i;
 	int order;
 
 	/* Make sure each item is large enough to contain free list pointers. */
@@ -572,23 +552,14 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
 		attr.mmap_priv = NULL;
 	}
 
-	pthread_mutex_lock(&pool_lock);
-	/* Linear scan in array of pools to find empty spot. */
-	for (i = FIRST_POOL; i < MAX_NR_POOLS; i++) {
-		pool = &rseq_percpu_pool[i];
-		if (!pool->ranges)
-			goto found_empty;
-	}
-	errno = ENOMEM;
-	pool = NULL;
-	goto end;
+	pool = calloc(1, sizeof(struct rseq_percpu_pool));
+	if (!pool)
+		return NULL;
 
-found_empty:
 	memcpy(&pool->attr, &attr, sizeof(attr));
 	pthread_mutex_init(&pool->lock, NULL);
 	pool->percpu_stride = percpu_stride;
 	pool->max_nr_cpus = max_nr_cpus;
-	pool->index = i;
 	pool->item_len = item_len;
 	pool->item_order = order;
 
@@ -602,13 +573,10 @@ found_empty:
 		if (!pool->name)
 			goto error_alloc;
 	}
-end:
-	pthread_mutex_unlock(&pool_lock);
 	return pool;
 
 error_alloc:
-	__rseq_percpu_pool_destroy(pool);
-	pthread_mutex_unlock(&pool_lock);
+	rseq_percpu_pool_destroy(pool);
 	errno = ENOMEM;
 	return NULL;
 }
