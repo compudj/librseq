@@ -92,4 +92,15 @@
 	)
 #endif
 
+/*
+ * RSEQ_PARAM_SELECT_ARG1
+ *
+ * Select second argument. Use inside macros to implement optional last
+ * macro argument, such as:
+ *
+ * #define macro(_a, _b, _c, _optional...) \
+ *     RSEQ_PARAM_SELECT_ARG1(_, ##_optional, do_default_macro())
+ */
+#define RSEQ_PARAM_SELECT_ARG1(_arg0, _arg1, ...) _arg1
+
 #endif  /* _RSEQ_COMPILER_H */

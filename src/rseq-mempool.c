@@ -655,7 +655,7 @@ void clear_alloc_slot(struct rseq_mempool *pool, size_t item_offset)
 	bitmap[k] &= ~mask;
 }
 
-void __rseq_percpu_free(void __rseq_percpu *_ptr, size_t percpu_stride)
+void librseq_percpu_free(void __rseq_percpu *_ptr, size_t percpu_stride)
 {
 	uintptr_t ptr = (uintptr_t) _ptr;
 	void *range_base = (void *) (ptr & (~(percpu_stride - 1)));

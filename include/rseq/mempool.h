@@ -31,9 +31,9 @@ extern "C" {
  * The stride *must* match for all objects belonging to a given pool
  * between arguments to:
  *
- * - rseq_percpu_pool_create(),
- * - __rseq_percpu_free(),
- * - __rseq_percpu_ptr().
+ * - rseq_mempool_create(),
+ * - rseq_percpu_ptr().
+ * - rseq_percpu_free(),
  */
 #if RSEQ_BITS_PER_LONG == 64
 # define RSEQ_PERCPU_STRIDE	(1U << 24)	/* 64-bit stride: 16MB */
@@ -153,15 +153,16 @@ void __rseq_percpu *rseq_percpu_zmalloc(struct rseq_mempool *pool);
  * - rseq_percpu_pool_set_malloc(),
  * - rseq_percpu_pool_set_zmalloc().
  *
- * The @stride argument to __rseq_percpu_free() is a configurable
+ * The @stride optional argument to rseq_percpu_free() is a configurable
  * stride, which must match the stride received by pool creation.
- * rseq_percpu_free() uses the default RSEQ_PERCPU_STRIDE stride.
+ * If the argument is not present, use the default RSEQ_PERCPU_STRIDE.
  *
  * This API is MT-safe.
  */
-void __rseq_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
+void librseq_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
 
-#define rseq_percpu_free(ptr)	__rseq_percpu_free(ptr, RSEQ_PERCPU_STRIDE)
+#define rseq_percpu_free(_ptr, _stride...)		\
+	librseq_percpu_free(_ptr, RSEQ_PARAM_SELECT_ARG1(_, ##_stride, RSEQ_PERCPU_STRIDE))
 
 /*
  * rseq_percpu_ptr: Offset a per-cpu pointer for a given CPU.
@@ -175,20 +176,19 @@ void __rseq_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
  * - rseq_percpu_pool_set_malloc(),
  * - rseq_percpu_pool_set_zmalloc().
  *
- * The macros rseq_percpu_ptr() and __rseq_percpu_ptr() preserve the
- * type of the @ptr parameter for the returned pointer, but removes the
- * __rseq_percpu annotation.
+ * The macro rseq_percpu_ptr() preserves the type of the @ptr parameter
+ * for the returned pointer, but removes the __rseq_percpu annotation.
  *
- * The macro __rseq_percpu_ptr() takes a configurable @stride argument,
- * whereas rseq_percpu_ptr() uses the RSEQ_PERCPU_STRIDE default stride.
+ * The macro rseq_percpu_ptr() takes an optional @stride argument. If
+ * the argument is not present, use the default RSEQ_PERCPU_STRIDE.
  * This must match the stride used for pool creation.
  *
  * This API is MT-safe.
  */
-#define __rseq_percpu_ptr(ptr, cpu, stride) \
-	((__typeof__(*(ptr)) *) ((uintptr_t) (ptr) + ((unsigned int) (cpu) * (uintptr_t) (stride))))
-
-#define rseq_percpu_ptr(ptr, cpu) __rseq_percpu_ptr(ptr, cpu, RSEQ_PERCPU_STRIDE)
+#define rseq_percpu_ptr(_ptr, _cpu, _stride...)		\
+	((__typeof__(*(_ptr)) *) ((uintptr_t) (_ptr) +	\
+		((unsigned int) (_cpu) *		\
+			(uintptr_t) RSEQ_PARAM_SELECT_ARG1(_, ##_stride, RSEQ_PERCPU_STRIDE))))
 
 /*
  * rseq_mempool_set_create: Create a pool set.
