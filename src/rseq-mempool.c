@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2024 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
 
-#include <rseq/percpu-alloc.h>
+#include <rseq/mempool.h>
 #include <sys/mman.h>
 #include <assert.h>
 #include <string.h>
@@ -19,7 +19,7 @@
 # include <numaif.h>
 #endif
 
-#include "rseq-alloc-utils.h"
+#include "rseq-utils.h"
 
 /*
  * rseq-percpu-alloc.c: rseq CPU-Local Storage (CLS) memory allocator.

@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: MIT */
 /* SPDX-FileCopyrightText: 2024 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
 
-#ifndef _RSEQ_PERCPU_ALLOC_H
-#define _RSEQ_PERCPU_ALLOC_H
+#ifndef _RSEQ_MEMPOOL_H
+#define _RSEQ_MEMPOOL_H
 
 #include <stddef.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 
 /*
- * rseq/percpu-alloc.h: rseq CPU-Local Storage (CLS) memory allocator.
+ * rseq/mempool.h: rseq CPU-Local Storage (CLS) memory allocator.
  *
  * The rseq per-CPU memory allocator allows the application the request
  * memory pools of CPU-Local memory each of containing objects of a
@@ -316,4 +316,4 @@ int rseq_pool_attr_set_robust(struct rseq_pool_attr *attr);
 }
 #endif
 
-#endif /* _RSEQ_PERCPU_ALLOC_H */
+#endif /* _RSEQ_MEMPOOL_H */

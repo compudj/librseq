@@ -20,7 +20,7 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include <rseq/percpu-alloc.h>
+#include <rseq/mempool.h>
 
 #define PERCPU_POOL_LEN		(1024*1024)	/* 1MB */
 

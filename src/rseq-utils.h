@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2024 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
 
-#ifndef _RSEQ_ALLOC_UTILS_H
-#define _RSEQ_ALLOC_UTILS_H
+#ifndef _RSEQ_UTILS_H
+#define _RSEQ_UTILS_H
 
 #define RSEQ_ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
@@ -115,4 +115,4 @@ int rseq_hweight_ulong(unsigned long v)
 	return __builtin_popcountl(v);
 }
 
-#endif /* _RSEQ_ALLOC_UTILS_H */
+#endif /* _RSEQ_UTILS_H */
