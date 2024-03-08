@@ -145,7 +145,9 @@ TESTS = \
 	basic_test.tap \
 	basic_test_cxx.tap \
 	run_unregistered_test.tap \
-	run_unregistered_test_cxx.tap
+	run_unregistered_test_cxx.tap \
+	mempool_test.tap \
+	mempool_test_cxx.tap
 
 if ENABLE_SHARED
 if ENABLE_SECCOMP

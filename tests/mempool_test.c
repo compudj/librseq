@@ -91,6 +91,8 @@ int main(void)
 {
 	size_t len;
 
+	plan_no_plan();
+
 	/* From 4kB to 4MB */
 	for (len = 4096; len < 4096 * 1024; len <<= 1) {
 		test_mempool_fill(len);
