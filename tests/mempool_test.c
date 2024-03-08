@@ -38,6 +38,7 @@ static void test_mempool_fill(size_t len)
 	int ret, i;
 
 	attr = rseq_pool_attr_create();
+	ok(attr, "Create pool attribute");
 	ret = rseq_pool_attr_set_robust(attr);
 	ok(ret == 0, "Setting mempool robust attribute");
 
