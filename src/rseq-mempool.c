@@ -385,24 +385,109 @@ int rseq_percpu_pool_range_destroy(struct rseq_percpu_pool *pool,
 		struct rseq_percpu_pool_range *range)
 {
 	destroy_alloc_bitmap(pool, range);
-	return pool->attr.munmap_func(pool->attr.mmap_priv, range->base,
-			pool->percpu_stride * pool->max_nr_cpus);
+	/* range is a header located one page before the aligned mapping. */
+	return pool->attr.munmap_func(pool->attr.mmap_priv, range,
+			(pool->percpu_stride * pool->max_nr_cpus) + rseq_get_page_len());
+}
+
+/*
+ * Allocate a memory mapping aligned on @alignment, with an optional
+ * @pre_header before the mapping.
+ */
+static
+void *aligned_mmap_anonymous(struct rseq_percpu_pool *pool,
+		size_t page_size, size_t len, size_t alignment,
+		void **pre_header, size_t pre_header_len)
+{
+	size_t minimum_page_count, page_count, extra, total_allocate = 0;
+	int page_order;
+	void *ptr;
+
+	if (len < page_size || alignment < page_size ||
+			!is_pow2(len) || !is_pow2(alignment)) {
+		errno = EINVAL;
+		return NULL;
+	}
+	page_order = rseq_get_count_order_ulong(page_size);
+	if (page_order < 0) {
+		errno = EINVAL;
+		return NULL;
+	}
+	if (pre_header_len && (pre_header_len & (page_size - 1))) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	minimum_page_count = (pre_header_len + len) >> page_order;
+	page_count = (pre_header_len + len + alignment - page_size) >> page_order;
+
+	assert(page_count >= minimum_page_count);
+
+	ptr = pool->attr.mmap_func(pool->attr.mmap_priv, page_count << page_order);
+	if (!ptr)
+		goto alloc_error;
+
+	total_allocate = page_count << page_order;
+
+	if (!(((uintptr_t) ptr + pre_header_len) & (alignment - 1))) {
+		/* Pointer is already aligned. ptr points to pre_header. */
+		goto out;
+	}
+
+	/* Unmap extra before. */
+	extra = offset_align((uintptr_t) ptr + pre_header_len, alignment);
+	assert(!(extra & (page_size - 1)));
+	if (pool->attr.munmap_func(pool->attr.mmap_priv, ptr, extra)) {
+		perror("munmap");
+		abort();
+	}
+	total_allocate -= extra;
+	ptr += extra;	/* ptr points to pre_header */
+	page_count -= extra >> page_order;
+out:
+	assert(page_count >= minimum_page_count);
+
+	if (page_count > minimum_page_count) {
+		void *extra_ptr;
+
+		/* Unmap extra after. */
+		extra_ptr = ptr + (minimum_page_count << page_order);
+		extra = (page_count - minimum_page_count) << page_order;
+		if (pool->attr.munmap_func(pool->attr.mmap_priv, extra_ptr, extra)) {
+			perror("munmap");
+			abort();
+		}
+		total_allocate -= extra;
+	}
+
+	assert(!(((uintptr_t)ptr + pre_header_len) & (alignment - 1)));
+	assert(total_allocate == len + pre_header_len);
+
+alloc_error:
+	if (ptr) {
+		if (pre_header)
+			*pre_header = ptr;
+		ptr += pre_header_len;
+	}
+	return ptr;
 }
 
 static
 struct rseq_percpu_pool_range *rseq_percpu_pool_range_create(struct rseq_percpu_pool *pool)
 {
 	struct rseq_percpu_pool_range *range;
+	unsigned long page_size;
 	void *base;
 
-	range = calloc(1, sizeof(struct rseq_percpu_pool_range));
-	if (!range)
+	page_size = rseq_get_page_len();
+
+	base = aligned_mmap_anonymous(pool, page_size,
+			pool->percpu_stride * pool->max_nr_cpus,
+			pool->percpu_stride,
+			(void **) &range, page_size);
+	if (!base)
 		return NULL;
 	range->pool = pool;
-
-	base = pool->attr.mmap_func(pool->attr.mmap_priv, pool->percpu_stride * pool->max_nr_cpus);
-	if (!base)
-		goto error_alloc;
 	range->base = base;
 	if (pool->attr.robust_set) {
 		if (create_alloc_bitmap(pool, range))
