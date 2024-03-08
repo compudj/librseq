@@ -34,22 +34,7 @@
  * memory allocator provides CPU-Local Storage.
  */
 
-/*
- * Use high bits of per-CPU addresses to index the pool.
- * This leaves the low bits of available to the application for pointer
- * tagging (based on next power of 2 alignment of the allocations).
- */
-#if RSEQ_BITS_PER_LONG == 64
-# define POOL_INDEX_BITS	16
-#else
-# define POOL_INDEX_BITS	8
-#endif
-#define MAX_NR_POOLS		(1UL << POOL_INDEX_BITS)
-#define POOL_INDEX_SHIFT	(RSEQ_BITS_PER_LONG - POOL_INDEX_BITS)
-#define MAX_POOL_LEN		(1UL << POOL_INDEX_SHIFT)
-#define MAX_POOL_LEN_MASK	(MAX_POOL_LEN - 1)
-
-#define POOL_SET_NR_ENTRIES	POOL_INDEX_SHIFT
+#define POOL_SET_NR_ENTRIES	RSEQ_BITS_PER_LONG
 
 /*
  * Smallest allocation should hold enough space for a free list pointer.
@@ -537,7 +522,6 @@ struct rseq_percpu_pool *rseq_percpu_pool_create(const char *pool_name,
 		percpu_stride = RSEQ_PERCPU_STRIDE;	/* Use default */
 
 	if (max_nr_cpus < 0 || item_len > percpu_stride ||
-			percpu_stride > (UINTPTR_MAX >> POOL_INDEX_BITS) ||
 			percpu_stride < (size_t) rseq_get_page_len() ||
 			!is_pow2(percpu_stride)) {
 		errno = EINVAL;
