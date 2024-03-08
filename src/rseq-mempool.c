@@ -620,12 +620,12 @@ end:
 	return addr;
 }
 
-void __rseq_percpu *rseq_percpu_malloc(struct rseq_mempool *pool)
+void __rseq_percpu *rseq_mempool_percpu_malloc(struct rseq_mempool *pool)
 {
 	return __rseq_percpu_malloc(pool, false);
 }
 
-void __rseq_percpu *rseq_percpu_zmalloc(struct rseq_mempool *pool)
+void __rseq_percpu *rseq_mempool_percpu_zmalloc(struct rseq_mempool *pool)
 {
 	return __rseq_percpu_malloc(pool, true);
 }
@@ -655,7 +655,7 @@ void clear_alloc_slot(struct rseq_mempool *pool, size_t item_offset)
 	bitmap[k] &= ~mask;
 }
 
-void librseq_percpu_free(void __rseq_percpu *_ptr, size_t percpu_stride)
+void librseq_mempool_percpu_free(void __rseq_percpu *_ptr, size_t percpu_stride)
 {
 	uintptr_t ptr = (uintptr_t) _ptr;
 	void *range_base = (void *) (ptr & (~(percpu_stride - 1)));
@@ -765,12 +765,12 @@ found:
 	return addr;
 }
 
-void __rseq_percpu *rseq_percpu_mempool_set_malloc(struct rseq_mempool_set *pool_set, size_t len)
+void __rseq_percpu *rseq_mempool_set_percpu_malloc(struct rseq_mempool_set *pool_set, size_t len)
 {
 	return __rseq_mempool_set_malloc(pool_set, len, false);
 }
 
-void __rseq_percpu *rseq_percpu_mempool_set_zmalloc(struct rseq_mempool_set *pool_set, size_t len)
+void __rseq_percpu *rseq_mempool_set_percpu_zmalloc(struct rseq_mempool_set *pool_set, size_t len)
 {
 	return __rseq_mempool_set_malloc(pool_set, len, true);
 }

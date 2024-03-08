@@ -53,7 +53,7 @@ static void test_mempool_fill(size_t stride)
 	for (;;) {
 		struct test_data *cpuptr;
 
-		ptr = (struct test_data __rseq_percpu *) rseq_percpu_zmalloc(mempool);
+		ptr = (struct test_data __rseq_percpu *) rseq_mempool_percpu_zmalloc(mempool);
 		if (!ptr)
 			break;
 		/* Link items in cpu 0. */
@@ -84,7 +84,7 @@ static void test_mempool_fill(size_t stride)
 
 	list_for_each_entry_safe(iter, tmp, &list, node) {
 		ptr = iter->backref;
-		rseq_percpu_free(ptr, stride);
+		rseq_mempool_percpu_free(ptr, stride);
 	}
 	ret = rseq_mempool_destroy(mempool);
 	ok(ret == 0, "Destroy mempool");
@@ -94,10 +94,10 @@ static void test_robust_double_free(struct rseq_mempool *pool)
 {
 	struct test_data __rseq_percpu *ptr;
 
-	ptr = (struct test_data __rseq_percpu *) rseq_percpu_malloc(pool);
+	ptr = (struct test_data __rseq_percpu *) rseq_mempool_percpu_malloc(pool);
 
-	rseq_percpu_free(ptr);
-	rseq_percpu_free(ptr);
+	rseq_mempool_percpu_free(ptr);
+	rseq_mempool_percpu_free(ptr);
 }
 
 static void test_robust_corrupt_after_free(struct rseq_mempool *pool)
@@ -105,10 +105,10 @@ static void test_robust_corrupt_after_free(struct rseq_mempool *pool)
 	struct test_data __rseq_percpu *ptr;
 	struct test_data *cpuptr;
 
-	ptr = (struct test_data __rseq_percpu *) rseq_percpu_malloc(pool);
+	ptr = (struct test_data __rseq_percpu *) rseq_mempool_percpu_malloc(pool);
 	cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, 0);
 
-	rseq_percpu_free(ptr);
+	rseq_mempool_percpu_free(ptr);
 	cpuptr->value = (uintptr_t) test_robust_corrupt_after_free;
 
 	rseq_mempool_destroy(pool);
@@ -116,7 +116,7 @@ static void test_robust_corrupt_after_free(struct rseq_mempool *pool)
 
 static void test_robust_memory_leak(struct rseq_mempool *pool)
 {
-	(void) rseq_percpu_malloc(pool);
+	(void) rseq_mempool_percpu_malloc(pool);
 
 	rseq_mempool_destroy(pool);
 }
@@ -126,15 +126,15 @@ static void test_robust_free_list_corruption(struct rseq_mempool *pool)
 	struct test_data __rseq_percpu *ptr;
 	struct test_data *cpuptr;
 
-	ptr = (struct test_data __rseq_percpu *) rseq_percpu_malloc(pool);
+	ptr = (struct test_data __rseq_percpu *) rseq_mempool_percpu_malloc(pool);
 	cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, 0);
 
-	rseq_percpu_free(ptr);
+	rseq_mempool_percpu_free(ptr);
 
 	cpuptr->value = (uintptr_t) cpuptr;
 
-	(void) rseq_percpu_malloc(pool);
-	(void) rseq_percpu_malloc(pool);
+	(void) rseq_mempool_percpu_malloc(pool);
+	(void) rseq_mempool_percpu_malloc(pool);
 }
 
 static int run_robust_test(void (*test)(struct rseq_mempool*),

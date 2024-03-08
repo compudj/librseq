@@ -112,7 +112,7 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 int rseq_mempool_destroy(struct rseq_mempool *pool);
 
 /*
- * rseq_percpu_malloc: Allocate memory from a per-cpu pool.
+ * rseq_mempool_percpu_malloc: Allocate memory from a per-cpu pool.
  *
  * Allocate an item from a per-cpu @pool. The allocation will reserve
  * an item of the size specified by @item_len (rounded to next power of
@@ -128,30 +128,56 @@ int rseq_mempool_destroy(struct rseq_mempool *pool);
  *
  * This API is MT-safe.
  */
-void __rseq_percpu *rseq_percpu_malloc(struct rseq_mempool *pool);
+void __rseq_percpu *rseq_mempool_percpu_malloc(struct rseq_mempool *pool);
 
 /*
- * rseq_percpu_zmalloc: Allocated zero-initialized memory from a per-cpu pool.
+ * rseq_mempool_percpu_zmalloc: Allocated zero-initialized memory from a per-cpu pool.
  *
  * Allocate memory for an item within the pool, and zero-initialize its
- * memory on all CPUs. See rseq_percpu_malloc for details.
+ * memory on all CPUs. See rseq_mempool_percpu_malloc for details.
  *
  * This API is MT-safe.
  */
-void __rseq_percpu *rseq_percpu_zmalloc(struct rseq_mempool *pool);
+void __rseq_percpu *rseq_mempool_percpu_zmalloc(struct rseq_mempool *pool);
 
 /*
- * rseq_percpu_free: Free memory from a per-cpu pool.
+ * rseq_mempool_malloc: Allocate memory from a global pool.
+ *
+ * Wrapper to allocate memory from a global pool, which can be
+ * used directly without per-cpu indexing. Would normally be used
+ * with pools created with max_nr_cpus=1.
+ */
+static inline
+void *rseq_mempool_malloc(struct rseq_mempool *pool)
+{
+	return (void *) rseq_mempool_percpu_malloc(pool);
+}
+
+/*
+ * rseq_mempool_zmalloc: Allocate zero-initialized memory from a global pool.
+ *
+ * Wrapper to allocate memory from a global pool, which can be
+ * used directly without per-cpu indexing. Would normally be used
+ * with pools created with max_nr_cpus=1.
+ */
+static inline
+void *rseq_mempool_zmalloc(struct rseq_mempool *pool)
+{
+	return (void *) rseq_mempool_percpu_zmalloc(pool);
+}
+
+/*
+ * rseq_mempool_percpu_free: Free memory from a per-cpu pool.
  *
  * Free an item pointed to by @ptr from its per-cpu pool.
  *
  * The @ptr argument is a __rseq_percpu encoded pointer returned by
  * either:
  *
- * - rseq_percpu_malloc(),
- * - rseq_percpu_zmalloc(),
- * - rseq_percpu_pool_set_malloc(),
- * - rseq_percpu_pool_set_zmalloc().
+ * - rseq_mempool_percpu_malloc(),
+ * - rseq_mempool_percpu_zmalloc(),
+ * - rseq_mempool_set_percpu_malloc(),
+ * - rseq_mempool_set_percpu_zmalloc().
  *
  * The @stride optional argument to rseq_percpu_free() is a configurable
  * stride, which must match the stride received by pool creation.
@@ -159,10 +185,34 @@ void __rseq_percpu *rseq_percpu_zmalloc(struct rseq_mempool *pool);
  *
  * This API is MT-safe.
  */
-void librseq_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
+void librseq_mempool_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
 
-#define rseq_percpu_free(_ptr, _stride...)		\
-	librseq_percpu_free(_ptr, RSEQ_PARAM_SELECT_ARG1(_, ##_stride, RSEQ_PERCPU_STRIDE))
+#define rseq_mempool_percpu_free(_ptr, _stride...)		\
+	librseq_mempool_percpu_free(_ptr, RSEQ_PARAM_SELECT_ARG1(_, ##_stride, RSEQ_PERCPU_STRIDE))
+
+/*
+ * rseq_free: Free memory from a global pool.
+ *
+ * Free an item pointed to by @ptr from its global pool. Would normally
+ * be used with pools created with max_nr_cpus=1.
+ *
+ * The @ptr argument is a pointer returned by either:
+ *
+ * - rseq_mempool_malloc(),
+ * - rseq_mempool_zmalloc(),
+ * - rseq_mempool_set_malloc(),
+ * - rseq_mempool_set_zmalloc().
+ *
+ * The @stride optional argument to rseq_free() is a configurable
+ * stride, which must match the stride received by pool creation. If
+ * the argument is not present, use the default RSEQ_PERCPU_STRIDE.
+ * The stride is needed even for a global pool to know the mapping
+ * address range.
+ *
+ * This API is MT-safe.
+ */
+#define rseq_mempool_free(_ptr, _stride...)		\
+	librseq_percpu_free((void __rseq_percpu *) _ptr, RSEQ_PARAM_SELECT_ARG1(_, ##_stride, RSEQ_PERCPU_STRIDE))
 
 /*
  * rseq_percpu_ptr: Offset a per-cpu pointer for a given CPU.
@@ -171,10 +221,10 @@ void librseq_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
  * given @cpu. The @ptr argument is a __rseq_percpu pointer returned by
  * either:
  *
- * - rseq_percpu_malloc(),
- * - rseq_percpu_zmalloc(),
- * - rseq_percpu_pool_set_malloc(),
- * - rseq_percpu_pool_set_zmalloc().
+ * - rseq_mempool_percpu_malloc(),
+ * - rseq_mempool_percpu_zmalloc(),
+ * - rseq_mempool_set_percpu_malloc(),
+ * - rseq_mempool_set_percpu_zmalloc().
  *
  * The macro rseq_percpu_ptr() preserves the type of the @ptr parameter
  * for the returned pointer, but removes the __rseq_percpu annotation.
@@ -261,7 +311,7 @@ int rseq_mempool_set_add_pool(struct rseq_mempool_set *pool_set,
  *
  * This API is MT-safe.
  */
-void __rseq_percpu *rseq_percpu_mempool_set_malloc(struct rseq_mempool_set *pool_set, size_t len);
+void __rseq_percpu *rseq_mempool_set_percpu_malloc(struct rseq_mempool_set *pool_set, size_t len);
 
 /*
  * rseq_percpu_mempool_set_zmalloc: Allocated zero-initialized memory from a per-cpu pool set.
@@ -271,7 +321,33 @@ void __rseq_percpu *rseq_percpu_mempool_set_malloc(struct rseq_mempool_set *pool
  *
  * This API is MT-safe.
  */
-void __rseq_percpu *rseq_percpu_mempool_set_zmalloc(struct rseq_mempool_set *pool_set, size_t len);
+void __rseq_percpu *rseq_mempool_set_percpu_zmalloc(struct rseq_mempool_set *pool_set, size_t len);
+
+/*
+ * rseq_mempool_set_malloc: Allocate memory from a global pool set.
+ *
+ * Wrapper to allocate memory from a global pool, which can be
+ * used directly without per-cpu indexing. Would normally be used
+ * with pools created with max_nr_cpus=1.
+ */
+static inline
+void *rseq_mempool_set_malloc(struct rseq_mempool_set *pool_set, size_t len)
+{
+	return (void *) rseq_mempool_set_percpu_malloc(pool_set, len);
+}
+
+/*
+ * rseq_mempool_set_zmalloc: Allocate zero-initialized memory from a global pool set.
+ *
+ * Wrapper to allocate memory from a global pool, which can be
+ * used directly without per-cpu indexing. Would normally be used
+ * with pools created with max_nr_cpus=1.
+ */
+static inline
+void *rseq_mempool_set_zmalloc(struct rseq_mempool_set *pool_set, size_t len)
+{
+	return (void *) rseq_mempool_set_percpu_zmalloc(pool_set, len);
+}
 
 /*
  * rseq_mempool_init_numa: Move pages to the NUMA node associated to their CPU topology.
