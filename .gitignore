@@ -115,3 +115,4 @@ Makefile
 /config.status
 /autom4te.cache/
 /config
+*~
