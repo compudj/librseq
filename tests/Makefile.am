@@ -19,6 +19,8 @@ noinst_PROGRAMS = \
 	basic_percpu_ops_mm_cid_test_cxx.tap \
 	basic_test.tap \
 	basic_test_cxx.tap \
+	mempool_test.tap \
+	mempool_test_cxx.tap \
 	param_test \
 	param_test_cxx \
 	param_test_mm_cid \
@@ -85,6 +87,12 @@ basic_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/util
 
 basic_test_cxx_tap_SOURCES = basic_test_cxx.cpp
 basic_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
+
+mempool_test_tap_SOURCES = mempool_test.c list.h
+mempool_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
+
+mempool_test_cxx_tap_SOURCES = mempool_test_cxx.cpp list.h
+mempool_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
 param_test_SOURCES = param_test.c
 param_test_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)

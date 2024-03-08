@@ -62,6 +62,8 @@ dkms.conf
 /tests/basic_percpu_ops_mm_cid_test_cxx.tap
 /tests/basic_test.tap
 /tests/basic_test_cxx.tap
+/tests/mempool_test.tap
+/tests/mempool_test_cxx.tap
 /tests/param_test
 /tests/param_test_cxx
 /tests/param_test_benchmark
@@ -116,3 +118,4 @@ Makefile
 /autom4te.cache/
 /config
 *~
+.*.swp
