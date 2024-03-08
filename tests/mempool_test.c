@@ -15,6 +15,8 @@
 #include <sys/time.h>
 #include <inttypes.h>
 #include <stdlib.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include <rseq/mempool.h>
 
@@ -88,6 +90,108 @@ static void test_mempool_fill(size_t stride)
 	ok(ret == 0, "Destroy mempool");
 }
 
+static void test_robust_double_free(struct rseq_percpu_pool *pool)
+{
+	struct test_data __rseq_percpu *ptr;
+
+	ptr = (struct test_data __rseq_percpu *) rseq_percpu_malloc(pool);
+
+	rseq_percpu_free(ptr);
+	rseq_percpu_free(ptr);
+}
+
+static void test_robust_corrupt_after_free(struct rseq_percpu_pool *pool)
+{
+	struct test_data __rseq_percpu *ptr;
+	struct test_data *cpuptr;
+
+	ptr = (struct test_data __rseq_percpu *) rseq_percpu_malloc(pool);
+	cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, 0);
+
+	rseq_percpu_free(ptr);
+	cpuptr->value = (uintptr_t) test_robust_corrupt_after_free;
+
+	rseq_percpu_pool_destroy(pool);
+}
+
+static void test_robust_memory_leak(struct rseq_percpu_pool *pool)
+{
+	(void) rseq_percpu_malloc(pool);
+
+	rseq_percpu_pool_destroy(pool);
+}
+
+static void test_robust_free_list_corruption(struct rseq_percpu_pool *pool)
+{
+	struct test_data __rseq_percpu *ptr;
+	struct test_data *cpuptr;
+
+	ptr = (struct test_data __rseq_percpu *) rseq_percpu_malloc(pool);
+	cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, 0);
+
+	rseq_percpu_free(ptr);
+
+	cpuptr->value = (uintptr_t) cpuptr;
+
+	(void) rseq_percpu_malloc(pool);
+	(void) rseq_percpu_malloc(pool);
+}
+
+static int run_robust_test(void (*test)(struct rseq_percpu_pool*),
+			struct rseq_percpu_pool *pool)
+{
+	pid_t cpid;
+	int status;
+
+	cpid = fork();
+
+	switch (cpid) {
+	case -1:
+		return 0;
+	case 0:
+		test(pool);
+		_exit(EXIT_FAILURE);
+	default:
+		waitpid(cpid, &status, 0);
+	}
+
+	if (WIFSIGNALED(status) &&
+	    (SIGABRT == WTERMSIG(status)))
+		return 1;
+
+	return 0;
+}
+
+static void run_robust_tests(void)
+{
+	struct rseq_pool_attr *attr;
+	struct rseq_percpu_pool *pool;
+
+	attr = rseq_pool_attr_create();
+
+	rseq_pool_attr_set_robust(attr);
+
+	pool = rseq_percpu_pool_create("mempool-robust",
+				sizeof(void*), RSEQ_PERCPU_STRIDE, 1,
+				attr);
+
+	rseq_pool_attr_destroy(attr);
+
+	ok(run_robust_test(test_robust_double_free, pool),
+		"robust-double-free");
+
+	ok(run_robust_test(test_robust_corrupt_after_free, pool),
+		"robust-corrupt-after-free");
+
+	ok(run_robust_test(test_robust_memory_leak, pool),
+		"robust-memory-leak");
+
+	ok(run_robust_test(test_robust_free_list_corruption, pool),
+		"robust-free-list-corruption");
+
+	rseq_percpu_pool_destroy(pool);
+}
+
 int main(void)
 {
 	size_t len;
@@ -98,6 +202,8 @@ int main(void)
 	for (len = 4096; len < 4096 * 1024; len <<= 1) {
 		test_mempool_fill(len);
 	}
+
+	run_robust_tests();
 
 	exit(exit_status());
 }
