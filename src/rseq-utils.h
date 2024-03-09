@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2024 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
 
-#ifndef _RSEQ_UTILS_H
-#define _RSEQ_UTILS_H
+#ifndef _RSEQ_COMMON_UTILS_H
+#define _RSEQ_COMMON_UTILS_H
+
+#include <stdbool.h>
+#include <stdint.h>
 
 #define RSEQ_ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
@@ -131,4 +134,4 @@ off_t offset_align(uintptr_t p, size_t alignment)
 	return (alignment - p) & (alignment - 1);
 }
 
-#endif /* _RSEQ_UTILS_H */
+#endif /* _RSEQ_COMMON_UTILS_H */

@@ -19,6 +19,7 @@
 #include <unistd.h>
 
 #include <rseq/mempool.h>
+#include "../src/rseq-utils.h"
 
 #include "list.h"
 #include "tap.h"
@@ -198,8 +199,8 @@ int main(void)
 
 	plan_no_plan();
 
-	/* From 4kB to 4MB */
-	for (len = 4096; len < 4096 * 1024; len <<= 1) {
+	/* From page size to 4MB */
+	for (len = rseq_get_page_len(); len < 4096 * 1024; len <<= 1) {
 		test_mempool_fill(len);
 	}
 
