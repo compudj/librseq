@@ -372,7 +372,7 @@ void *aligned_mmap_anonymous(struct rseq_mempool *pool,
 	void *ptr;
 
 	if (len < page_size || alignment < page_size ||
-			!is_pow2(len) || !is_pow2(alignment)) {
+			!is_pow2(alignment) || (len & (alignment - 1))) {
 		errno = EINVAL;
 		return NULL;
 	}
