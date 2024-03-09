@@ -129,28 +129,27 @@ struct rseq_mempool_set {
 };
 
 static
-void *__rseq_pool_percpu_ptr(struct rseq_mempool *pool, int cpu,
+void *__rseq_pool_range_percpu_ptr(struct rseq_mempool_range *range, int cpu,
 		uintptr_t item_offset, size_t stride)
 {
 	/* TODO: Implement multi-ranges support. */
-	return pool->ranges->base + (stride * cpu) + item_offset;
+	return range->base + (stride * cpu) + item_offset;
 }
 
 static
-void rseq_percpu_zero_item(struct rseq_mempool *pool, uintptr_t item_offset)
+void rseq_percpu_zero_item(struct rseq_mempool *pool,
+		struct rseq_mempool_range *range, uintptr_t item_offset)
 {
 	int i;
 
 	for (i = 0; i < pool->attr.max_nr_cpus; i++) {
-		char *p = __rseq_pool_percpu_ptr(pool, i,
+		char *p = __rseq_pool_range_percpu_ptr(range, i,
 				item_offset, pool->attr.stride);
 		memset(p, 0, pool->item_len);
 	}
 }
 
-//TODO: this will need to be reimplemented for ranges,
-//which cannot use __rseq_pool_percpu_ptr.
-#if 0 //#ifdef HAVE_LIBNUMA
+#ifdef HAVE_LIBNUMA
 static
 int rseq_mempool_range_init_numa(struct rseq_mempool *pool, struct rseq_mempool_range *range, int numa_flags)
 {
@@ -169,6 +168,8 @@ int rseq_mempool_range_init_numa(struct rseq_mempool *pool, struct rseq_mempool_
 		void *pages[MOVE_PAGES_BATCH_SIZE];
 
 		nodes[0] = numa_node_of_cpu(cpu);
+		if (nodes[0] < 0)
+			continue;
 		for (size_t k = 1; k < RSEQ_ARRAY_SIZE(nodes); ++k) {
 			nodes[k] = nodes[0];
 		}
@@ -183,7 +184,8 @@ int rseq_mempool_range_init_numa(struct rseq_mempool *pool, struct rseq_mempool_
 			}
 
 			for (size_t k = 0; k < max_k; ++k, ++page) {
-				pages[k] = __rseq_pool_percpu_ptr(pool, cpu, page * page_len);
+				pages[k] = __rseq_pool_range_percpu_ptr(range, cpu,
+					page * page_len, pool->attr.stride);
 				status[k] = -EPERM;
 			}
 
@@ -639,7 +641,7 @@ end:
 		set_alloc_slot(pool, item_offset);
 	pthread_mutex_unlock(&pool->lock);
 	if (zeroed && addr)
-		rseq_percpu_zero_item(pool, item_offset);
+		rseq_percpu_zero_item(pool, pool->ranges, item_offset);
 	return addr;
 }
 
