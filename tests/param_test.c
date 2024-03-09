@@ -490,7 +490,7 @@ static void *test_percpu_spinlock_thread(void *arg)
 static void test_percpu_spinlock(void)
 {
 	const int num_threads = opt_threads;
-	int i, ret;
+	int i, ret, max_nr_cpus;
 	uint64_t sum;
 	pthread_t test_threads[num_threads];
 	struct spinlock_test_data __rseq_percpu *data;
@@ -503,7 +503,7 @@ static void test_percpu_spinlock(void)
 		perror("rseq_mempool_attr_create");
 		abort();
 	}
-	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, CPU_SETSIZE);
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, 0);
 	if (ret) {
 		perror("rseq_mempool_attr_set_percpu");
 		abort();
@@ -515,6 +515,7 @@ static void test_percpu_spinlock(void)
 		abort();
 	}
 	rseq_mempool_attr_destroy(attr);
+	max_nr_cpus = rseq_mempool_get_max_nr_cpus(mempool);
 	data = (struct spinlock_test_data __rseq_percpu *)rseq_mempool_percpu_zmalloc(mempool);
 	if (!data) {
 		perror("rseq_mempool_percpu_zmalloc");
@@ -548,7 +549,7 @@ static void test_percpu_spinlock(void)
 	}
 
 	sum = 0;
-	for (i = 0; i < CPU_SETSIZE; i++)
+	for (i = 0; i < max_nr_cpus; i++)
 		sum += rseq_percpu_ptr(data, i)->count;
 
 	assert(sum == (uint64_t)opt_reps * num_threads);
@@ -597,7 +598,7 @@ static void *test_percpu_inc_thread(void *arg)
 static void test_percpu_inc(void)
 {
 	const int num_threads = opt_threads;
-	int i, ret;
+	int i, ret, max_nr_cpus;
 	uint64_t sum;
 	pthread_t test_threads[num_threads];
 	struct inc_test_data __rseq_percpu *data;
@@ -610,7 +611,7 @@ static void test_percpu_inc(void)
 		perror("rseq_mempool_attr_create");
 		abort();
 	}
-	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, CPU_SETSIZE);
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, 0);
 	if (ret) {
 		perror("rseq_mempool_attr_set_percpu");
 		abort();
@@ -622,6 +623,7 @@ static void test_percpu_inc(void)
 		abort();
 	}
 	rseq_mempool_attr_destroy(attr);
+	max_nr_cpus = rseq_mempool_get_max_nr_cpus(mempool);
 	data = (struct inc_test_data __rseq_percpu *)rseq_mempool_percpu_zmalloc(mempool);
 	if (!data) {
 		perror("rseq_mempool_percpu_zmalloc");
@@ -655,7 +657,7 @@ static void test_percpu_inc(void)
 	}
 
 	sum = 0;
-	for (i = 0; i < CPU_SETSIZE; i++)
+	for (i = 0; i < max_nr_cpus; i++)
 		sum += rseq_percpu_ptr(data, i)->count;
 
 	assert(sum == (uint64_t)opt_reps * num_threads);
@@ -782,7 +784,7 @@ static void *test_percpu_list_thread(void *arg)
 static void test_percpu_list(void)
 {
 	const int num_threads = opt_threads;
-	int i, j, ret;
+	int i, j, ret, max_nr_cpus;
 	uint64_t sum = 0, expected_sum = 0;
 	struct percpu_list __rseq_percpu *list;
 	pthread_t test_threads[num_threads];
@@ -795,7 +797,7 @@ static void test_percpu_list(void)
 		perror("rseq_mempool_attr_create");
 		abort();
 	}
-	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, CPU_SETSIZE);
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, 0);
 	if (ret) {
 		perror("rseq_mempool_attr_set_percpu");
 		abort();
@@ -807,6 +809,7 @@ static void test_percpu_list(void)
 		abort();
 	}
 	rseq_mempool_attr_destroy(attr);
+	max_nr_cpus = rseq_mempool_get_max_nr_cpus(mempool);
 	list = (struct percpu_list __rseq_percpu *)rseq_mempool_percpu_zmalloc(mempool);
 	if (!list) {
 		perror("rseq_mempool_percpu_zmalloc");
@@ -815,7 +818,7 @@ static void test_percpu_list(void)
 
 	/* Generate list entries for every usable cpu. */
 	sched_getaffinity(0, sizeof(allowed_cpus), &allowed_cpus);
-	for (i = 0; i < CPU_SETSIZE; i++) {
+	for (i = 0; i < max_nr_cpus; i++) {
 		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
 			continue;
 		for (j = 1; j <= 100; j++) {
@@ -851,7 +854,7 @@ static void test_percpu_list(void)
 		}
 	}
 
-	for (i = 0; i < CPU_SETSIZE; i++) {
+	for (i = 0; i < max_nr_cpus; i++) {
 		struct percpu_list_node *node;
 
 		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
@@ -1005,7 +1008,7 @@ static void *test_percpu_buffer_thread(void *arg)
 static void test_percpu_buffer(void)
 {
 	const int num_threads = opt_threads;
-	int i, j, ret;
+	int i, j, ret, max_nr_cpus;
 	uint64_t sum = 0, expected_sum = 0;
 	struct percpu_buffer __rseq_percpu *buffer;
 	pthread_t test_threads[num_threads];
@@ -1018,7 +1021,7 @@ static void test_percpu_buffer(void)
 		perror("rseq_mempool_attr_create");
 		abort();
 	}
-	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, CPU_SETSIZE);
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, 0);
 	if (ret) {
 		perror("rseq_mempool_attr_set_percpu");
 		abort();
@@ -1030,6 +1033,7 @@ static void test_percpu_buffer(void)
 		abort();
 	}
 	rseq_mempool_attr_destroy(attr);
+	max_nr_cpus = rseq_mempool_get_max_nr_cpus(mempool);
 	buffer = (struct percpu_buffer __rseq_percpu *)rseq_mempool_percpu_zmalloc(mempool);
 	if (!buffer) {
 		perror("rseq_mempool_percpu_zmalloc");
@@ -1038,7 +1042,7 @@ static void test_percpu_buffer(void)
 
 	/* Generate list entries for every usable cpu. */
 	sched_getaffinity(0, sizeof(allowed_cpus), &allowed_cpus);
-	for (i = 0; i < CPU_SETSIZE; i++) {
+	for (i = 0; i < max_nr_cpus; i++) {
 		struct percpu_buffer *cpubuffer;
 
 		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
@@ -1047,10 +1051,10 @@ static void test_percpu_buffer(void)
 		/* Worse-case is every item in same CPU. */
 		cpubuffer->array =
 			(struct percpu_buffer_node **)
-			malloc(sizeof(*cpubuffer->array) * CPU_SETSIZE *
+			malloc(sizeof(*cpubuffer->array) * max_nr_cpus *
 			       BUFFER_ITEM_PER_CPU);
 		assert(cpubuffer->array);
-		cpubuffer->buflen = CPU_SETSIZE * BUFFER_ITEM_PER_CPU;
+		cpubuffer->buflen = max_nr_cpus * BUFFER_ITEM_PER_CPU;
 		for (j = 1; j <= BUFFER_ITEM_PER_CPU; j++) {
 			struct percpu_buffer_node *node;
 
@@ -1090,7 +1094,7 @@ static void test_percpu_buffer(void)
 		}
 	}
 
-	for (i = 0; i < CPU_SETSIZE; i++) {
+	for (i = 0; i < max_nr_cpus; i++) {
 		struct percpu_buffer *cpubuffer;
 		struct percpu_buffer_node *node;
 
@@ -1257,7 +1261,7 @@ static void *test_percpu_memcpy_buffer_thread(void *arg)
 static void test_percpu_memcpy_buffer(void)
 {
 	const int num_threads = opt_threads;
-	int i, j, ret;
+	int i, j, ret, max_nr_cpus;
 	uint64_t sum = 0, expected_sum = 0;
 	struct percpu_memcpy_buffer *buffer;
 	pthread_t test_threads[num_threads];
@@ -1270,7 +1274,7 @@ static void test_percpu_memcpy_buffer(void)
 		perror("rseq_mempool_attr_create");
 		abort();
 	}
-	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, CPU_SETSIZE);
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, 0);
 	if (ret) {
 		perror("rseq_mempool_attr_set_percpu");
 		abort();
@@ -1282,6 +1286,7 @@ static void test_percpu_memcpy_buffer(void)
 		abort();
 	}
 	rseq_mempool_attr_destroy(attr);
+	max_nr_cpus = rseq_mempool_get_max_nr_cpus(mempool);
 	buffer = (struct percpu_memcpy_buffer __rseq_percpu *)rseq_mempool_percpu_zmalloc(mempool);
 	if (!buffer) {
 		perror("rseq_mempool_percpu_zmalloc");
@@ -1290,7 +1295,7 @@ static void test_percpu_memcpy_buffer(void)
 
 	/* Generate list entries for every usable cpu. */
 	sched_getaffinity(0, sizeof(allowed_cpus), &allowed_cpus);
-	for (i = 0; i < CPU_SETSIZE; i++) {
+	for (i = 0; i < max_nr_cpus; i++) {
 		struct percpu_memcpy_buffer *cpubuffer;
 
 		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
@@ -1299,10 +1304,10 @@ static void test_percpu_memcpy_buffer(void)
 		/* Worse-case is every item in same CPU. */
 		cpubuffer->array =
 			(struct percpu_memcpy_buffer_node *)
-			malloc(sizeof(*cpubuffer->array) * CPU_SETSIZE *
+			malloc(sizeof(*cpubuffer->array) * max_nr_cpus *
 			       MEMCPY_BUFFER_ITEM_PER_CPU);
 		assert(cpubuffer->array);
-		cpubuffer->buflen = CPU_SETSIZE * MEMCPY_BUFFER_ITEM_PER_CPU;
+		cpubuffer->buflen = max_nr_cpus * MEMCPY_BUFFER_ITEM_PER_CPU;
 		for (j = 1; j <= MEMCPY_BUFFER_ITEM_PER_CPU; j++) {
 			expected_sum += 2 * j + 1;
 
@@ -1339,7 +1344,7 @@ static void test_percpu_memcpy_buffer(void)
 		}
 	}
 
-	for (i = 0; i < CPU_SETSIZE; i++) {
+	for (i = 0; i < max_nr_cpus; i++) {
 		struct percpu_memcpy_buffer_node item;
 		struct percpu_memcpy_buffer *cpubuffer;
 
@@ -1419,6 +1424,7 @@ struct test_membarrier_thread_args {
 	struct rseq_mempool *mempool;
 	struct percpu_list __rseq_percpu *percpu_list_ptr;
 	int stop;
+	int max_nr_cpus;
 };
 
 /* Worker threads modify data in their "active" percpu lists. */
@@ -1464,14 +1470,15 @@ static
 struct percpu_list __rseq_percpu *test_membarrier_alloc_percpu_list(struct rseq_mempool *mempool)
 {
 	struct percpu_list __rseq_percpu *list;
-	int i;
+	int i, max_nr_cpus;
 
+	max_nr_cpus = rseq_mempool_get_max_nr_cpus(mempool);
 	list = (struct percpu_list __rseq_percpu *)rseq_mempool_percpu_zmalloc(mempool);
 	if (!list) {
 		perror("rseq_mempool_percpu_zmalloc");
 		return NULL;
 	}
-	for (i = 0; i < CPU_SETSIZE; i++) {
+	for (i = 0; i < max_nr_cpus; i++) {
 		struct percpu_list *cpulist = rseq_percpu_ptr(list, i);
 		struct percpu_list_node *node;
 
@@ -1485,22 +1492,24 @@ struct percpu_list __rseq_percpu *test_membarrier_alloc_percpu_list(struct rseq_
 }
 
 static
-void test_membarrier_free_percpu_list(struct percpu_list __rseq_percpu *list)
+void test_membarrier_free_percpu_list(struct test_membarrier_thread_args *args,
+		struct percpu_list __rseq_percpu *list)
 {
 	int i;
 
-	for (i = 0; i < CPU_SETSIZE; i++)
+	for (i = 0; i < args->max_nr_cpus; i++)
 		free(rseq_percpu_ptr(list, i)->head);
 	rseq_mempool_percpu_free(list);
 }
 
 static
-long long test_membarrier_count_percpu_list(struct percpu_list __rseq_percpu *list)
+long long test_membarrier_count_percpu_list(struct test_membarrier_thread_args *args,
+		struct percpu_list __rseq_percpu *list)
 {
 	long long total_count = 0;
 	int i;
 
-	for (i = 0; i < CPU_SETSIZE; i++)
+	for (i = 0; i < args->max_nr_cpus; i++)
 		total_count += rseq_percpu_ptr(list, i)->head->data;
 	return total_count;
 }
@@ -1527,7 +1536,7 @@ void *test_membarrier_manager_thread(void *arg)
 		perror("rseq_mempool_attr_create");
 		abort();
 	}
-	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, CPU_SETSIZE);
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, 0);
 	if (ret) {
 		perror("rseq_mempool_attr_set_percpu");
 		abort();
@@ -1539,6 +1548,7 @@ void *test_membarrier_manager_thread(void *arg)
 		abort();
 	}
 	rseq_mempool_attr_destroy(attr);
+	args->max_nr_cpus = rseq_mempool_get_max_nr_cpus(mempool);
 	args->mempool = mempool;
 
 	if (rseq_register_current_thread()) {
@@ -1560,7 +1570,7 @@ void *test_membarrier_manager_thread(void *arg)
 
 	while (!RSEQ_READ_ONCE(args->stop)) {
 		/* list_a is "active". */
-		cpu_a = rand() % CPU_SETSIZE;
+		cpu_a = rand() % args->max_nr_cpus;
 		/*
 		 * As list_b is "inactive", we should never see changes
 		 * to list_b.
@@ -1583,7 +1593,7 @@ void *test_membarrier_manager_thread(void *arg)
 		 */
 		expect_a = RSEQ_READ_ONCE(rseq_percpu_ptr(list_a, cpu_a)->head->data);
 
-		cpu_b = rand() % CPU_SETSIZE;
+		cpu_b = rand() % args->max_nr_cpus;
 		/*
 		 * As list_a is "inactive", we should never see changes
 		 * to list_a.
@@ -1604,8 +1614,8 @@ void *test_membarrier_manager_thread(void *arg)
 		expect_b = RSEQ_READ_ONCE(rseq_percpu_ptr(list_b, cpu_b)->head->data);
 	}
 
-	total_count += test_membarrier_count_percpu_list(list_a);
-	total_count += test_membarrier_count_percpu_list(list_b);
+	total_count += test_membarrier_count_percpu_list(args, list_a);
+	total_count += test_membarrier_count_percpu_list(args, list_b);
 
 	/* Validate that we observe the right number of increments. */
 	if (total_count != opt_threads * opt_reps) {
@@ -1613,8 +1623,8 @@ void *test_membarrier_manager_thread(void *arg)
 			total_count, opt_threads * opt_reps);
 		abort();
 	}
-	test_membarrier_free_percpu_list(list_a);
-	test_membarrier_free_percpu_list(list_b);
+	test_membarrier_free_percpu_list(args, list_a);
+	test_membarrier_free_percpu_list(args, list_b);
 
 	if (rseq_unregister_current_thread()) {
 		fprintf(stderr, "Error: rseq_unregister_current_thread(...) failed(%d): %s\n",
