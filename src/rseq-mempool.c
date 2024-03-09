@@ -65,8 +65,8 @@ struct free_list_node {
 };
 
 enum mempool_type {
-	MEMPOOL_TYPE_PERCPU = 0,	/* Default */
-	MEMPOOL_TYPE_GLOBAL = 1,
+	MEMPOOL_TYPE_GLOBAL = 0,	/* Default */
+	MEMPOOL_TYPE_PERCPU = 1,
 };
 
 struct rseq_mempool_attr {
@@ -546,6 +546,8 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 		}
 		break;
 	case MEMPOOL_TYPE_GLOBAL:
+		/* Use a 1-cpu pool for global mempool type. */
+		attr.max_nr_cpus = 1;
 		break;
 	}
 	if (!attr.stride)
@@ -854,6 +856,6 @@ int rseq_mempool_attr_set_global(struct rseq_mempool_attr *attr,
 	}
 	attr->type = MEMPOOL_TYPE_GLOBAL;
 	attr->stride = stride;
-	attr->max_nr_cpus = 1;
+	attr->max_nr_cpus = 0;
 	return 0;
 }

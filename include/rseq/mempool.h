@@ -10,7 +10,15 @@
 #include <sys/mman.h>
 
 /*
- * rseq/mempool.h: rseq CPU-Local Storage (CLS) memory allocator.
+ * rseq/mempool.h: rseq memory pool allocator.
+ *
+ * The rseq memory pool allocator can be configured as either a global
+ * allocator (default) or a per-CPU memory allocator.
+ *
+ * The rseq global memory allocator allows the application to request
+ * memory pools of global memory each of containing objects of a
+ * given size (rounded to next power of 2), reserving a given virtual
+ * address size of the requested stride.
  *
  * The rseq per-CPU memory allocator allows the application the request
  * memory pools of CPU-Local memory each of containing objects of a
@@ -20,6 +28,10 @@
  * The per-CPU memory allocator is analogous to TLS (Thread-Local
  * Storage) memory: TLS is Thread-Local Storage, whereas the per-CPU
  * memory allocator provides CPU-Local Storage.
+ *
+ * Memory pool sets can be created by adding one or more pools into
+ * them. They can be used to perform allocation of variable length
+ * objects.
  */
 
 #ifdef __cplusplus
@@ -64,7 +76,7 @@ struct rseq_mempool;
  * The @attr pointer used to specify the pool attributes. If NULL, use a
  * default attribute values. The @attr can be destroyed immediately
  * after rseq_mempool_create() returns. The caller keeps ownership
- * of @attr. Default attributes select a per-cpu mempool type.
+ * of @attr. Default attributes select a global mempool type.
  *
  * The argument @pool_name can be used to given a name to the pool for
  * debugging purposes. It can be NULL if no name is given.
@@ -95,6 +107,7 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
  * Argument @pool is a pointer to the per-cpu pool to destroy.
  *
  * Return values: 0 on success, -1 on error, with errno set accordingly:
+ *
  *   ENOENT: Trying to free a pool which was not allocated.
  *
  * If the munmap_func callback fails, -1 is returned and errno is
@@ -410,7 +423,7 @@ int rseq_mempool_attr_set_robust(struct rseq_mempool_attr *attr);
 /*
  * rseq_mempool_attr_set_percpu: Set pool type as percpu.
  *
- * A pool created with this type is a per-cpu memory pool.  The reserved
+ * A pool created with this type is a per-cpu memory pool. The reserved
  * allocation size is @stride, and the maximum CPU value expected
  * is (@max_nr_cpus - 1). A @stride of 0 uses the default
  * RSEQ_MEMPOOL_STRIDE.
@@ -423,7 +436,7 @@ int rseq_mempool_attr_set_percpu(struct rseq_mempool_attr *attr,
 /*
  * rseq_mempool_attr_set_global: Set pool type as global.
  *
- * A pool created with this type is a global memory pool.  The reserved
+ * A pool created with this type is a global memory pool. The reserved
  * allocation size is @stride. A @stride of 0 uses the default
  * RSEQ_MEMPOOL_STRIDE.
  *
