@@ -430,8 +430,10 @@ int rseq_mempool_attr_set_init(struct rseq_mempool_attr *attr,
  *   - Check for double-free of pointers.
  *
  *   - Detect memory leaks on pool destruction.
-  *
+ *
  *   - Detect free-list corruption on pool destruction.
+ *
+ *   - Detect poison value corruption on allocation and pool destruction.
  *
  * There is a marginal runtime overhead on malloc/free operations.
  *

@@ -133,6 +133,12 @@ struct rseq_mempool_set {
 };
 
 static
+const char *get_pool_name(const struct rseq_mempool *pool)
+{
+	return pool->name ? : "<anonymous>";
+}
+
+static
 void *__rseq_pool_range_percpu_ptr(struct rseq_mempool_range *range, int cpu,
 		uintptr_t item_offset, size_t stride)
 {
@@ -165,7 +171,38 @@ void rseq_percpu_poison_item(struct rseq_mempool *pool,
 		size_t offset;
 
 		for (offset = 0; offset < pool->item_len; offset += sizeof(uintptr_t))
-			*((uintptr_t *) p) = poison;
+			*((uintptr_t *) (p + offset)) = poison;
+	}
+}
+
+/* Always inline for __builtin_return_address(0). */
+static inline __attribute__((always_inline))
+void rseq_percpu_check_poison_item(struct rseq_mempool *pool,
+		struct rseq_mempool_range *range, uintptr_t item_offset)
+{
+	uintptr_t poison = pool->attr.poison;
+	int i;
+
+	if (!pool->attr.robust_set || !pool->attr.poison_set)
+		return;
+	for (i = 0; i < pool->attr.max_nr_cpus; i++) {
+		char *p = __rseq_pool_range_percpu_ptr(range, i,
+				item_offset, pool->attr.stride);
+		size_t offset;
+
+		for (offset = 0; offset < pool->item_len; offset += sizeof(uintptr_t)) {
+			uintptr_t v;
+
+			/* Skip poison check for free-list pointer. */
+			if (i == 0 && offset == 0)
+				continue;
+			v = *((uintptr_t *) (p + offset));
+			if (v != poison) {
+				fprintf(stderr, "%s: Poison corruption detected (0x%lx) for pool: \"%s\" (%p), item offset: %zu, caller: %p.\n",
+					__func__, (unsigned long) v, get_pool_name(pool), pool, item_offset, (void *) __builtin_return_address(0));
+				abort();
+			}
+		}
 	}
 }
 
@@ -268,12 +305,6 @@ int create_alloc_bitmap(struct rseq_mempool *pool, struct rseq_mempool_range *ra
 	if (!range->alloc_bitmap)
 		return -1;
 	return 0;
-}
-
-static
-const char *get_pool_name(const struct rseq_mempool *pool)
-{
-	return pool->name ? : "<anonymous>";
 }
 
 static
@@ -664,6 +695,7 @@ void __rseq_percpu *__rseq_percpu_malloc(struct rseq_mempool *pool, bool zeroed)
 		/* Remove node from free list (update head). */
 		pool->free_list_head = node->next;
 		item_offset = (uintptr_t) ((void *) node - range_base);
+		rseq_percpu_check_poison_item(pool, range, item_offset);
 		addr = (void __rseq_percpu *) node;
 		goto end;
 	}
