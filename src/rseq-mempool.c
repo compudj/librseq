@@ -465,14 +465,27 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 			goto error_alloc;
 	}
 	if (pool->attr.init_set) {
-		int cpu;
-
-		for (cpu = 0; cpu < pool->attr.max_nr_cpus; cpu++) {
+		switch (pool->attr.type) {
+		case MEMPOOL_TYPE_GLOBAL:
 			if (pool->attr.init_func(pool->attr.init_priv,
-					base + (pool->attr.stride * cpu),
-					pool->attr.stride, cpu)) {
+					base, pool->attr.stride, -1)) {
 				goto error_alloc;
 			}
+			break;
+		case MEMPOOL_TYPE_PERCPU:
+		{
+			int cpu;
+			for (cpu = 0; cpu < pool->attr.max_nr_cpus; cpu++) {
+				if (pool->attr.init_func(pool->attr.init_priv,
+						base + (pool->attr.stride * cpu),
+						pool->attr.stride, cpu)) {
+					goto error_alloc;
+				}
+			}
+			break;
+		}
+		default:
+			abort();
 		}
 	}
 	return range;
