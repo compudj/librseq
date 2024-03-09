@@ -52,6 +52,9 @@
 
 #define RANGE_HEADER_OFFSET	sizeof(struct rseq_mempool_range)
 
+//TODO: make this configurable
+#define MEMPOOL_MAX_NR_RANGES	1
+
 struct free_list_node;
 
 struct free_list_node {
@@ -83,8 +86,8 @@ struct rseq_mempool_attr {
 struct rseq_mempool_range;
 
 struct rseq_mempool_range {
-	struct rseq_mempool_range *next;
-	struct rseq_mempool *pool;	/* Backward ref. to container pool. */
+	struct rseq_mempool_range *next;	/* Linked list of ranges. */
+	struct rseq_mempool *pool;		/* Backward reference to container pool. */
 	void *header;
 	void *base;
 	size_t next_unused;
@@ -93,8 +96,9 @@ struct rseq_mempool_range {
 };
 
 struct rseq_mempool {
-	/* Linked-list of ranges. */
-	struct rseq_mempool_range *ranges;
+	/* Head of ranges linked-list. */
+	struct rseq_mempool_range *range_list;
+	unsigned long nr_ranges;
 
 	size_t item_len;
 	int item_order;
@@ -258,7 +262,7 @@ bool addr_in_pool(const struct rseq_mempool *pool, void *addr)
 {
 	struct rseq_mempool_range *range;
 
-	for (range = pool->ranges; range; range = range->next) {
+	for (range = pool->range_list; range; range = range->next) {
 		if (addr >= range->base && addr < range->base + range->next_unused)
 			return true;
 	}
@@ -276,7 +280,7 @@ void check_free_list(const struct rseq_mempool *pool)
 	if (!pool->attr.robust_set)
 		return;
 
-	for (range = pool->ranges; range; range = range->next) {
+	for (range = pool->range_list; range; range = range->next) {
 		total_item += pool->attr.stride >> pool->item_order;
 		total_never_allocated += (pool->attr.stride - range->next_unused) >> pool->item_order;
 	}
@@ -442,6 +446,10 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	void *header;
 	void *base;
 
+	if (pool->nr_ranges >= MEMPOOL_MAX_NR_RANGES) {
+		errno = ENOMEM;
+		return NULL;
+	}
 	page_size = rseq_get_page_len();
 
 	base = aligned_mmap_anonymous(pool, page_size,
@@ -482,6 +490,7 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 			abort();
 		}
 	}
+	pool->nr_ranges++;
 	return range;
 
 error_alloc:
@@ -498,11 +507,11 @@ int rseq_mempool_destroy(struct rseq_mempool *pool)
 		return 0;
 	check_free_list(pool);
 	/* Iteration safe against removal. */
-	for (range = pool->ranges; range && (next_range = range->next, 1); range = next_range) {
+	for (range = pool->range_list; range && (next_range = range->next, 1); range = next_range) {
 		if (rseq_mempool_range_destroy(pool, range))
 			goto end;
 		/* Update list head to keep list coherent in case of partial failure. */
-		pool->ranges = next_range;
+		pool->range_list = next_range;
 	}
 	pthread_mutex_destroy(&pool->lock);
 	free(pool->name);
@@ -575,9 +584,8 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 	pool->item_len = item_len;
 	pool->item_order = order;
 
-	//TODO: implement multi-range support.
-	pool->ranges = rseq_mempool_range_create(pool);
-	if (!pool->ranges)
+	pool->range_list = rseq_mempool_range_create(pool);
+	if (!pool->range_list)
 		goto error_alloc;
 
 	if (pool_name) {
@@ -595,9 +603,9 @@ error_alloc:
 
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
-void set_alloc_slot(struct rseq_mempool *pool, size_t item_offset)
+void set_alloc_slot(struct rseq_mempool *pool, struct rseq_mempool_range *range, size_t item_offset)
 {
-	unsigned long *bitmap = pool->ranges->alloc_bitmap;
+	unsigned long *bitmap = range->alloc_bitmap;
 	size_t item_index = item_offset >> pool->item_order;
 	unsigned long mask;
 	size_t k;
@@ -620,6 +628,7 @@ void set_alloc_slot(struct rseq_mempool *pool, size_t item_offset)
 static
 void __rseq_percpu *__rseq_percpu_malloc(struct rseq_mempool *pool, bool zeroed)
 {
+	struct rseq_mempool_range *range;
 	struct free_list_node *node;
 	uintptr_t item_offset;
 	void __rseq_percpu *addr;
@@ -628,26 +637,43 @@ void __rseq_percpu *__rseq_percpu_malloc(struct rseq_mempool *pool, bool zeroed)
 	/* Get first entry from free list. */
 	node = pool->free_list_head;
 	if (node != NULL) {
+		uintptr_t ptr = (uintptr_t) node;
+		void *range_base = (void *) (ptr & (~(pool->attr.stride - 1)));
+
+		range = (struct rseq_mempool_range *) (range_base - RANGE_HEADER_OFFSET);
 		/* Remove node from free list (update head). */
 		pool->free_list_head = node->next;
-		item_offset = (uintptr_t) ((void *) node - pool->ranges->base);
-		addr = (void __rseq_percpu *) (pool->ranges->base + item_offset);
+		item_offset = (uintptr_t) ((void *) node - range_base);
+		addr = (void __rseq_percpu *) node;
 		goto end;
 	}
-	if (pool->ranges->next_unused + pool->item_len > pool->attr.stride) {
-		errno = ENOMEM;
-		addr = NULL;
-		goto end;
+	/*
+	 * If the most recent range (first in list) does not have any
+	 * room left, create a new range and prepend it to the list
+	 * head.
+	 */
+	range = pool->range_list;
+	if (range->next_unused + pool->item_len > pool->attr.stride) {
+		range = rseq_mempool_range_create(pool);
+		if (!range) {
+			errno = ENOMEM;
+			addr = NULL;
+			goto end;
+		}
+		/* Add range to head of list. */
+		range->next = pool->range_list;
+		pool->range_list = range;
 	}
-	item_offset = pool->ranges->next_unused;
-	addr = (void __rseq_percpu *) (pool->ranges->base + item_offset);
-	pool->ranges->next_unused += pool->item_len;
+	/* First range in list has room left. */
+	item_offset = range->next_unused;
+	addr = (void __rseq_percpu *) (range->base + item_offset);
+	range->next_unused += pool->item_len;
 end:
 	if (addr)
-		set_alloc_slot(pool, item_offset);
+		set_alloc_slot(pool, range, item_offset);
 	pthread_mutex_unlock(&pool->lock);
 	if (zeroed && addr)
-		rseq_percpu_zero_item(pool, pool->ranges, item_offset);
+		rseq_percpu_zero_item(pool, range, item_offset);
 	return addr;
 }
 
@@ -663,9 +689,9 @@ void __rseq_percpu *rseq_mempool_percpu_zmalloc(struct rseq_mempool *pool)
 
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
-void clear_alloc_slot(struct rseq_mempool *pool, size_t item_offset)
+void clear_alloc_slot(struct rseq_mempool *pool, struct rseq_mempool_range *range, size_t item_offset)
 {
-	unsigned long *bitmap = pool->ranges->alloc_bitmap;
+	unsigned long *bitmap = range->alloc_bitmap;
 	size_t item_index = item_offset >> pool->item_order;
 	unsigned long mask;
 	size_t k;
@@ -696,7 +722,7 @@ void librseq_mempool_percpu_free(void __rseq_percpu *_ptr, size_t stride)
 	struct free_list_node *head, *item;
 
 	pthread_mutex_lock(&pool->lock);
-	clear_alloc_slot(pool, item_offset);
+	clear_alloc_slot(pool, range, item_offset);
 	/* Add ptr to head of free list */
 	head = pool->free_list_head;
 	/* Free-list is in CPU 0 range. */
