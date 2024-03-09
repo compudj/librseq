@@ -466,6 +466,17 @@ int rseq_mempool_attr_set_percpu(struct rseq_mempool_attr *attr,
 int rseq_mempool_attr_set_global(struct rseq_mempool_attr *attr, size_t stride);
 
 /*
+ * rseq_mempool_attr_set_max_nr_ranges: Set upper-limit to range allocation.
+ *
+ * Set an upper-limit to range allocation. A @max_nr_ranges value of
+ * 0 means no limit (default).
+ *
+ * Returns 0 on success, -1 with errno=EINVAL if arguments are invalid.
+ */
+int rseq_mempool_attr_set_max_nr_ranges(struct rseq_mempool_attr *attr,
+		unsigned long max_nr_ranges);
+
+/*
  * rseq_mempool_range_init_numa: NUMA initialization helper for memory range.
  *
  * Helper which can be used from mempool_attr @init_func to move a CPU

@@ -52,9 +52,6 @@
 
 #define RANGE_HEADER_OFFSET	sizeof(struct rseq_mempool_range)
 
-//TODO: make this configurable
-#define MEMPOOL_MAX_NR_RANGES	1
-
 struct free_list_node;
 
 struct free_list_node {
@@ -81,6 +78,8 @@ struct rseq_mempool_attr {
 	enum mempool_type type;
 	size_t stride;
 	int max_nr_cpus;
+
+	unsigned long max_nr_ranges;
 };
 
 struct rseq_mempool_range;
@@ -446,7 +445,8 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	void *header;
 	void *base;
 
-	if (pool->nr_ranges >= MEMPOOL_MAX_NR_RANGES) {
+	if (pool->attr.max_nr_ranges &&
+			pool->nr_ranges >= pool->attr.max_nr_ranges) {
 		errno = ENOMEM;
 		return NULL;
 	}
@@ -905,6 +905,17 @@ int rseq_mempool_attr_set_global(struct rseq_mempool_attr *attr,
 	attr->type = MEMPOOL_TYPE_GLOBAL;
 	attr->stride = stride;
 	attr->max_nr_cpus = 0;
+	return 0;
+}
+
+int rseq_mempool_attr_set_max_nr_ranges(struct rseq_mempool_attr *attr,
+		unsigned long max_nr_ranges)
+{
+	if (!attr) {
+		errno = EINVAL;
+		return -1;
+	}
+	attr->max_nr_ranges = max_nr_ranges;
 	return 0;
 }
 

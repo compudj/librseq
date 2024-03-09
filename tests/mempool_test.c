@@ -46,6 +46,8 @@ static void test_mempool_fill(size_t stride)
 	ok(ret == 0, "Setting mempool robust attribute");
 	ret = rseq_mempool_attr_set_percpu(attr, stride, CPU_SETSIZE);
 	ok(ret == 0, "Setting mempool percpu type");
+	ret = rseq_mempool_attr_set_max_nr_ranges(attr, 1);
+	ok(ret == 0, "Setting mempool max_nr_ranges=1");
 	mempool = rseq_mempool_create("test_data",
 			sizeof(struct test_data), attr);
 	ok(mempool, "Create mempool of size %zu", stride);
