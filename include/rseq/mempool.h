@@ -459,6 +459,17 @@ int rseq_mempool_attr_set_percpu(struct rseq_mempool_attr *attr,
  */
 int rseq_mempool_attr_set_global(struct rseq_mempool_attr *attr, size_t stride);
 
+/*
+ * rseq_mempool_range_init_numa: NUMA initialization helper for memory range.
+ *
+ * Helper which can be used from mempool_attr @init_func to move a CPU
+ * memory range to the NUMA node associated to its topology.
+ *
+ * Returns 0 on success, -1 with errno set by move_pages(2) on error.
+ * Returns -1, errno=ENOSYS if NUMA support is not present.
+ */
+int rseq_mempool_range_init_numa(void *addr, size_t len, int cpu, int numa_flags);
+
 #ifdef __cplusplus
 }
 #endif

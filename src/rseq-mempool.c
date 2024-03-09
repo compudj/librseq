@@ -153,83 +153,68 @@ void rseq_percpu_zero_item(struct rseq_mempool *pool,
 }
 
 #ifdef HAVE_LIBNUMA
-static
-int rseq_mempool_range_init_numa(struct rseq_mempool *pool, struct rseq_mempool_range *range, int numa_flags)
+int rseq_mempool_range_init_numa(void *addr, size_t len, int cpu, int numa_flags)
 {
 	unsigned long nr_pages, page_len;
+	int status[MOVE_PAGES_BATCH_SIZE];
+	int nodes[MOVE_PAGES_BATCH_SIZE];
+	void *pages[MOVE_PAGES_BATCH_SIZE];
 	long ret;
-	int cpu;
 
-	if (!numa_flags)
-		return 0;
-	page_len = rseq_get_page_len();
-	nr_pages = pool->attr.stride >> rseq_get_count_order_ulong(page_len);
-	for (cpu = 0; cpu < pool->attr.max_nr_cpus; cpu++) {
-
-		int status[MOVE_PAGES_BATCH_SIZE];
-		int nodes[MOVE_PAGES_BATCH_SIZE];
-		void *pages[MOVE_PAGES_BATCH_SIZE];
-
-		nodes[0] = numa_node_of_cpu(cpu);
-		if (nodes[0] < 0)
-			continue;
-		for (size_t k = 1; k < RSEQ_ARRAY_SIZE(nodes); ++k) {
-			nodes[k] = nodes[0];
-		}
-
-		for (unsigned long page = 0; page < nr_pages;) {
-
-			size_t max_k = RSEQ_ARRAY_SIZE(pages);
-			size_t left = nr_pages - page;
-
-			if (left < max_k) {
-				max_k = left;
-			}
-
-			for (size_t k = 0; k < max_k; ++k, ++page) {
-				pages[k] = __rseq_pool_range_percpu_ptr(range, cpu,
-					page * page_len, pool->attr.stride);
-				status[k] = -EPERM;
-			}
-
-			ret = move_pages(0, max_k, pages, nodes, status, numa_flags);
-
-			if (ret < 0)
-				return ret;
-
-			if (ret > 0) {
-				fprintf(stderr, "%lu pages were not migrated\n", ret);
-				for (size_t k = 0; k < max_k; ++k) {
-					if (status[k] < 0)
-						fprintf(stderr,
-							"Error while moving page %p to numa node %d: %u\n",
-							pages[k], nodes[k], -status[k]);
-				}
-			}
-		}
+	if (!numa_flags) {
+		errno = EINVAL;
+		return -1;
 	}
-	return 0;
-}
+	page_len = rseq_get_page_len();
+	nr_pages = len >> rseq_get_count_order_ulong(page_len);
 
-int rseq_mempool_init_numa(struct rseq_mempool *pool, int numa_flags)
-{
-	struct rseq_mempool_range *range;
-	int ret;
+	nodes[0] = numa_node_of_cpu(cpu);
+	if (nodes[0] < 0)
+		return -1;
 
-	if (!numa_flags)
-		return 0;
-	for (range = pool->ranges; range; range = range->next) {
-		ret = rseq_mempool_range_init_numa(pool, range, numa_flags);
-		if (ret)
+	for (size_t k = 1; k < RSEQ_ARRAY_SIZE(nodes); ++k) {
+		nodes[k] = nodes[0];
+	}
+
+	for (unsigned long page = 0; page < nr_pages;) {
+
+		size_t max_k = RSEQ_ARRAY_SIZE(pages);
+		size_t left = nr_pages - page;
+
+		if (left < max_k) {
+			max_k = left;
+		}
+
+		for (size_t k = 0; k < max_k; ++k, ++page) {
+			pages[k] = addr + (page * page_len);
+			status[k] = -EPERM;
+		}
+
+		ret = move_pages(0, max_k, pages, nodes, status, numa_flags);
+
+		if (ret < 0)
 			return ret;
+
+		if (ret > 0) {
+			fprintf(stderr, "%lu pages were not migrated\n", ret);
+			for (size_t k = 0; k < max_k; ++k) {
+				if (status[k] < 0)
+					fprintf(stderr,
+						"Error while moving page %p to numa node %d: %u\n",
+						pages[k], nodes[k], -status[k]);
+			}
+		}
 	}
 	return 0;
 }
 #else
-int rseq_mempool_init_numa(struct rseq_mempool *pool __attribute__((unused)),
+int rseq_mempool_range_init_numa(void *addr __attribute__((unused)),
+		size_t len __attribute__((unused)),
+		int cpu __attribute__((unused)),
 		int numa_flags __attribute__((unused)))
 {
-	return 0;
+	errno = ENOSYS;
+	return -1;
 }
 #endif
 
