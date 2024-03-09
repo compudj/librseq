@@ -139,7 +139,7 @@ const char *get_pool_name(const struct rseq_mempool *pool)
 }
 
 static
-void *__rseq_pool_range_percpu_ptr(struct rseq_mempool_range *range, int cpu,
+void *__rseq_pool_range_percpu_ptr(const struct rseq_mempool_range *range, int cpu,
 		uintptr_t item_offset, size_t stride)
 {
 	return range->base + (stride * cpu) + item_offset;
@@ -177,8 +177,8 @@ void rseq_percpu_poison_item(struct rseq_mempool *pool,
 
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
-void rseq_percpu_check_poison_item(struct rseq_mempool *pool,
-		struct rseq_mempool_range *range, uintptr_t item_offset)
+void rseq_percpu_check_poison_item(const struct rseq_mempool *pool,
+		const struct rseq_mempool_range *range, uintptr_t item_offset)
 {
 	uintptr_t poison = pool->attr.poison;
 	int i;
@@ -373,6 +373,30 @@ void check_free_list(const struct rseq_mempool *pool)
 
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
+void check_range_poison(const struct rseq_mempool *pool,
+		const struct rseq_mempool_range *range)
+{
+	size_t item_offset;
+
+	for (item_offset = 0; item_offset < range->next_unused;
+			item_offset += pool->item_len)
+		rseq_percpu_check_poison_item(pool, range, item_offset);
+}
+
+/* Always inline for __builtin_return_address(0). */
+static inline __attribute__((always_inline))
+void check_pool_poison(const struct rseq_mempool *pool)
+{
+	struct rseq_mempool_range *range;
+
+	if (!pool->attr.robust_set || !pool->attr.poison_set)
+		return;
+	for (range = pool->range_list; range; range = range->next)
+		check_range_poison(pool, range);
+}
+
+/* Always inline for __builtin_return_address(0). */
+static inline __attribute__((always_inline))
 void destroy_alloc_bitmap(struct rseq_mempool *pool, struct rseq_mempool_range *range)
 {
 	unsigned long *bitmap = range->alloc_bitmap;
@@ -557,6 +581,7 @@ int rseq_mempool_destroy(struct rseq_mempool *pool)
 	if (!pool)
 		return 0;
 	check_free_list(pool);
+	check_pool_poison(pool);
 	/* Iteration safe against removal. */
 	for (range = pool->range_list; range && (next_range = range->next, 1); range = next_range) {
 		if (rseq_mempool_range_destroy(pool, range))
