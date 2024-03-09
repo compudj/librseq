@@ -77,13 +77,12 @@
  */
 
 /*
- * rseq_load_cbne_load_add_load_add_store(ptr, expect, ptr2, offset, inc)
+ * rseq_load_add_load_load_add_store(ptr, off, inc)
  *
  * Pseudo-code:
  *   load(r1, [ptr])
- *   cbne(r1, [expect])
- *   load(r2, [ptr2])
- *   add(r2, [offset])
+ *   add(r1, [off])
+ *   load(r2, r1)
  *   load(r3, r2)
  *   add(r3, [inc])
  *   store(r3, r2)
