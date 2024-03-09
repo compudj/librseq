@@ -33,20 +33,20 @@ extern "C" {
  *
  * - rseq_mempool_create(),
  * - rseq_percpu_ptr().
- * - rseq_percpu_free(),
+ * - rseq_mempool_percpu_free(),
  */
 #define RSEQ_PERCPU_STRIDE	(1U << 16)	/* stride: 64kB */
 
 /*
  * Tag pointers returned by:
- * - rseq_percpu_malloc(),
- * - rseq_percpu_zmalloc(),
- * - rseq_percpu_pool_set_malloc(),
- * - rseq_percpu_pool_set_zmalloc().
+ * - rseq_mempool_percpu_malloc(),
+ * - rseq_mempool_percpu_zmalloc(),
+ * - rseq_mempool_set_percpu_malloc(),
+ * - rseq_mempool_set_percpu_zmalloc().
  *
  * and passed as parameter to:
  * - rseq_percpu_ptr(),
- * - rseq_percpu_free().
+ * - rseq_mempool_percpu_free().
  *
  * with __rseq_percpu for use by static analyzers.
  */
@@ -56,7 +56,7 @@ struct rseq_mempool_attr;
 struct rseq_mempool;
 
 /*
- * rseq_percpu_pool_create: Create a per-cpu memory pool.
+ * rseq_mempool_create: Create a memory pool.
  *
  * Create a per-cpu memory pool for items of size @item_len (rounded to
  * next power of two). The reserved allocation size is @percpu_stride, and
@@ -65,7 +65,7 @@ struct rseq_mempool;
  *
  * The @attr pointer used to specify the pool attributes. If NULL, use a
  * default attribute values. The @attr can be destroyed immediately
- * after rseq_percpu_pool_create() returns. The caller keeps ownership
+ * after rseq_mempool_create() returns. The caller keeps ownership
  * of @attr.
  *
  * The argument @pool_name can be used to given a name to the pool for
@@ -286,7 +286,7 @@ int rseq_mempool_set_add_pool(struct rseq_mempool_set *pool_set,
 		struct rseq_mempool *pool);
 
 /*
- * rseq_percpu_mempool_set_malloc: Allocate memory from a per-cpu pool set.
+ * rseq_mempool_set_percpu_malloc: Allocate memory from a per-cpu pool set.
  *
  * Allocate an item from a per-cpu @pool. The allocation will reserve
  * an item of the size specified by @len (rounded to next power of
@@ -310,10 +310,10 @@ int rseq_mempool_set_add_pool(struct rseq_mempool_set *pool_set,
 void __rseq_percpu *rseq_mempool_set_percpu_malloc(struct rseq_mempool_set *pool_set, size_t len);
 
 /*
- * rseq_percpu_mempool_set_zmalloc: Allocated zero-initialized memory from a per-cpu pool set.
+ * rseq_mempool_set_percpu_zmalloc: Allocated zero-initialized memory from a per-cpu pool set.
  *
  * Allocate memory for an item within the pool, and zero-initialize its
- * memory on all CPUs. See rseq_percpu_mempool_set_malloc for details.
+ * memory on all CPUs. See rseq_mempool_set_percpu_malloc for details.
  *
  * This API is MT-safe.
  */
