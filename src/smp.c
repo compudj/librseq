@@ -17,13 +17,13 @@
 #include <string.h>
 #include <stdio.h>
 #include <sys/types.h>
-#include <side/macros.h>
+#include <rseq/compiler.h>
 
 #include "smp.h"
 
 #define __max(a,b) ((a)>(b)?(a):(b))
 
-#define SIDE_CPUMASK_SIZE	4096
+#define RSEQ_CPUMASK_SIZE	4096
 
 static int possible_cpus_array_len_cache;
 
@@ -230,11 +230,11 @@ error:
 
 static void update_possible_cpus_array_len_cache(void)
 {
-	char buf[SIDE_CPUMASK_SIZE];
+	char buf[RSEQ_CPUMASK_SIZE];
 	int ret;
 
 	/* Get the possible cpu mask from sysfs, fallback to sysconf. */
-	ret = get_possible_cpu_mask_from_sysfs((char *) &buf, SIDE_CPUMASK_SIZE);
+	ret = get_possible_cpu_mask_from_sysfs((char *) &buf, RSEQ_CPUMASK_SIZE);
 	if (ret <= 0)
 		goto fallback;
 
@@ -271,7 +271,7 @@ end:
  */
 int get_possible_cpus_array_len(void)
 {
-	if (side_unlikely(!possible_cpus_array_len_cache))
+	if (rseq_unlikely(!possible_cpus_array_len_cache))
 		update_possible_cpus_array_len_cache();
 
 	return possible_cpus_array_len_cache;
