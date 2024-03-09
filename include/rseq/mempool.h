@@ -470,6 +470,15 @@ int rseq_mempool_attr_set_global(struct rseq_mempool_attr *attr, size_t stride);
  */
 int rseq_mempool_range_init_numa(void *addr, size_t len, int cpu, int numa_flags);
 
+/*
+ * rseq_mempool_get_max_nr_cpus: Get the max_nr_cpus value configured for a pool.
+ *
+ * Returns a value >= 0 for a per-cpu pool.
+ * Returns -1, errno=EINVAL if the mempool is NULL or if the pool has a
+ * global pool type.
+ */
+int rseq_mempool_get_max_nr_cpus(struct rseq_mempool *mempool);
+
 #ifdef __cplusplus
 }
 #endif

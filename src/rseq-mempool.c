@@ -872,3 +872,12 @@ int rseq_mempool_attr_set_global(struct rseq_mempool_attr *attr,
 	attr->max_nr_cpus = 0;
 	return 0;
 }
+
+int rseq_mempool_get_max_nr_cpus(struct rseq_mempool *mempool)
+{
+	if (!mempool || mempool->attr.type != MEMPOOL_TYPE_PERCPU) {
+		errno = EINVAL;
+		return -1;
+	}
+	return mempool->attr.max_nr_cpus;
+}
