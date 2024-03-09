@@ -91,13 +91,22 @@ static void test_mempool_fill(unsigned long max_nr_ranges, size_t stride)
 			cpuptr->value++;
 		}
 	}
-
 	ok(1, "Check for pool content corruption");
 
 	list_for_each_entry_safe(iter, tmp, &list, node) {
 		ptr = iter->backref;
 		rseq_mempool_percpu_free(ptr, stride);
 	}
+	ok(1, "Free all objects");
+
+	ptr = (struct test_data __rseq_percpu *) rseq_mempool_percpu_zmalloc(mempool);
+	if (!ptr)
+		abort();
+	ok(1, "Allocate one object");
+
+	rseq_mempool_percpu_free(ptr, stride);
+	ok(1, "Free one object");
+
 	ret = rseq_mempool_destroy(mempool);
 	ok(ret == 0, "Destroy mempool");
 }
