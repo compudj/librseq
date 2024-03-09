@@ -35,11 +35,7 @@ extern "C" {
  * - rseq_percpu_ptr().
  * - rseq_percpu_free(),
  */
-#if RSEQ_BITS_PER_LONG == 64
-# define RSEQ_PERCPU_STRIDE	(1U << 24)	/* 64-bit stride: 16MB */
-#else
-# define RSEQ_PERCPU_STRIDE	(1U << 16)	/* 32-bit stride: 64kB */
-#endif
+#define RSEQ_PERCPU_STRIDE	(1U << 16)	/* stride: 64kB */
 
 /*
  * Tag pointers returned by:
