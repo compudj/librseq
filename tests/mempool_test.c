@@ -44,10 +44,10 @@ static void test_mempool_fill(size_t stride)
 	ok(attr, "Create pool attribute");
 	ret = rseq_mempool_attr_set_robust(attr);
 	ok(ret == 0, "Setting mempool robust attribute");
-
+	ret = rseq_mempool_attr_set_percpu(attr, stride, CPU_SETSIZE);
+	ok(ret == 0, "Setting mempool percpu type");
 	mempool = rseq_mempool_create("test_data",
-			sizeof(struct test_data),
-			stride, CPU_SETSIZE, attr);
+			sizeof(struct test_data), attr);
 	ok(mempool, "Create mempool of size %zu", stride);
 	rseq_mempool_attr_destroy(attr);
 
@@ -167,14 +167,19 @@ static void run_robust_tests(void)
 {
 	struct rseq_mempool_attr *attr;
 	struct rseq_mempool *pool;
+	int ret;
 
 	attr = rseq_mempool_attr_create();
+	ok(attr, "Create mempool attributes");
 
-	rseq_mempool_attr_set_robust(attr);
+	ret = rseq_mempool_attr_set_robust(attr);
+	ok(ret == 0, "Setting mempool robust attribute");
+
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, 1);
+	ok(ret == 0, "Setting mempool percpu type");
 
 	pool = rseq_mempool_create("mempool-robust",
-				sizeof(void*), RSEQ_PERCPU_STRIDE, 1,
-				attr);
+				sizeof(void*), attr);
 
 	rseq_mempool_attr_destroy(attr);
 

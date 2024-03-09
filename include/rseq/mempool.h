@@ -35,7 +35,7 @@ extern "C" {
  * - rseq_percpu_ptr().
  * - rseq_mempool_percpu_free(),
  */
-#define RSEQ_PERCPU_STRIDE	(1U << 16)	/* stride: 64kB */
+#define RSEQ_MEMPOOL_STRIDE	(1U << 16)	/* stride: 64kB */
 
 /*
  * Tag pointers returned by:
@@ -58,21 +58,20 @@ struct rseq_mempool;
 /*
  * rseq_mempool_create: Create a memory pool.
  *
- * Create a per-cpu memory pool for items of size @item_len (rounded to
- * next power of two). The reserved allocation size is @percpu_stride, and
- * the maximum CPU value expected is (@max_nr_cpus - 1). A
- * @percpu_stride of 0 uses the default RSEQ_PERCPU_STRIDE.
+ * Create a memory pool for items of size @item_len (rounded to
+ * next power of two).
  *
  * The @attr pointer used to specify the pool attributes. If NULL, use a
  * default attribute values. The @attr can be destroyed immediately
  * after rseq_mempool_create() returns. The caller keeps ownership
- * of @attr.
+ * of @attr. Default attributes select a per-cpu mempool type.
  *
  * The argument @pool_name can be used to given a name to the pool for
  * debugging purposes. It can be NULL if no name is given.
  *
  * Returns a pointer to the created percpu pool. Return NULL on error,
  * with errno set accordingly:
+ *
  *   EINVAL: Invalid argument.
  *   ENOMEM: Not enough resources (memory or pool indexes) available to
  *           allocate pool.
@@ -84,8 +83,7 @@ struct rseq_mempool;
  * This API is MT-safe.
  */
 struct rseq_mempool *rseq_mempool_create(const char *pool_name,
-		size_t item_len, size_t percpu_stride, int max_nr_cpus,
-		const struct rseq_mempool_attr *attr);
+		size_t item_len, const struct rseq_mempool_attr *attr);
 
 /*
  * rseq_mempool_destroy: Destroy a per-cpu memory pool.
@@ -177,14 +175,14 @@ void *rseq_mempool_zmalloc(struct rseq_mempool *pool)
  *
  * The @stride optional argument to rseq_percpu_free() is a configurable
  * stride, which must match the stride received by pool creation.
- * If the argument is not present, use the default RSEQ_PERCPU_STRIDE.
+ * If the argument is not present, use the default RSEQ_MEMPOOL_STRIDE.
  *
  * This API is MT-safe.
  */
-void librseq_mempool_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
+void librseq_mempool_percpu_free(void __rseq_percpu *ptr, size_t stride);
 
 #define rseq_mempool_percpu_free(_ptr, _stride...)		\
-	librseq_mempool_percpu_free(_ptr, RSEQ_PARAM_SELECT_ARG1(_, ##_stride, RSEQ_PERCPU_STRIDE))
+	librseq_mempool_percpu_free(_ptr, RSEQ_PARAM_SELECT_ARG1(_, ##_stride, RSEQ_MEMPOOL_STRIDE))
 
 /*
  * rseq_free: Free memory from a global pool.
@@ -201,14 +199,14 @@ void librseq_mempool_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
  *
  * The @stride optional argument to rseq_free() is a configurable
  * stride, which must match the stride received by pool creation. If
- * the argument is not present, use the default RSEQ_PERCPU_STRIDE.
+ * the argument is not present, use the default RSEQ_MEMPOOL_STRIDE.
  * The stride is needed even for a global pool to know the mapping
  * address range.
  *
  * This API is MT-safe.
  */
 #define rseq_mempool_free(_ptr, _stride...)		\
-	librseq_percpu_free((void __rseq_percpu *) _ptr, RSEQ_PARAM_SELECT_ARG1(_, ##_stride, RSEQ_PERCPU_STRIDE))
+	librseq_percpu_free((void __rseq_percpu *) _ptr, RSEQ_PARAM_SELECT_ARG1(_, ##_stride, RSEQ_MEMPOOL_STRIDE))
 
 /*
  * rseq_percpu_ptr: Offset a per-cpu pointer for a given CPU.
@@ -226,7 +224,7 @@ void librseq_mempool_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
  * for the returned pointer, but removes the __rseq_percpu annotation.
  *
  * The macro rseq_percpu_ptr() takes an optional @stride argument. If
- * the argument is not present, use the default RSEQ_PERCPU_STRIDE.
+ * the argument is not present, use the default RSEQ_MEMPOOL_STRIDE.
  * This must match the stride used for pool creation.
  *
  * This API is MT-safe.
@@ -234,7 +232,7 @@ void librseq_mempool_percpu_free(void __rseq_percpu *ptr, size_t percpu_stride);
 #define rseq_percpu_ptr(_ptr, _cpu, _stride...)		\
 	((__typeof__(*(_ptr)) *) ((uintptr_t) (_ptr) +	\
 		((unsigned int) (_cpu) *		\
-			(uintptr_t) RSEQ_PARAM_SELECT_ARG1(_, ##_stride, RSEQ_PERCPU_STRIDE))))
+			(uintptr_t) RSEQ_PARAM_SELECT_ARG1(_, ##_stride, RSEQ_MEMPOOL_STRIDE))))
 
 /*
  * rseq_mempool_set_create: Create a pool set.
@@ -408,6 +406,30 @@ int rseq_mempool_attr_set_mmap(struct rseq_mempool_attr *attr,
  * Returns 0 on success, -1 with errno=EINVAL if arguments are invalid.
  */
 int rseq_mempool_attr_set_robust(struct rseq_mempool_attr *attr);
+
+/*
+ * rseq_mempool_attr_set_percpu: Set pool type as percpu.
+ *
+ * A pool created with this type is a per-cpu memory pool.  The reserved
+ * allocation size is @stride, and the maximum CPU value expected
+ * is (@max_nr_cpus - 1). A @stride of 0 uses the default
+ * RSEQ_MEMPOOL_STRIDE.
+ *
+ * Returns 0 on success, -1 with errno=EINVAL if arguments are invalid.
+ */
+int rseq_mempool_attr_set_percpu(struct rseq_mempool_attr *attr,
+		size_t stride, int max_nr_cpus);
+
+/*
+ * rseq_mempool_attr_set_global: Set pool type as global.
+ *
+ * A pool created with this type is a global memory pool.  The reserved
+ * allocation size is @stride. A @stride of 0 uses the default
+ * RSEQ_MEMPOOL_STRIDE.
+ *
+ * Returns 0 on success, -1 with errno=EINVAL if arguments are invalid.
+ */
+int rseq_mempool_attr_set_global(struct rseq_mempool_attr *attr, size_t stride);
 
 #ifdef __cplusplus
 }

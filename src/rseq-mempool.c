@@ -20,6 +20,7 @@
 #endif
 
 #include "rseq-utils.h"
+#include "smp.h"
 
 /*
  * rseq-mempool.c: rseq CPU-Local Storage (CLS) memory allocator.
@@ -63,6 +64,11 @@ struct free_list_node {
 	struct free_list_node *next;
 };
 
+enum mempool_type {
+	MEMPOOL_TYPE_PERCPU = 0,	/* Default */
+	MEMPOOL_TYPE_GLOBAL = 1,
+};
+
 struct rseq_mempool_attr {
 	bool mmap_set;
 	void *(*mmap_func)(void *priv, size_t len);
@@ -70,6 +76,10 @@ struct rseq_mempool_attr {
 	void *mmap_priv;
 
 	bool robust_set;
+
+	enum mempool_type type;
+	size_t stride;
+	int max_nr_cpus;
 };
 
 struct rseq_mempool_range;
@@ -89,9 +99,7 @@ struct rseq_mempool {
 	struct rseq_mempool_range *ranges;
 
 	size_t item_len;
-	size_t percpu_stride;
 	int item_order;
-	int max_nr_cpus;
 
 	/*
 	 * The free list chains freed items on the CPU 0 address range.
@@ -133,9 +141,9 @@ void rseq_percpu_zero_item(struct rseq_mempool *pool, uintptr_t item_offset)
 {
 	int i;
 
-	for (i = 0; i < pool->max_nr_cpus; i++) {
+	for (i = 0; i < pool->attr.max_nr_cpus; i++) {
 		char *p = __rseq_pool_percpu_ptr(pool, i,
-				item_offset, pool->percpu_stride);
+				item_offset, pool->attr.stride);
 		memset(p, 0, pool->item_len);
 	}
 }
@@ -153,8 +161,8 @@ int rseq_mempool_range_init_numa(struct rseq_mempool *pool, struct rseq_mempool_
 	if (!numa_flags)
 		return 0;
 	page_len = rseq_get_page_len();
-	nr_pages = pool->percpu_stride >> rseq_get_count_order_ulong(page_len);
-	for (cpu = 0; cpu < pool->max_nr_cpus; cpu++) {
+	nr_pages = pool->attr.stride >> rseq_get_count_order_ulong(page_len);
+	for (cpu = 0; cpu < pool->attr.max_nr_cpus; cpu++) {
 
 		int status[MOVE_PAGES_BATCH_SIZE];
 		int nodes[MOVE_PAGES_BATCH_SIZE];
@@ -243,7 +251,7 @@ int create_alloc_bitmap(struct rseq_mempool *pool, struct rseq_mempool_range *ra
 {
 	size_t count;
 
-	count = ((pool->percpu_stride >> pool->item_order) + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
+	count = ((pool->attr.stride >> pool->item_order) + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
 
 	/*
 	 * Not being able to create the validation bitmap is an error
@@ -285,8 +293,8 @@ void check_free_list(const struct rseq_mempool *pool)
 		return;
 
 	for (range = pool->ranges; range; range = range->next) {
-		total_item += pool->percpu_stride >> pool->item_order;
-		total_never_allocated += (pool->percpu_stride - range->next_unused) >> pool->item_order;
+		total_item += pool->attr.stride >> pool->item_order;
+		total_never_allocated += (pool->attr.stride - range->next_unused) >> pool->item_order;
 	}
 	max_list_traversal = total_item - total_never_allocated;
 
@@ -335,7 +343,7 @@ void destroy_alloc_bitmap(struct rseq_mempool *pool, struct rseq_mempool_range *
 	if (!bitmap)
 		return;
 
-	count = ((pool->percpu_stride >> pool->item_order) + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
+	count = ((pool->attr.stride >> pool->item_order) + BIT_PER_ULONG - 1) / BIT_PER_ULONG;
 
 	/* Assert that all items in the pool were freed. */
 	for (size_t k = 0; k < count; ++k)
@@ -357,7 +365,7 @@ int rseq_mempool_range_destroy(struct rseq_mempool *pool,
 	destroy_alloc_bitmap(pool, range);
 	/* range is a header located one page before the aligned mapping. */
 	return pool->attr.munmap_func(pool->attr.mmap_priv, range->header,
-			(pool->percpu_stride * pool->max_nr_cpus) + rseq_get_page_len());
+			(pool->attr.stride * pool->attr.max_nr_cpus) + rseq_get_page_len());
 }
 
 /*
@@ -453,8 +461,8 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	page_size = rseq_get_page_len();
 
 	base = aligned_mmap_anonymous(pool, page_size,
-			pool->percpu_stride * pool->max_nr_cpus,
-			pool->percpu_stride,
+			pool->attr.stride * pool->attr.max_nr_cpus,
+			pool->attr.stride,
 			&header, page_size);
 	if (!base)
 		return NULL;
@@ -496,8 +504,7 @@ end:
 }
 
 struct rseq_mempool *rseq_mempool_create(const char *pool_name,
-		size_t item_len, size_t percpu_stride, int max_nr_cpus,
-		const struct rseq_mempool_attr *_attr)
+		size_t item_len, const struct rseq_mempool_attr *_attr)
 {
 	struct rseq_mempool *pool;
 	struct rseq_mempool_attr attr = {};
@@ -515,16 +522,6 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 	}
 	item_len = 1UL << order;
 
-	if (!percpu_stride)
-		percpu_stride = RSEQ_PERCPU_STRIDE;	/* Use default */
-
-	if (max_nr_cpus < 0 || item_len > percpu_stride ||
-			percpu_stride < (size_t) rseq_get_page_len() ||
-			!is_pow2(percpu_stride)) {
-		errno = EINVAL;
-		return NULL;
-	}
-
 	if (_attr)
 		memcpy(&attr, _attr, sizeof(attr));
 	if (!attr.mmap_set) {
@@ -533,14 +530,38 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 		attr.mmap_priv = NULL;
 	}
 
+	switch (attr.type) {
+	case MEMPOOL_TYPE_PERCPU:
+		if (attr.max_nr_cpus < 0) {
+			errno = EINVAL;
+			return NULL;
+		}
+		if (attr.max_nr_cpus == 0) {
+			/* Auto-detect */
+			attr.max_nr_cpus = get_possible_cpus_array_len();
+			if (attr.max_nr_cpus == 0) {
+				errno = EINVAL;
+				return NULL;
+			}
+		}
+		break;
+	case MEMPOOL_TYPE_GLOBAL:
+		break;
+	}
+	if (!attr.stride)
+		attr.stride = RSEQ_MEMPOOL_STRIDE;	/* Use default */
+	if (item_len > attr.stride || attr.stride < (size_t) rseq_get_page_len() ||
+			!is_pow2(attr.stride)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
 	pool = calloc(1, sizeof(struct rseq_mempool));
 	if (!pool)
 		return NULL;
 
 	memcpy(&pool->attr, &attr, sizeof(attr));
 	pthread_mutex_init(&pool->lock, NULL);
-	pool->percpu_stride = percpu_stride;
-	pool->max_nr_cpus = max_nr_cpus;
 	pool->item_len = item_len;
 	pool->item_order = order;
 
@@ -603,7 +624,7 @@ void __rseq_percpu *__rseq_percpu_malloc(struct rseq_mempool *pool, bool zeroed)
 		addr = (void __rseq_percpu *) (pool->ranges->base + item_offset);
 		goto end;
 	}
-	if (pool->ranges->next_unused + pool->item_len > pool->percpu_stride) {
+	if (pool->ranges->next_unused + pool->item_len > pool->attr.stride) {
 		errno = ENOMEM;
 		addr = NULL;
 		goto end;
@@ -655,13 +676,13 @@ void clear_alloc_slot(struct rseq_mempool *pool, size_t item_offset)
 	bitmap[k] &= ~mask;
 }
 
-void librseq_mempool_percpu_free(void __rseq_percpu *_ptr, size_t percpu_stride)
+void librseq_mempool_percpu_free(void __rseq_percpu *_ptr, size_t stride)
 {
 	uintptr_t ptr = (uintptr_t) _ptr;
-	void *range_base = (void *) (ptr & (~(percpu_stride - 1)));
+	void *range_base = (void *) (ptr & (~(stride - 1)));
 	struct rseq_mempool_range *range = (struct rseq_mempool_range *) (range_base - RANGE_HEADER_OFFSET);
 	struct rseq_mempool *pool = range->pool;
-	uintptr_t item_offset = ptr & (percpu_stride - 1);
+	uintptr_t item_offset = ptr & (stride - 1);
 	struct free_list_node *head, *item;
 
 	pthread_mutex_lock(&pool->lock);
@@ -808,5 +829,31 @@ int rseq_mempool_attr_set_robust(struct rseq_mempool_attr *attr)
 		return -1;
 	}
 	attr->robust_set = true;
+	return 0;
+}
+
+int rseq_mempool_attr_set_percpu(struct rseq_mempool_attr *attr,
+		size_t stride, int max_nr_cpus)
+{
+	if (!attr) {
+		errno = EINVAL;
+		return -1;
+	}
+	attr->type = MEMPOOL_TYPE_PERCPU;
+	attr->stride = stride;
+	attr->max_nr_cpus = max_nr_cpus;
+	return 0;
+}
+
+int rseq_mempool_attr_set_global(struct rseq_mempool_attr *attr,
+		size_t stride)
+{
+	if (!attr) {
+		errno = EINVAL;
+		return -1;
+	}
+	attr->type = MEMPOOL_TYPE_GLOBAL;
+	attr->stride = stride;
+	attr->max_nr_cpus = 1;
 	return 0;
 }

@@ -496,14 +496,25 @@ static void test_percpu_spinlock(void)
 	struct spinlock_test_data __rseq_percpu *data;
 	struct spinlock_thread_test_data thread_data[num_threads];
 	struct rseq_mempool *mempool;
+	struct rseq_mempool_attr *attr;
 
+	attr = rseq_mempool_attr_create();
+	if (!attr) {
+		perror("rseq_mempool_attr_create");
+		abort();
+	}
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, CPU_SETSIZE);
+	if (ret) {
+		perror("rseq_mempool_attr_set_percpu");
+		abort();
+	}
 	mempool = rseq_mempool_create("spinlock_test_data",
-			sizeof(struct spinlock_test_data),
-			0, CPU_SETSIZE, NULL);
+			sizeof(struct spinlock_test_data), attr);
 	if (!mempool) {
 		perror("rseq_mempool_create");
 		abort();
 	}
+	rseq_mempool_attr_destroy(attr);
 	data = (struct spinlock_test_data __rseq_percpu *)rseq_mempool_percpu_zmalloc(mempool);
 	if (!data) {
 		perror("rseq_mempool_percpu_zmalloc");
@@ -592,14 +603,25 @@ static void test_percpu_inc(void)
 	struct inc_test_data __rseq_percpu *data;
 	struct inc_thread_test_data thread_data[num_threads];
 	struct rseq_mempool *mempool;
+	struct rseq_mempool_attr *attr;
 
+	attr = rseq_mempool_attr_create();
+	if (!attr) {
+		perror("rseq_mempool_attr_create");
+		abort();
+	}
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, CPU_SETSIZE);
+	if (ret) {
+		perror("rseq_mempool_attr_set_percpu");
+		abort();
+	}
 	mempool = rseq_mempool_create("inc_test_data",
-			sizeof(struct inc_test_data),
-			0, CPU_SETSIZE, NULL);
+			sizeof(struct inc_test_data), attr);
 	if (!mempool) {
 		perror("rseq_mempool_create");
 		abort();
 	}
+	rseq_mempool_attr_destroy(attr);
 	data = (struct inc_test_data __rseq_percpu *)rseq_mempool_percpu_zmalloc(mempool);
 	if (!data) {
 		perror("rseq_mempool_percpu_zmalloc");
@@ -766,13 +788,25 @@ static void test_percpu_list(void)
 	pthread_t test_threads[num_threads];
 	cpu_set_t allowed_cpus;
 	struct rseq_mempool *mempool;
+	struct rseq_mempool_attr *attr;
 
-	mempool = rseq_mempool_create("percpu_list", sizeof(struct percpu_list),
-			0, CPU_SETSIZE, NULL);
+	attr = rseq_mempool_attr_create();
+	if (!attr) {
+		perror("rseq_mempool_attr_create");
+		abort();
+	}
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, CPU_SETSIZE);
+	if (ret) {
+		perror("rseq_mempool_attr_set_percpu");
+		abort();
+	}
+	mempool = rseq_mempool_create("percpu_list",
+			sizeof(struct percpu_list), attr);
 	if (!mempool) {
 		perror("rseq_mempool_create");
 		abort();
 	}
+	rseq_mempool_attr_destroy(attr);
 	list = (struct percpu_list __rseq_percpu *)rseq_mempool_percpu_zmalloc(mempool);
 	if (!list) {
 		perror("rseq_mempool_percpu_zmalloc");
@@ -977,13 +1011,25 @@ static void test_percpu_buffer(void)
 	pthread_t test_threads[num_threads];
 	cpu_set_t allowed_cpus;
 	struct rseq_mempool *mempool;
+	struct rseq_mempool_attr *attr;
 
-	mempool = rseq_mempool_create("percpu_buffer", sizeof(struct percpu_buffer),
-			0, CPU_SETSIZE, NULL);
+	attr = rseq_mempool_attr_create();
+	if (!attr) {
+		perror("rseq_mempool_attr_create");
+		abort();
+	}
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, CPU_SETSIZE);
+	if (ret) {
+		perror("rseq_mempool_attr_set_percpu");
+		abort();
+	}
+	mempool = rseq_mempool_create("percpu_buffer",
+			sizeof(struct percpu_buffer), attr);
 	if (!mempool) {
 		perror("rseq_mempool_create");
 		abort();
 	}
+	rseq_mempool_attr_destroy(attr);
 	buffer = (struct percpu_buffer __rseq_percpu *)rseq_mempool_percpu_zmalloc(mempool);
 	if (!buffer) {
 		perror("rseq_mempool_percpu_zmalloc");
@@ -1217,14 +1263,25 @@ static void test_percpu_memcpy_buffer(void)
 	pthread_t test_threads[num_threads];
 	cpu_set_t allowed_cpus;
 	struct rseq_mempool *mempool;
+	struct rseq_mempool_attr *attr;
 
+	attr = rseq_mempool_attr_create();
+	if (!attr) {
+		perror("rseq_mempool_attr_create");
+		abort();
+	}
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, CPU_SETSIZE);
+	if (ret) {
+		perror("rseq_mempool_attr_set_percpu");
+		abort();
+	}
 	mempool = rseq_mempool_create("percpu_memcpy_buffer",
-			sizeof(struct percpu_memcpy_buffer),
-			0, CPU_SETSIZE, NULL);
+			sizeof(struct percpu_memcpy_buffer), attr);
 	if (!mempool) {
 		perror("rseq_mempool_create");
 		abort();
 	}
+	rseq_mempool_attr_destroy(attr);
 	buffer = (struct percpu_memcpy_buffer __rseq_percpu *)rseq_mempool_percpu_zmalloc(mempool);
 	if (!buffer) {
 		perror("rseq_mempool_percpu_zmalloc");
@@ -1390,7 +1447,7 @@ void *test_membarrier_worker_thread(void *arg)
 
 			ret = rseq_load_add_load_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 				(intptr_t *) &args->percpu_list_ptr,
-				(RSEQ_PERCPU_STRIDE * cpu) + offsetof(struct percpu_list, head),
+				(RSEQ_MEMPOOL_STRIDE * cpu) + offsetof(struct percpu_list, head),
 				1, cpu);
 		} while (rseq_unlikely(ret));
 	}
@@ -1463,13 +1520,25 @@ void *test_membarrier_manager_thread(void *arg)
 	struct rseq_mempool *mempool;
 	int ret;
 	long long total_count = 0;
+	struct rseq_mempool_attr *attr;
 
-	mempool = rseq_mempool_create("percpu_list", sizeof(struct percpu_list),
-			0, CPU_SETSIZE, NULL);
+	attr = rseq_mempool_attr_create();
+	if (!attr) {
+		perror("rseq_mempool_attr_create");
+		abort();
+	}
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, CPU_SETSIZE);
+	if (ret) {
+		perror("rseq_mempool_attr_set_percpu");
+		abort();
+	}
+	mempool = rseq_mempool_create("percpu_list",
+			sizeof(struct percpu_list), attr);
 	if (!mempool) {
 		perror("rseq_mempool_create");
 		abort();
 	}
+	rseq_mempool_attr_destroy(attr);
 	args->mempool = mempool;
 
 	if (rseq_register_current_thread()) {
