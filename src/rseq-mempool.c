@@ -76,7 +76,7 @@ struct rseq_mempool_attr {
 	void *mmap_priv;
 
 	bool init_set;
-	void (*init_func)(void *priv, void *addr, size_t len, int cpu);
+	int (*init_func)(void *priv, void *addr, size_t len, int cpu);
 	void *init_priv;
 
 	bool robust_set;
@@ -468,9 +468,11 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 		int cpu;
 
 		for (cpu = 0; cpu < pool->attr.max_nr_cpus; cpu++) {
-			pool->attr.init_func(pool->attr.init_priv,
-				base + (pool->attr.stride * cpu),
-				pool->attr.stride, cpu);
+			if (pool->attr.init_func(pool->attr.init_priv,
+					base + (pool->attr.stride * cpu),
+					pool->attr.stride, cpu)) {
+				goto error_alloc;
+			}
 		}
 	}
 	return range;
@@ -824,7 +826,7 @@ int rseq_mempool_attr_set_mmap(struct rseq_mempool_attr *attr,
 }
 
 int rseq_mempool_attr_set_init(struct rseq_mempool_attr *attr,
-		void (*init_func)(void *priv, void *addr, size_t len, int cpu),
+		int (*init_func)(void *priv, void *addr, size_t len, int cpu),
 		void *init_priv)
 {
 	if (!attr) {

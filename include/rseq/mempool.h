@@ -404,7 +404,10 @@ int rseq_mempool_attr_set_mmap(struct rseq_mempool_attr *attr,
  * rseq_mempool_attr_set_init: Set pool attribute structure memory init functions.
  *
  * The @init_func callback used to initialized memory after allocation
- * for the pool.
+ * for the pool. The @init_func callback must return 0 on success, -1 on
+ * error with errno set. If @init_func returns failure, the allocation
+ * of the pool memory fails, which either causes the pool creation to
+ * fail or memory allocation to fail (for extensible memory pools).
  *
  * The @init_priv argument is a private data pointer passed to the
  * @init_func callback.
@@ -412,7 +415,7 @@ int rseq_mempool_attr_set_mmap(struct rseq_mempool_attr *attr,
  * Returns 0 on success, -1 with errno=EINVAL if arguments are invalid.
  */
 int rseq_mempool_attr_set_init(struct rseq_mempool_attr *attr,
-		void (*init_func)(void *priv, void *addr, size_t len, int cpu),
+		int (*init_func)(void *priv, void *addr, size_t len, int cpu),
 		void *init_priv);
 
 /*
