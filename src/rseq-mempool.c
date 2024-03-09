@@ -20,7 +20,7 @@
 #endif
 
 #include "rseq-utils.h"
-#include "smp.h"
+#include <rseq/rseq.h>
 
 /*
  * rseq-mempool.c: rseq CPU-Local Storage (CLS) memory allocator.
@@ -537,7 +537,7 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 		}
 		if (attr.max_nr_cpus == 0) {
 			/* Auto-detect */
-			attr.max_nr_cpus = get_possible_cpus_array_len();
+			attr.max_nr_cpus = rseq_get_max_nr_cpus();
 			if (attr.max_nr_cpus == 0) {
 				errno = EINVAL;
 				return NULL;

@@ -129,6 +129,14 @@ int32_t rseq_fallback_current_node(void);
 bool rseq_available(unsigned int query);
 
 /*
+ * rseq_get_max_nr_cpus: Get the max_nr_cpus auto-detected value.
+ *
+ * Returns the max_nr_cpus auto-detected at pool creation when invoked
+ * with @nr_max_cpus=0 argument.
+ */
+int rseq_get_max_nr_cpus(void);
+
+/*
  * Values returned can be either the current CPU number, -1 (rseq is
  * uninitialized), or -2 (rseq initialization has failed).
  */

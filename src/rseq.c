@@ -21,6 +21,7 @@
 #include <linux/auxvec.h>
 
 #include <rseq/rseq.h>
+#include "smp.h"
 
 #ifndef AT_RSEQ_FEATURE_SIZE
 # define AT_RSEQ_FEATURE_SIZE		27
@@ -287,4 +288,9 @@ int32_t rseq_fallback_current_node(void)
 		return ret;
 	}
 	return (int32_t) node_id;
+}
+
+int rseq_get_max_nr_cpus(void)
+{
+	return get_possible_cpus_array_len();
 }
