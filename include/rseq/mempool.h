@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <stdint.h>
 
 /*
  * rseq/mempool.h: rseq memory pool allocator.
@@ -475,6 +476,18 @@ int rseq_mempool_attr_set_global(struct rseq_mempool_attr *attr, size_t stride);
  */
 int rseq_mempool_attr_set_max_nr_ranges(struct rseq_mempool_attr *attr,
 		unsigned long max_nr_ranges);
+
+/*
+ * rseq_mempool_attr_set_poison: Set pool poison value.
+ *
+ * Set a poison value to be set over freed pool entries. This can be
+ * used to anonymize freed memory, and for memory corruption checks
+ * with the robust attribute.
+ *
+ * Returns 0 on success, -1 with errno=EINVAL if arguments are invalid.
+ */
+int rseq_mempool_attr_set_poison(struct rseq_mempool_attr *attr,
+		uintptr_t poison);
 
 /*
  * rseq_mempool_range_init_numa: NUMA initialization helper for memory range.

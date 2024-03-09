@@ -80,6 +80,9 @@ struct rseq_mempool_attr {
 	int max_nr_cpus;
 
 	unsigned long max_nr_ranges;
+
+	bool poison_set;
+	uintptr_t poison;
 };
 
 struct rseq_mempool_range;
@@ -146,6 +149,23 @@ void rseq_percpu_zero_item(struct rseq_mempool *pool,
 		char *p = __rseq_pool_range_percpu_ptr(range, i,
 				item_offset, pool->attr.stride);
 		memset(p, 0, pool->item_len);
+	}
+}
+
+static
+void rseq_percpu_poison_item(struct rseq_mempool *pool,
+		struct rseq_mempool_range *range, uintptr_t item_offset)
+{
+	uintptr_t poison = pool->attr.poison;
+	int i;
+
+	for (i = 0; i < pool->attr.max_nr_cpus; i++) {
+		char *p = __rseq_pool_range_percpu_ptr(range, i,
+				item_offset, pool->attr.stride);
+		size_t offset;
+
+		for (offset = 0; offset < pool->item_len; offset += sizeof(uintptr_t))
+			*((uintptr_t *) p) = poison;
 	}
 }
 
@@ -725,8 +745,14 @@ void librseq_mempool_percpu_free(void __rseq_percpu *_ptr, size_t stride)
 	clear_alloc_slot(pool, range, item_offset);
 	/* Add ptr to head of free list */
 	head = pool->free_list_head;
+	if (pool->attr.poison_set)
+		rseq_percpu_poison_item(pool, range, item_offset);
 	/* Free-list is in CPU 0 range. */
 	item = (struct free_list_node *) ptr;
+	/*
+	 * Setting the next pointer will overwrite the first uintptr_t
+	 * poison for CPU 0.
+	 */
 	item->next = head;
 	pool->free_list_head = item;
 	pthread_mutex_unlock(&pool->lock);
@@ -916,6 +942,18 @@ int rseq_mempool_attr_set_max_nr_ranges(struct rseq_mempool_attr *attr,
 		return -1;
 	}
 	attr->max_nr_ranges = max_nr_ranges;
+	return 0;
+}
+
+int rseq_mempool_attr_set_poison(struct rseq_mempool_attr *attr,
+		uintptr_t poison)
+{
+	if (!attr) {
+		errno = EINVAL;
+		return -1;
+	}
+	attr->poison_set = true;
+	attr->poison = poison;
 	return 0;
 }
 

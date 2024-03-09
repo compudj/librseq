@@ -24,6 +24,12 @@
 #include "list.h"
 #include "tap.h"
 
+#if RSEQ_BITS_PER_LONG == 64
+# define POISON_VALUE	0xABCDABCDABCDABCDULL
+#else
+# define POISON_VALUE	0xABCDABCDUL
+#endif
+
 struct test_data {
 	uintptr_t value;
 	struct test_data __rseq_percpu *backref;
@@ -48,6 +54,8 @@ static void test_mempool_fill(unsigned long max_nr_ranges, size_t stride)
 	ok(ret == 0, "Setting mempool percpu type");
 	ret = rseq_mempool_attr_set_max_nr_ranges(attr, max_nr_ranges);
 	ok(ret == 0, "Setting mempool max_nr_ranges=%lu", max_nr_ranges);
+	ret = rseq_mempool_attr_set_poison(attr, POISON_VALUE);
+	ok(ret == 0, "Setting mempool poison");
 	mempool = rseq_mempool_create("test_data",
 			sizeof(struct test_data), attr);
 	ok(mempool, "Create mempool of size %zu", stride);
