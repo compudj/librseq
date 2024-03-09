@@ -239,12 +239,15 @@ int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_add_load_load_add_store__ptr)(intptr_t *p
 		  , error1
 #endif
 	);
+	rseq_after_asm_goto();
 	return 0;
 abort:
+	rseq_after_asm_goto();
 	RSEQ_INJECT_FAILED
 	return -1;
 #ifdef RSEQ_COMPARE_TWICE
 error1:
+	rseq_after_asm_goto();
 	rseq_bug("cpu_id comparison failed");
 #endif
 }
