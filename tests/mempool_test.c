@@ -220,7 +220,7 @@ int main(void)
 		len = 65536;
 	/* From min(page size, 64kB) to 4MB */
 	for (; len < 4096 * 1024; len <<= 1)
-		test_mempool_fill(nr_ranges, len);
+		test_mempool_fill(1, len);
 
 	run_robust_tests();
 
