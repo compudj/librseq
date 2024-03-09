@@ -52,6 +52,12 @@
 
 #define RANGE_HEADER_OFFSET	sizeof(struct rseq_mempool_range)
 
+#if RSEQ_BITS_PER_LONG == 64
+# define DEFAULT_POISON_VALUE	0x5555555555555555ULL
+#else
+# define DEFAULT_POISON_VALUE	0x55555555UL
+#endif
+
 struct free_list_node;
 
 struct free_list_node {
@@ -183,7 +189,7 @@ void rseq_percpu_check_poison_item(const struct rseq_mempool *pool,
 	uintptr_t poison = pool->attr.poison;
 	int i;
 
-	if (!pool->attr.robust_set || !pool->attr.poison_set)
+	if (!pool->attr.robust_set)
 		return;
 	for (i = 0; i < pool->attr.max_nr_cpus; i++) {
 		char *p = __rseq_pool_range_percpu_ptr(range, i,
@@ -389,7 +395,7 @@ void check_pool_poison(const struct rseq_mempool *pool)
 {
 	struct rseq_mempool_range *range;
 
-	if (!pool->attr.robust_set || !pool->attr.poison_set)
+	if (!pool->attr.robust_set)
 		return;
 	for (range = pool->range_list; range; range = range->next)
 		check_range_poison(pool, range);
@@ -645,6 +651,10 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 	}
 	if (!attr.stride)
 		attr.stride = RSEQ_MEMPOOL_STRIDE;	/* Use default */
+	if (attr.robust_set && !attr.poison_set) {
+		attr.poison_set = true;
+		attr.poison = DEFAULT_POISON_VALUE;
+	}
 	if (item_len > attr.stride || attr.stride < (size_t) rseq_get_page_len() ||
 			!is_pow2(attr.stride)) {
 		errno = EINVAL;
