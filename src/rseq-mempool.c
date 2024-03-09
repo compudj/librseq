@@ -46,12 +46,6 @@
 # define POOL_SET_MIN_ENTRY	2	/* Smallest item_len=4 */
 #endif
 
-/*
- * Skip pool index 0 to ensure allocated entries at index 0 do not match
- * a NULL pointer.
- */
-#define FIRST_POOL		1
-
 #define BIT_PER_ULONG		(8 * sizeof(unsigned long))
 
 #define MOVE_PAGES_BATCH_SIZE	4096
