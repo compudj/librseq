@@ -75,6 +75,10 @@ struct rseq_mempool_attr {
 	int (*munmap_func)(void *priv, void *ptr, size_t len);
 	void *mmap_priv;
 
+	bool init_set;
+	void (*init_func)(void *priv, void *addr, size_t len, int cpu);
+	void *init_priv;
+
 	bool robust_set;
 
 	enum mempool_type type;
@@ -132,7 +136,6 @@ static
 void *__rseq_pool_range_percpu_ptr(struct rseq_mempool_range *range, int cpu,
 		uintptr_t item_offset, size_t stride)
 {
-	/* TODO: Implement multi-ranges support. */
 	return range->base + (stride * cpu) + item_offset;
 }
 
@@ -475,6 +478,15 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	if (pool->attr.robust_set) {
 		if (create_alloc_bitmap(pool, range))
 			goto error_alloc;
+	}
+	if (pool->attr.init_set) {
+		int cpu;
+
+		for (cpu = 0; cpu < pool->attr.max_nr_cpus; cpu++) {
+			pool->attr.init_func(pool->attr.init_priv,
+				base + (pool->attr.stride * cpu),
+				pool->attr.stride, cpu);
+		}
 	}
 	return range;
 
@@ -823,6 +835,20 @@ int rseq_mempool_attr_set_mmap(struct rseq_mempool_attr *attr,
 	attr->mmap_func = mmap_func;
 	attr->munmap_func = munmap_func;
 	attr->mmap_priv = mmap_priv;
+	return 0;
+}
+
+int rseq_mempool_attr_set_init(struct rseq_mempool_attr *attr,
+		void (*init_func)(void *priv, void *addr, size_t len, int cpu),
+		void *init_priv)
+{
+	if (!attr) {
+		errno = EINVAL;
+		return -1;
+	}
+	attr->init_set = true;
+	attr->init_func = init_func;
+	attr->init_priv = init_priv;
 	return 0;
 }
 

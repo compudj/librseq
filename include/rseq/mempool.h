@@ -401,6 +401,21 @@ int rseq_mempool_attr_set_mmap(struct rseq_mempool_attr *attr,
 		void *mmap_priv);
 
 /*
+ * rseq_mempool_attr_set_init: Set pool attribute structure memory init functions.
+ *
+ * The @init_func callback used to initialized memory after allocation
+ * for the pool.
+ *
+ * The @init_priv argument is a private data pointer passed to the
+ * @init_func callback.
+ *
+ * Returns 0 on success, -1 with errno=EINVAL if arguments are invalid.
+ */
+int rseq_mempool_attr_set_init(struct rseq_mempool_attr *attr,
+		void (*init_func)(void *priv, void *addr, size_t len, int cpu),
+		void *init_priv);
+
+/*
  * rseq_mempool_attr_set_robust: Set pool robust attribute.
  *
  * The robust pool attribute enables runtime validation of the pool:
