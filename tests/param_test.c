@@ -1387,11 +1387,10 @@ void *test_membarrier_worker_thread(void *arg)
 
 		do {
 			int cpu = get_current_cpu_id();
-			ptrdiff_t mempool_offset = rseq_percpu_pool_ptr_offset(args->mempool, cpu);
 
 			ret = rseq_load_add_load_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU,
 				(intptr_t *) &args->percpu_list_ptr,
-				mempool_offset + offsetof(struct percpu_list, head),
+				(RSEQ_PERCPU_STRIDE * cpu) + offsetof(struct percpu_list, head),
 				1, cpu);
 		} while (rseq_unlikely(ret));
 	}
