@@ -30,7 +30,7 @@ struct test_data {
 	struct list_head node;
 };
 
-static void test_mempool_fill(size_t stride)
+static void test_mempool_fill(unsigned long max_nr_ranges, size_t stride)
 {
 	struct test_data __rseq_percpu *ptr;
 	struct test_data *iter, *tmp;
@@ -46,8 +46,8 @@ static void test_mempool_fill(size_t stride)
 	ok(ret == 0, "Setting mempool robust attribute");
 	ret = rseq_mempool_attr_set_percpu(attr, stride, CPU_SETSIZE);
 	ok(ret == 0, "Setting mempool percpu type");
-	ret = rseq_mempool_attr_set_max_nr_ranges(attr, 1);
-	ok(ret == 0, "Setting mempool max_nr_ranges=1");
+	ret = rseq_mempool_attr_set_max_nr_ranges(attr, max_nr_ranges);
+	ok(ret == 0, "Setting mempool max_nr_ranges=%lu", max_nr_ranges);
 	mempool = rseq_mempool_create("test_data",
 			sizeof(struct test_data), attr);
 	ok(mempool, "Create mempool of size %zu", stride);
@@ -70,7 +70,8 @@ static void test_mempool_fill(size_t stride)
 		count++;
 	}
 
-	ok(count * sizeof(struct test_data) == stride, "Allocated %" PRIu64 " objects in pool", count);
+	ok(count * sizeof(struct test_data) == stride * max_nr_ranges,
+		"Allocated %" PRIu64 " objects in pool", count);
 
 	list_for_each_entry(iter, &list, node) {
 		ptr = iter->backref;
@@ -203,13 +204,23 @@ static void run_robust_tests(void)
 int main(void)
 {
 	size_t len;
+	unsigned long nr_ranges;
 
 	plan_no_plan();
 
-	/* From page size to 4MB */
-	for (len = rseq_get_page_len(); len < 4096 * 1024; len <<= 1) {
-		test_mempool_fill(len);
+	for (nr_ranges = 1; nr_ranges < 32; nr_ranges <<= 1) {
+		/* From page size to 64kB */
+		for (len = rseq_get_page_len(); len < 65536; len <<= 1) {
+			test_mempool_fill(nr_ranges, len);
+		}
 	}
+
+	len = rseq_get_page_len();
+	if (len < 65536)
+		len = 65536;
+	/* From min(page size, 64kB) to 4MB */
+	for (; len < 4096 * 1024; len <<= 1)
+		test_mempool_fill(nr_ranges, len);
 
 	run_robust_tests();
 
