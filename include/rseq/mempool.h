@@ -54,8 +54,10 @@ extern "C" {
  * Tag pointers returned by:
  * - rseq_mempool_percpu_malloc(),
  * - rseq_mempool_percpu_zmalloc(),
+ * - rseq_mempool_percpu_malloc_init(),
  * - rseq_mempool_set_percpu_malloc(),
- * - rseq_mempool_set_percpu_zmalloc().
+ * - rseq_mempool_set_percpu_zmalloc(),
+ * - rseq_mempool_set_percpu_malloc_init().
  *
  * and passed as parameter to:
  * - rseq_percpu_ptr(),
@@ -139,7 +141,7 @@ int rseq_mempool_destroy(struct rseq_mempool *pool);
 void __rseq_percpu *rseq_mempool_percpu_malloc(struct rseq_mempool *pool);
 
 /*
- * rseq_mempool_percpu_zmalloc: Allocated zero-initialized memory from a per-cpu pool.
+ * rseq_mempool_percpu_zmalloc: Allocate zero-initialized memory from a per-cpu pool.
  *
  * Allocate memory for an item within the pool, and zero-initialize its
  * memory on all CPUs. See rseq_mempool_percpu_malloc for details.
@@ -147,6 +149,22 @@ void __rseq_percpu *rseq_mempool_percpu_malloc(struct rseq_mempool *pool);
  * This API is MT-safe.
  */
 void __rseq_percpu *rseq_mempool_percpu_zmalloc(struct rseq_mempool *pool);
+
+/*
+ * rseq_mempool_percpu_malloc_init: Allocate initialized memory from a per-cpu pool.
+ *
+ * Allocate memory for an item within the pool, and initialize its
+ * memory on all CPUs with content from @init_ptr of length @init_len.
+ * See rseq_mempool_percpu_malloc for details.
+ *
+ * Return NULL (errno=ENOMEM) if there is not enough space left in the
+ * pool to allocate an item. Return NULL (errno=EINVAL) if init_len is
+ * larger than the pool item_len.
+ *
+ * This API is MT-safe.
+ */
+void __rseq_percpu *rseq_mempool_percpu_malloc_init(struct rseq_mempool *pool,
+		void *init_ptr, size_t init_len);
 
 /*
  * rseq_mempool_malloc: Allocate memory from a global pool.
@@ -175,6 +193,20 @@ void *rseq_mempool_zmalloc(struct rseq_mempool *pool)
 }
 
 /*
+ * rseq_mempool_malloc_init: Allocate initialized memory from a global pool.
+ *
+ * Wrapper to allocate memory from a global pool, which can be
+ * used directly without per-cpu indexing. Would normally be used
+ * with pools created with max_nr_cpus=1.
+ */
+static inline
+void *rseq_mempool_malloc_init(struct rseq_mempool *pool,
+		void *init_ptr, size_t init_len)
+{
+	return (void *) rseq_mempool_percpu_malloc_init(pool, init_ptr, init_len);
+}
+
+/*
  * rseq_mempool_percpu_free: Free memory from a per-cpu pool.
  *
  * Free an item pointed to by @ptr from its per-cpu pool.
@@ -184,8 +216,10 @@ void *rseq_mempool_zmalloc(struct rseq_mempool *pool)
  *
  * - rseq_mempool_percpu_malloc(),
  * - rseq_mempool_percpu_zmalloc(),
+ * - rseq_mempool_percpu_malloc_init(),
  * - rseq_mempool_set_percpu_malloc(),
- * - rseq_mempool_set_percpu_zmalloc().
+ * - rseq_mempool_set_percpu_zmalloc(),
+ * - rseq_mempool_set_percpu_malloc_init().
  *
  * The @stride optional argument to rseq_percpu_free() is a configurable
  * stride, which must match the stride received by pool creation.
@@ -208,8 +242,10 @@ void librseq_mempool_percpu_free(void __rseq_percpu *ptr, size_t stride);
  *
  * - rseq_mempool_malloc(),
  * - rseq_mempool_zmalloc(),
+ * - rseq_mempool_malloc_init(),
  * - rseq_mempool_set_malloc(),
- * - rseq_mempool_set_zmalloc().
+ * - rseq_mempool_set_zmalloc(),
+ * - rseq_mempool_set_malloc_init().
  *
  * The @stride optional argument to rseq_free() is a configurable
  * stride, which must match the stride received by pool creation. If
@@ -231,8 +267,10 @@ void librseq_mempool_percpu_free(void __rseq_percpu *ptr, size_t stride);
  *
  * - rseq_mempool_percpu_malloc(),
  * - rseq_mempool_percpu_zmalloc(),
+ * - rseq_mempool_percpu_malloc_init(),
  * - rseq_mempool_set_percpu_malloc(),
- * - rseq_mempool_set_percpu_zmalloc().
+ * - rseq_mempool_set_percpu_zmalloc(),
+ * - rseq_mempool_set_percpu_malloc_init().
  *
  * The macro rseq_percpu_ptr() preserves the type of the @ptr parameter
  * for the returned pointer, but removes the __rseq_percpu annotation.
@@ -322,7 +360,7 @@ int rseq_mempool_set_add_pool(struct rseq_mempool_set *pool_set,
 void __rseq_percpu *rseq_mempool_set_percpu_malloc(struct rseq_mempool_set *pool_set, size_t len);
 
 /*
- * rseq_mempool_set_percpu_zmalloc: Allocated zero-initialized memory from a per-cpu pool set.
+ * rseq_mempool_set_percpu_zmalloc: Allocate zero-initialized memory from a per-cpu pool set.
  *
  * Allocate memory for an item within the pool, and zero-initialize its
  * memory on all CPUs. See rseq_mempool_set_percpu_malloc for details.
@@ -330,6 +368,18 @@ void __rseq_percpu *rseq_mempool_set_percpu_malloc(struct rseq_mempool_set *pool
  * This API is MT-safe.
  */
 void __rseq_percpu *rseq_mempool_set_percpu_zmalloc(struct rseq_mempool_set *pool_set, size_t len);
+
+/*
+ * rseq_mempool_set_percpu_malloc_init: Allocate initialized memory from a per-cpu pool set.
+ *
+ * Allocate memory for an item within the pool, and initialize its
+ * memory on all CPUs with content from @init_ptr of length @len.
+ * See rseq_mempool_set_percpu_malloc for details.
+ *
+ * This API is MT-safe.
+ */
+void __rseq_percpu *rseq_mempool_set_percpu_malloc_init(struct rseq_mempool_set *pool_set,
+		void *init_ptr, size_t len);
 
 /*
  * rseq_mempool_set_malloc: Allocate memory from a global pool set.
@@ -356,6 +406,20 @@ void *rseq_mempool_set_zmalloc(struct rseq_mempool_set *pool_set, size_t len)
 {
 	return (void *) rseq_mempool_set_percpu_zmalloc(pool_set, len);
 }
+
+/*
+ * rseq_mempool_set_malloc_init: Allocate initialized memory from a global pool set.
+ *
+ * Wrapper to allocate memory from a global pool, which can be
+ * used directly without per-cpu indexing. Would normally be used
+ * with pools created with max_nr_cpus=1.
+ */
+static inline
+void *rseq_mempool_set_malloc_init(struct rseq_mempool_set *pool_set, void *init_ptr, size_t len)
+{
+	return (void *) rseq_mempool_set_percpu_malloc_init(pool_set, init_ptr, len);
+}
+
 
 /*
  * rseq_mempool_init_numa: Move pages to the NUMA node associated to their CPU topology.

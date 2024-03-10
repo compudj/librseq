@@ -165,6 +165,20 @@ void rseq_percpu_zero_item(struct rseq_mempool *pool,
 }
 
 static
+void rseq_percpu_init_item(struct rseq_mempool *pool,
+		struct rseq_mempool_range *range, uintptr_t item_offset,
+		void *init_ptr, size_t init_len)
+{
+	int i;
+
+	for (i = 0; i < pool->attr.max_nr_cpus; i++) {
+		char *p = __rseq_pool_range_percpu_ptr(range, i,
+				item_offset, pool->attr.stride);
+		memcpy(p, init_ptr, init_len);
+	}
+}
+
+static
 void rseq_percpu_poison_item(struct rseq_mempool *pool,
 		struct rseq_mempool_range *range, uintptr_t item_offset)
 {
@@ -712,13 +726,18 @@ void set_alloc_slot(struct rseq_mempool *pool, struct rseq_mempool_range *range,
 }
 
 static
-void __rseq_percpu *__rseq_percpu_malloc(struct rseq_mempool *pool, bool zeroed)
+void __rseq_percpu *__rseq_percpu_malloc(struct rseq_mempool *pool,
+		bool zeroed, void *init_ptr, size_t init_len)
 {
 	struct rseq_mempool_range *range;
 	struct free_list_node *node;
 	uintptr_t item_offset;
 	void __rseq_percpu *addr;
 
+	if (init_len > pool->item_len) {
+		errno = EINVAL;
+		return NULL;
+	}
 	pthread_mutex_lock(&pool->lock);
 	/* Get first entry from free list. */
 	node = pool->free_list_head;
@@ -759,19 +778,31 @@ end:
 	if (addr)
 		set_alloc_slot(pool, range, item_offset);
 	pthread_mutex_unlock(&pool->lock);
-	if (zeroed && addr)
-		rseq_percpu_zero_item(pool, range, item_offset);
+	if (addr) {
+		if (zeroed)
+			rseq_percpu_zero_item(pool, range, item_offset);
+		else if (init_ptr) {
+			rseq_percpu_init_item(pool, range, item_offset,
+					init_ptr, init_len);
+		}
+	}
 	return addr;
 }
 
 void __rseq_percpu *rseq_mempool_percpu_malloc(struct rseq_mempool *pool)
 {
-	return __rseq_percpu_malloc(pool, false);
+	return __rseq_percpu_malloc(pool, false, NULL, 0);
 }
 
 void __rseq_percpu *rseq_mempool_percpu_zmalloc(struct rseq_mempool *pool)
 {
-	return __rseq_percpu_malloc(pool, true);
+	return __rseq_percpu_malloc(pool, true, NULL, 0);
+}
+
+void __rseq_percpu *rseq_mempool_percpu_malloc_init(struct rseq_mempool *pool,
+		void *init_ptr, size_t len)
+{
+	return __rseq_percpu_malloc(pool, false, init_ptr, len);
 }
 
 /* Always inline for __builtin_return_address(0). */
@@ -874,7 +905,8 @@ end:
 }
 
 static
-void __rseq_percpu *__rseq_mempool_set_malloc(struct rseq_mempool_set *pool_set, size_t len, bool zeroed)
+void __rseq_percpu *__rseq_mempool_set_malloc(struct rseq_mempool_set *pool_set,
+		void *init_ptr, size_t len, bool zeroed)
 {
 	int order, min_order = POOL_SET_MIN_ENTRY;
 	struct rseq_mempool *pool;
@@ -898,7 +930,7 @@ again:
 found:
 	pthread_mutex_unlock(&pool_set->lock);
 	if (pool) {
-		addr = __rseq_percpu_malloc(pool, zeroed);
+		addr = __rseq_percpu_malloc(pool, zeroed, init_ptr, len);
 		if (addr == NULL && errno == ENOMEM) {
 			/*
 			 * If the allocation failed, try again with a
@@ -917,12 +949,18 @@ found:
 
 void __rseq_percpu *rseq_mempool_set_percpu_malloc(struct rseq_mempool_set *pool_set, size_t len)
 {
-	return __rseq_mempool_set_malloc(pool_set, len, false);
+	return __rseq_mempool_set_malloc(pool_set, NULL, len, false);
 }
 
 void __rseq_percpu *rseq_mempool_set_percpu_zmalloc(struct rseq_mempool_set *pool_set, size_t len)
 {
-	return __rseq_mempool_set_malloc(pool_set, len, true);
+	return __rseq_mempool_set_malloc(pool_set, NULL, len, true);
+}
+
+void __rseq_percpu *rseq_mempool_set_percpu_malloc_init(struct rseq_mempool_set *pool_set,
+		void *init_ptr, size_t len)
+{
+	return __rseq_mempool_set_malloc(pool_set, init_ptr, len, true);
 }
 
 struct rseq_mempool_attr *rseq_mempool_attr_create(void)
