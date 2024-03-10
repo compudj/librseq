@@ -45,6 +45,14 @@ static void test_mempool_fill(unsigned long max_nr_ranges, size_t stride)
 	uint64_t count = 0;
 	LIST_HEAD(list);
 	int ret, i, size_order;
+	struct test_data init_value = {
+		.value = {
+			123,
+			456,
+		},
+		.backref = NULL,
+		.node = {},
+	};
 
 	attr = rseq_mempool_attr_create();
 	ok(attr, "Create pool attribute");
@@ -104,6 +112,18 @@ static void test_mempool_fill(unsigned long max_nr_ranges, size_t stride)
 	if (!ptr)
 		abort();
 	ok(1, "Allocate one object");
+
+	rseq_mempool_percpu_free(ptr, stride);
+	ok(1, "Free one object");
+
+	ptr = (struct test_data __rseq_percpu *)
+		rseq_mempool_percpu_malloc_init(mempool,
+			&init_value, sizeof(struct test_data));
+	if (!ptr)
+		abort();
+	ok(1, "Allocate one initialized object");
+
+	ok(ptr->value[0] == 123 && ptr->value[1] == 456, "Validate initial values");
 
 	rseq_mempool_percpu_free(ptr, stride);
 	ok(1, "Free one object");
