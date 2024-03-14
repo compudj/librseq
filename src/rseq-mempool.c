@@ -99,6 +99,11 @@ struct rseq_mempool_range {
 	void *header;
 	void *base;
 	size_t next_unused;
+
+	/* Pool range mmap/munmap */
+	void *mmap_addr;
+	size_t mmap_len;
+
 	/* Track alloc/free. */
 	unsigned long *alloc_bitmap;
 };
@@ -446,8 +451,7 @@ int rseq_mempool_range_destroy(struct rseq_mempool *pool,
 {
 	destroy_alloc_bitmap(pool, range);
 	/* range is a header located one page before the aligned mapping. */
-	return pool->attr.munmap_func(pool->attr.mmap_priv, range->header,
-			(pool->attr.stride * pool->attr.max_nr_cpus) + rseq_get_page_len());
+	return pool->attr.munmap_func(pool->attr.mmap_priv, range->mmap_addr, range->mmap_len);
 }
 
 /*
@@ -557,6 +561,8 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	range->pool = pool;
 	range->base = base;
 	range->header = header;
+	range->mmap_addr = header;
+	range->mmap_len = page_size + (pool->attr.stride * pool->attr.max_nr_cpus);
 	if (pool->attr.robust_set) {
 		if (create_alloc_bitmap(pool, range))
 			goto error_alloc;
