@@ -555,6 +555,33 @@ int rseq_mempool_attr_set_max_nr_ranges(struct rseq_mempool_attr *attr,
 int rseq_mempool_attr_set_poison(struct rseq_mempool_attr *attr,
 		uintptr_t poison);
 
+enum rseq_mempool_populate_policy {
+	/*
+	 * RSEQ_MEMPOOL_POPULATE_NONE (default):
+	 *   Do not populate pages for any of the CPUs when creating the
+	 *   mempool. Rely on copy-on-write (COW) of per-cpu pages to
+	 *   populate per-cpu pages from the initial values pages on
+	 *   first write.
+	 */
+	RSEQ_MEMPOOL_POPULATE_NONE = 0,
+	/*
+	 * RSEQ_MEMPOOL_POPULATE_ALL:
+	 *   Populate pages for all CPUs from 0 to (max_nr_cpus - 1)
+	 *   when creating the mempool.
+	 */
+	RSEQ_MEMPOOL_POPULATE_ALL = 1,
+};
+
+/*
+ * rseq_mempool_attr_set_populate_policy: Set pool page populate policy.
+ *
+ * Set page populate policy for the mempool.
+ *
+ * Returns 0 on success, -1 with errno=EINVAL if arguments are invalid.
+ */
+int rseq_mempool_attr_set_populate_policy(struct rseq_mempool_attr *attr,
+		enum rseq_mempool_populate_policy policy);
+
 /*
  * rseq_mempool_range_init_numa: NUMA initialization helper for memory range.
  *

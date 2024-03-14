@@ -64,6 +64,9 @@ static void test_mempool_fill(unsigned long max_nr_ranges, size_t stride)
 	ok(ret == 0, "Setting mempool max_nr_ranges=%lu", max_nr_ranges);
 	ret = rseq_mempool_attr_set_poison(attr, POISON_VALUE);
 	ok(ret == 0, "Setting mempool poison");
+	ret = rseq_mempool_attr_set_populate_policy(attr,
+			RSEQ_MEMPOOL_POPULATE_ALL);
+	ok(ret == 0, "Setting mempool populate policy to ALL");
 	mempool = rseq_mempool_create("test_data",
 			sizeof(struct test_data), attr);
 	ok(mempool, "Create mempool of size %zu", stride);
@@ -248,6 +251,10 @@ static void run_robust_tests(void)
 
 	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, 1);
 	ok(ret == 0, "Setting mempool percpu type");
+
+	ret = rseq_mempool_attr_set_populate_policy(attr,
+			RSEQ_MEMPOOL_POPULATE_ALL);
+	ok(ret == 0, "Setting mempool populate policy to ALL");
 
 	pool = rseq_mempool_create("mempool-robust",
 				sizeof(struct test_data), attr);
