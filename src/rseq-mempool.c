@@ -617,7 +617,7 @@ int rseq_mempool_destroy(struct rseq_mempool *pool)
 	}
 	pthread_mutex_destroy(&pool->lock);
 	free(pool->name);
-	memset(pool, 0, sizeof(*pool));
+	free(pool);
 end:
 	return ret;
 }
