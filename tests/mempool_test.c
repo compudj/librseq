@@ -36,7 +36,8 @@ struct test_data {
 	struct list_head node;
 };
 
-static void test_mempool_fill(unsigned long max_nr_ranges, size_t stride)
+static void test_mempool_fill(enum rseq_mempool_populate_policy policy,
+		unsigned long max_nr_ranges, size_t stride)
 {
 	struct test_data __rseq_percpu *ptr;
 	struct test_data *iter, *tmp;
@@ -64,9 +65,9 @@ static void test_mempool_fill(unsigned long max_nr_ranges, size_t stride)
 	ok(ret == 0, "Setting mempool max_nr_ranges=%lu", max_nr_ranges);
 	ret = rseq_mempool_attr_set_poison(attr, POISON_VALUE);
 	ok(ret == 0, "Setting mempool poison");
-	ret = rseq_mempool_attr_set_populate_policy(attr,
-			RSEQ_MEMPOOL_POPULATE_ALL);
-	ok(ret == 0, "Setting mempool populate policy to ALL");
+	ret = rseq_mempool_attr_set_populate_policy(attr, policy);
+	ok(ret == 0, "Setting mempool populate policy to %s",
+		policy == RSEQ_MEMPOOL_POPULATE_NONE ? "NONE" : "ALL");
 	mempool = rseq_mempool_create("test_data",
 			sizeof(struct test_data), attr);
 	ok(mempool, "Create mempool of size %zu", stride);
@@ -237,7 +238,7 @@ static int run_robust_test(void (*test)(struct rseq_mempool*),
 	return 0;
 }
 
-static void run_robust_tests(void)
+static void run_robust_tests(enum rseq_mempool_populate_policy policy)
 {
 	struct rseq_mempool_attr *attr;
 	struct rseq_mempool *pool;
@@ -252,9 +253,9 @@ static void run_robust_tests(void)
 	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, 1);
 	ok(ret == 0, "Setting mempool percpu type");
 
-	ret = rseq_mempool_attr_set_populate_policy(attr,
-			RSEQ_MEMPOOL_POPULATE_ALL);
-	ok(ret == 0, "Setting mempool populate policy to ALL");
+	ret = rseq_mempool_attr_set_populate_policy(attr, policy);
+	ok(ret == 0, "Setting mempool populate policy to %s",
+		policy == RSEQ_MEMPOOL_POPULATE_NONE ? "NONE" : "ALL");
 
 	pool = rseq_mempool_create("mempool-robust",
 				sizeof(struct test_data), attr);
@@ -264,20 +265,25 @@ static void run_robust_tests(void)
 	ok(run_robust_test(test_robust_double_free, pool),
 		"robust-double-free");
 
-	ok(run_robust_test(test_robust_corrupt_after_free, pool),
-		"robust-corrupt-after-free");
-
 	ok(run_robust_test(test_robust_memory_leak, pool),
 		"robust-memory-leak");
-
-	ok(run_robust_test(test_robust_free_list_corruption, pool),
-		"robust-free-list-corruption");
 
 	ok(run_robust_test(test_robust_poison_corruption_malloc, pool),
 		"robust-poison-corruption-malloc");
 
 	ok(run_robust_test(test_robust_poison_corruption_destroy, pool),
 		"robust-poison-corruption-destroy");
+
+	/*
+	 * Those tests expect the freelist to be on CPU 0's mapping,
+	 * which is only the case for populate all policy.
+	 */
+	if (policy == RSEQ_MEMPOOL_POPULATE_ALL) {
+		ok(run_robust_test(test_robust_corrupt_after_free, pool),
+			"robust-corrupt-after-free");
+		ok(run_robust_test(test_robust_free_list_corruption, pool),
+			"robust-free-list-corruption");
+	}
 
 	rseq_mempool_destroy(pool);
 }
@@ -292,7 +298,8 @@ int main(void)
 	for (nr_ranges = 1; nr_ranges < 32; nr_ranges <<= 1) {
 		/* From page size to 64kB */
 		for (len = rseq_get_page_len(); len < 65536; len <<= 1) {
-			test_mempool_fill(nr_ranges, len);
+			test_mempool_fill(RSEQ_MEMPOOL_POPULATE_ALL, nr_ranges, len);
+			test_mempool_fill(RSEQ_MEMPOOL_POPULATE_NONE, nr_ranges, len);
 		}
 	}
 
@@ -300,10 +307,13 @@ int main(void)
 	if (len < 65536)
 		len = 65536;
 	/* From min(page size, 64kB) to 4MB */
-	for (; len < 4096 * 1024; len <<= 1)
-		test_mempool_fill(1, len);
+	for (; len < 4096 * 1024; len <<= 1) {
+		test_mempool_fill(RSEQ_MEMPOOL_POPULATE_ALL, 1, len);
+		test_mempool_fill(RSEQ_MEMPOOL_POPULATE_NONE, 1, len);
+	}
 
-	run_robust_tests();
+	run_robust_tests(RSEQ_MEMPOOL_POPULATE_ALL);
+	run_robust_tests(RSEQ_MEMPOOL_POPULATE_NONE);
 
 	exit(exit_status());
 }
