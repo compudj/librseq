@@ -224,6 +224,12 @@ struct free_list_node *__rseq_percpu_to_free_list_ptr(const struct rseq_mempool 
 }
 
 static
+off_t ptr_to_off_t(void *p)
+{
+	return (off_t) (uintptr_t) p;
+}
+
+static
 int memcmpbyte(const char *s, int c, size_t n)
 {
 	int res = 0;
@@ -589,7 +595,7 @@ int rseq_mempool_range_destroy(struct rseq_mempool *pool,
 	 */
 	if (range->init) {
 		ret = fallocate(memfd.fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
-			(off_t) range->init, pool->attr.stride);
+			ptr_to_off_t(range->init), pool->attr.stride);
 		if (ret)
 			return ret;
 		range->init = NULL;
@@ -688,7 +694,7 @@ int rseq_memfd_reserve_init(void *init, size_t init_len)
 	size_t reserve_len;
 
 	pthread_mutex_lock(&memfd.lock);
-	reserve_len = (size_t) init + init_len;
+	reserve_len = (size_t) ptr_to_off_t(init) + init_len;
 	if (reserve_len > memfd.reserved_size) {
 		if (ftruncate(memfd.fd, (off_t) reserve_len)) {
 			ret = -1;
@@ -740,7 +746,7 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 			goto error_alloc;
 		if (mmap(range->init, pool->attr.stride, PROT_READ | PROT_WRITE,
 				MAP_SHARED | MAP_FIXED, memfd.fd,
-				(off_t) range->init) != (void *) range->init) {
+				ptr_to_off_t(range->init)) != (void *) range->init) {
 			goto error_alloc;
 		}
 		assert(pool->attr.type == MEMPOOL_TYPE_PERCPU);
@@ -755,7 +761,7 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 				size_t len = pool->attr.stride;
 
 				if (mmap(p, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED,
-						memfd.fd, (off_t) range->init) != (void *) p) {
+						memfd.fd, ptr_to_off_t(range->init)) != (void *) p) {
 					goto error_alloc;
 				}
 			}
