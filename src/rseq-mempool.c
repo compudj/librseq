@@ -103,11 +103,19 @@ struct rseq_mempool_range {
 	/*
 	 * Memory layout of a mempool range:
 	 * - Header page (contains struct rseq_mempool_range at the very end),
-	 * - Base of the per-cpu data, starting with CPU 0,
+	 * - Base of the per-cpu data, starting with CPU 0.
+	 *   Aliases with free-list for non-robust populate all pool.
 	 * - CPU 1,
 	 * ...
 	 * - CPU max_nr_cpus - 1
 	 * - init values (unpopulated for RSEQ_MEMPOOL_POPULATE_ALL).
+	 *   Aliases with free-list for non-robust populate none pool.
+	 * - free list (for robust pool).
+	 *
+	 * The free list aliases the CPU 0 memory area for non-robust
+	 * populate all pools. It aliases with init values for
+	 * non-robust populate none pools. It is located immediately
+	 * after the init values for robust pools.
 	 */
 	void *header;
 	void *base;
@@ -209,8 +217,18 @@ void __rseq_percpu *__rseq_free_list_to_percpu_ptr(const struct rseq_mempool *po
 {
 	void __rseq_percpu *p = (void __rseq_percpu *) node;
 
-	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_ALL)
+	if (pool->attr.robust_set) {
+		/* Skip cpus. */
 		p -= pool->attr.max_nr_cpus * pool->attr.stride;
+		/* Skip init values */
+		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_ALL)
+			p -= pool->attr.stride;
+
+	} else {
+		/* Populate none free list is in init values */
+		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_ALL)
+			p -= pool->attr.max_nr_cpus * pool->attr.stride;
+	}
 	return p;
 }
 
@@ -218,8 +236,18 @@ static
 struct free_list_node *__rseq_percpu_to_free_list_ptr(const struct rseq_mempool *pool,
 		void __rseq_percpu *p)
 {
-	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_ALL)
+	if (pool->attr.robust_set) {
+		/* Skip cpus. */
 		p += pool->attr.max_nr_cpus * pool->attr.stride;
+		/* Skip init values */
+		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_ALL)
+			p += pool->attr.stride;
+
+	} else {
+		/* Populate none free list is in init values */
+		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_ALL)
+			p += pool->attr.max_nr_cpus * pool->attr.stride;
+	}
 	return (struct free_list_node *) p;
 }
 
@@ -317,16 +345,13 @@ void rseq_percpu_poison_item(struct rseq_mempool *pool,
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
 void rseq_check_poison_item(const struct rseq_mempool *pool, uintptr_t item_offset,
-		void *p, size_t item_len, uintptr_t poison, bool skip_freelist_ptr)
+		void *p, size_t item_len, uintptr_t poison)
 {
 	size_t offset;
 
 	for (offset = 0; offset < item_len; offset += sizeof(uintptr_t)) {
 		uintptr_t v;
 
-		/* Skip poison check for free-list pointer. */
-		if (skip_freelist_ptr && offset == 0)
-			continue;
 		v = *((uintptr_t *) (p + offset));
 		if (v != poison) {
 			fprintf(stderr, "%s: Poison corruption detected (0x%lx) for pool: \"%s\" (%p), item offset: %zu, caller: %p.\n",
@@ -349,22 +374,11 @@ void rseq_percpu_check_poison_item(const struct rseq_mempool *pool,
 		return;
 	init_p = __rseq_pool_range_init_ptr(range, item_offset);
 	if (init_p)
-		rseq_check_poison_item(pool, item_offset, init_p, pool->item_len, poison, true);
+		rseq_check_poison_item(pool, item_offset, init_p, pool->item_len, poison);
 	for (i = 0; i < pool->attr.max_nr_cpus; i++) {
 		char *p = __rseq_pool_range_percpu_ptr(range, i,
 				item_offset, pool->attr.stride);
-		/*
-		 * When the free list is embedded in the init values
-		 * memory (populate none), it is visible from the init
-		 * values memory mapping as well as per-cpu private
-		 * mappings before they COW.
-		 *
-		 * When the free list is embedded in CPU 0 mapping
-		 * (populate all), only this CPU must skip the free list
-		 * nodes when checking poison.
-		 */
-		rseq_check_poison_item(pool, item_offset, p, pool->item_len, poison,
-			init_p == NULL ? (i == 0) : true);
+		rseq_check_poison_item(pool, item_offset, p, pool->item_len, poison);
 	}
 }
 
@@ -726,6 +740,8 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	range_len = pool->attr.stride * pool->attr.max_nr_cpus;
 	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_ALL)
 		range_len += pool->attr.stride;	/* init values */
+	if (pool->attr.robust_set)
+		range_len += pool->attr.stride;	/* free list */
 	base = aligned_mmap_anonymous(pool, page_size,
 			range_len,
 			pool->attr.stride,
