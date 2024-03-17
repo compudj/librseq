@@ -136,7 +136,8 @@ static void test_mempool_fill(enum rseq_mempool_populate_policy policy,
 	ok(ret == 0, "Destroy mempool");
 }
 
-static void test_robust_double_free(struct rseq_mempool *pool)
+static void test_robust_double_free(struct rseq_mempool *pool,
+		enum rseq_mempool_populate_policy policy __attribute__((unused)))
 {
 	struct test_data __rseq_percpu *ptr;
 
@@ -146,13 +147,22 @@ static void test_robust_double_free(struct rseq_mempool *pool)
 	rseq_mempool_percpu_free(ptr);
 }
 
-static void test_robust_corrupt_after_free(struct rseq_mempool *pool)
+static void test_robust_corrupt_after_free(struct rseq_mempool *pool,
+		enum rseq_mempool_populate_policy policy)
 {
 	struct test_data __rseq_percpu *ptr;
 	struct test_data *cpuptr;
 
 	ptr = (struct test_data __rseq_percpu *) rseq_mempool_percpu_malloc(pool);
-	cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, 0);
+	/*
+	 * Corrupt free list: For robust pools, the free list is located
+	 * after the last cpu memory range for populate all, and after
+	 * the init values memory range for populate none.
+	 */
+	if (policy == RSEQ_MEMPOOL_POPULATE_ALL)
+		cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, rseq_mempool_get_max_nr_cpus(pool));
+	else
+		cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, rseq_mempool_get_max_nr_cpus(pool) + 1);
 
 	rseq_mempool_percpu_free(ptr);
 	cpuptr->value[0] = (uintptr_t) test_robust_corrupt_after_free;
@@ -160,20 +170,30 @@ static void test_robust_corrupt_after_free(struct rseq_mempool *pool)
 	rseq_mempool_destroy(pool);
 }
 
-static void test_robust_memory_leak(struct rseq_mempool *pool)
+static void test_robust_memory_leak(struct rseq_mempool *pool,
+		enum rseq_mempool_populate_policy policy __attribute__((unused)))
 {
 	(void) rseq_mempool_percpu_malloc(pool);
 
 	rseq_mempool_destroy(pool);
 }
 
-static void test_robust_free_list_corruption(struct rseq_mempool *pool)
+static void test_robust_free_list_corruption(struct rseq_mempool *pool,
+		enum rseq_mempool_populate_policy policy)
 {
 	struct test_data __rseq_percpu *ptr;
 	struct test_data *cpuptr;
 
 	ptr = (struct test_data __rseq_percpu *) rseq_mempool_percpu_malloc(pool);
-	cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, 0);
+	/*
+	 * Corrupt free list: For robust pools, the free list is located
+	 * after the last cpu memory range for populate all, and after
+	 * the init values memory range for populate none.
+	 */
+	if (policy == RSEQ_MEMPOOL_POPULATE_ALL)
+		cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, rseq_mempool_get_max_nr_cpus(pool));
+	else
+		cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, rseq_mempool_get_max_nr_cpus(pool) + 1);
 
 	rseq_mempool_percpu_free(ptr);
 
@@ -183,7 +203,8 @@ static void test_robust_free_list_corruption(struct rseq_mempool *pool)
 	(void) rseq_mempool_percpu_malloc(pool);
 }
 
-static void test_robust_poison_corruption_malloc(struct rseq_mempool *pool)
+static void test_robust_poison_corruption_malloc(struct rseq_mempool *pool,
+		enum rseq_mempool_populate_policy policy __attribute__((unused)))
 {
 	struct test_data __rseq_percpu *ptr;
 	struct test_data *cpuptr;
@@ -193,12 +214,13 @@ static void test_robust_poison_corruption_malloc(struct rseq_mempool *pool)
 
 	rseq_mempool_percpu_free(ptr);
 
-	cpuptr->value[1] = 1;
+	cpuptr->value[0] = 1;
 
 	(void) rseq_mempool_percpu_malloc(pool);
 }
 
-static void test_robust_poison_corruption_destroy(struct rseq_mempool *pool)
+static void test_robust_poison_corruption_destroy(struct rseq_mempool *pool,
+		enum rseq_mempool_populate_policy policy __attribute__((unused)))
 {
 	struct test_data __rseq_percpu *ptr;
 	struct test_data *cpuptr;
@@ -208,13 +230,13 @@ static void test_robust_poison_corruption_destroy(struct rseq_mempool *pool)
 
 	rseq_mempool_percpu_free(ptr);
 
-	cpuptr->value[1] = 1;
+	cpuptr->value[0] = 1;
 
 	rseq_mempool_destroy(pool);
 }
 
-static int run_robust_test(void (*test)(struct rseq_mempool*),
-			struct rseq_mempool *pool)
+static int run_robust_test(void (*test)(struct rseq_mempool *, enum rseq_mempool_populate_policy),
+			struct rseq_mempool *pool, enum rseq_mempool_populate_policy policy)
 {
 	pid_t cpid;
 	int status;
@@ -225,7 +247,7 @@ static int run_robust_test(void (*test)(struct rseq_mempool*),
 	case -1:
 		return 0;
 	case 0:
-		test(pool);
+		test(pool, policy);
 		_exit(EXIT_FAILURE);
 	default:
 		waitpid(cpid, &status, 0);
@@ -262,28 +284,23 @@ static void run_robust_tests(enum rseq_mempool_populate_policy policy)
 
 	rseq_mempool_attr_destroy(attr);
 
-	ok(run_robust_test(test_robust_double_free, pool),
+	ok(run_robust_test(test_robust_double_free, pool, policy),
 		"robust-double-free");
 
-	ok(run_robust_test(test_robust_memory_leak, pool),
+	ok(run_robust_test(test_robust_memory_leak, pool, policy),
 		"robust-memory-leak");
 
-	ok(run_robust_test(test_robust_poison_corruption_malloc, pool),
+	ok(run_robust_test(test_robust_poison_corruption_malloc, pool, policy),
 		"robust-poison-corruption-malloc");
 
-	ok(run_robust_test(test_robust_poison_corruption_destroy, pool),
+	ok(run_robust_test(test_robust_poison_corruption_destroy, pool, policy),
 		"robust-poison-corruption-destroy");
 
-	/*
-	 * Those tests expect the freelist to be on CPU 0's mapping,
-	 * which is only the case for populate all policy.
-	 */
-	if (policy == RSEQ_MEMPOOL_POPULATE_ALL) {
-		ok(run_robust_test(test_robust_corrupt_after_free, pool),
-			"robust-corrupt-after-free");
-		ok(run_robust_test(test_robust_free_list_corruption, pool),
-			"robust-free-list-corruption");
-	}
+	ok(run_robust_test(test_robust_corrupt_after_free, pool, policy),
+		"robust-corrupt-after-free");
+
+	ok(run_robust_test(test_robust_free_list_corruption, pool, policy),
+		"robust-free-list-corruption");
 
 	rseq_mempool_destroy(pool);
 }
