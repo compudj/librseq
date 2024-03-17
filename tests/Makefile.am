@@ -21,6 +21,8 @@ noinst_PROGRAMS = \
 	basic_test_cxx.tap \
 	mempool_test.tap \
 	mempool_test_cxx.tap \
+	mempool_cow_race_test.tap \
+	mempool_cow_race_test_cxx.tap \
 	param_test \
 	param_test_cxx \
 	param_test_mm_cid \
@@ -94,6 +96,12 @@ mempool_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/ut
 mempool_test_cxx_tap_SOURCES = mempool_test_cxx.cpp list.h
 mempool_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
+mempool_cow_race_test_tap_SOURCES = mempool_cow_race_test.c
+mempool_cow_race_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
+
+mempool_cow_race_test_cxx_tap_SOURCES = mempool_cow_race_test_cxx.cpp
+mempool_cow_race_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
+
 param_test_SOURCES = param_test.c
 param_test_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
 
@@ -146,6 +154,8 @@ TESTS = \
 	basic_test_cxx.tap \
 	run_unregistered_test.tap \
 	run_unregistered_test_cxx.tap \
+	mempool_cow_race_test.tap \
+	mempool_cow_race_test_cxx.tap \
 	mempool_test.tap \
 	mempool_test_cxx.tap
 
