@@ -71,11 +71,6 @@ enum mempool_type {
 };
 
 struct rseq_mempool_attr {
-	bool mmap_set;
-	void *(*mmap_func)(void *priv, size_t len);
-	int (*munmap_func)(void *priv, void *ptr, size_t len);
-	void *mmap_priv;
-
 	bool init_set;
 	int (*init_func)(void *priv, void *addr, size_t len, int cpu);
 	void *init_priv;
@@ -478,24 +473,6 @@ int rseq_mempool_range_init_numa(void *addr __attribute__((unused)),
 #endif
 
 static
-void *default_mmap_func(void *priv __attribute__((unused)), size_t len)
-{
-	void *base;
-
-	base = mmap(NULL, len, PROT_READ | PROT_WRITE,
-			MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	if (base == MAP_FAILED)
-		return NULL;
-	return base;
-}
-
-static
-int default_munmap_func(void *priv __attribute__((unused)), void *ptr, size_t len)
-{
-	return munmap(ptr, len);
-}
-
-static
 int create_alloc_bitmap(struct rseq_mempool *pool, struct rseq_mempool_range *range)
 {
 	size_t count;
@@ -645,7 +622,7 @@ int rseq_mempool_range_destroy(struct rseq_mempool *pool,
 	}
 
 	/* range is a header located one page before the aligned mapping. */
-	return pool->attr.munmap_func(pool->attr.mmap_priv, range->mmap_addr, range->mmap_len);
+	return munmap(range->mmap_addr, range->mmap_len);
 }
 
 /*
@@ -653,8 +630,7 @@ int rseq_mempool_range_destroy(struct rseq_mempool *pool,
  * @pre_header before the mapping.
  */
 static
-void *aligned_mmap_anonymous(struct rseq_mempool *pool,
-		size_t page_size, size_t len, size_t alignment,
+void *aligned_mmap_anonymous(size_t page_size, size_t len, size_t alignment,
 		void **pre_header, size_t pre_header_len)
 {
 	size_t minimum_page_count, page_count, extra, total_allocate = 0;
@@ -681,9 +657,12 @@ void *aligned_mmap_anonymous(struct rseq_mempool *pool,
 
 	assert(page_count >= minimum_page_count);
 
-	ptr = pool->attr.mmap_func(pool->attr.mmap_priv, page_count << page_order);
-	if (!ptr)
+	ptr = mmap(NULL, page_count << page_order, PROT_READ | PROT_WRITE,
+			MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	if (ptr == MAP_FAILED) {
+		ptr = NULL;
 		goto alloc_error;
+	}
 
 	total_allocate = page_count << page_order;
 
@@ -695,7 +674,7 @@ void *aligned_mmap_anonymous(struct rseq_mempool *pool,
 	/* Unmap extra before. */
 	extra = offset_align((uintptr_t) ptr + pre_header_len, alignment);
 	assert(!(extra & (page_size - 1)));
-	if (pool->attr.munmap_func(pool->attr.mmap_priv, ptr, extra)) {
+	if (munmap(ptr, extra)) {
 		perror("munmap");
 		abort();
 	}
@@ -711,7 +690,7 @@ out:
 		/* Unmap extra after. */
 		extra_ptr = ptr + (minimum_page_count << page_order);
 		extra = (page_count - minimum_page_count) << page_order;
-		if (pool->attr.munmap_func(pool->attr.mmap_priv, extra_ptr, extra)) {
+		if (munmap(extra_ptr, extra)) {
 			perror("munmap");
 			abort();
 		}
@@ -771,10 +750,8 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 		range_len += pool->attr.stride;	/* init values */
 	if (pool->attr.robust_set)
 		range_len += pool->attr.stride;	/* free list */
-	base = aligned_mmap_anonymous(pool, page_size,
-			range_len,
-			pool->attr.stride,
-			&header, page_size);
+	base = aligned_mmap_anonymous(page_size, range_len,
+			pool->attr.stride, &header, page_size);
 	if (!base)
 		return NULL;
 	range = (struct rseq_mempool_range *) (base - RANGE_HEADER_OFFSET);
@@ -936,11 +913,6 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 
 	if (_attr)
 		memcpy(&attr, _attr, sizeof(attr));
-	if (!attr.mmap_set) {
-		attr.mmap_func = default_mmap_func;
-		attr.munmap_func = default_munmap_func;
-		attr.mmap_priv = NULL;
-	}
 
 	switch (attr.type) {
 	case MEMPOOL_TYPE_PERCPU:
@@ -1276,22 +1248,6 @@ struct rseq_mempool_attr *rseq_mempool_attr_create(void)
 void rseq_mempool_attr_destroy(struct rseq_mempool_attr *attr)
 {
 	free(attr);
-}
-
-int rseq_mempool_attr_set_mmap(struct rseq_mempool_attr *attr,
-		void *(*mmap_func)(void *priv, size_t len),
-		int (*munmap_func)(void *priv, void *ptr, size_t len),
-		void *mmap_priv)
-{
-	if (!attr) {
-		errno = EINVAL;
-		return -1;
-	}
-	attr->mmap_set = true;
-	attr->mmap_func = mmap_func;
-	attr->munmap_func = munmap_func;
-	attr->mmap_priv = mmap_priv;
-	return 0;
 }
 
 int rseq_mempool_attr_set_init(struct rseq_mempool_attr *attr,

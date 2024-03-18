@@ -448,24 +448,6 @@ struct rseq_mempool_attr *rseq_mempool_attr_create(void);
 void rseq_mempool_attr_destroy(struct rseq_mempool_attr *attr);
 
 /*
- * rseq_mempool_attr_set_mmap: Set pool attribute structure mmap functions.
- *
- * The @mmap_func callback used to map the memory for the pool.
- *
- * The @munmap_func callback used to unmap the memory when the pool
- * is destroyed.
- *
- * The @mmap_priv argument is a private data pointer passed to both
- * @mmap_func and @munmap_func callbacks.
- *
- * Returns 0 on success, -1 with errno=EINVAL if arguments are invalid.
- */
-int rseq_mempool_attr_set_mmap(struct rseq_mempool_attr *attr,
-		void *(*mmap_func)(void *priv, size_t len),
-		int (*munmap_func)(void *priv, void *ptr, size_t len),
-		void *mmap_priv);
-
-/*
  * rseq_mempool_attr_set_init: Set pool attribute structure memory init functions.
  *
  * The @init_func callback used to initialized memory after allocation
