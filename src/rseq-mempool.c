@@ -277,7 +277,7 @@ void rseq_percpu_zero_item(struct rseq_mempool *pool,
 
 	init_p = __rseq_pool_range_init_ptr(range, item_offset);
 	if (init_p)
-		memset(init_p, 0, pool->item_len);
+		bzero(init_p, pool->item_len);
 	for (i = 0; i < pool->attr.max_nr_cpus; i++) {
 		char *p = __rseq_pool_range_percpu_ptr(range, i,
 				item_offset, pool->attr.stride);
@@ -297,7 +297,7 @@ void rseq_percpu_zero_item(struct rseq_mempool *pool,
 		 */
 		if (!memcmpbyte(p, 0, pool->item_len))
 			continue;
-		memset(p, 0, pool->item_len);
+		bzero(p, pool->item_len);
 	}
 }
 
