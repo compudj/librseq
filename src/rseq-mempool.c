@@ -282,8 +282,20 @@ void rseq_percpu_zero_item(struct rseq_mempool *pool,
 		char *p = __rseq_pool_range_percpu_ptr(range, i,
 				item_offset, pool->attr.stride);
 
-		/* Update propagated */
-		if (init_p && !memcmpbyte(p, 0, pool->item_len))
+		/*
+		 * If item is already zeroed, either because the
+		 * init range update has propagated or because the
+		 * content is already zeroed (e.g. zero page), don't
+		 * write to the page. This eliminates useless COW over
+		 * the zero page just for overwriting it with zeroes.
+		 *
+		 * This means zmalloc() in populate all policy pool do
+		 * not trigger COW for CPUs which are not actively
+		 * writing to the pool. This is however not the case for
+		 * malloc_init() in populate-all pools if it populates
+		 * non-zero content.
+		 */
+		if (!memcmpbyte(p, 0, pool->item_len))
 			continue;
 		memset(p, 0, pool->item_len);
 	}
@@ -304,8 +316,13 @@ void rseq_percpu_init_item(struct rseq_mempool *pool,
 		char *p = __rseq_pool_range_percpu_ptr(range, i,
 				item_offset, pool->attr.stride);
 
-		/* Update propagated */
-		if (init_p && !memcmp(init_p, p, init_len))
+		/*
+		 * If the update propagated through a shared mapping,
+		 * or the item already has the correct content, skip
+		 * writing it into the cpu item to eliminate useless
+		 * COW of the page.
+		 */
+		if (!memcmp(init_ptr, p, init_len))
 			continue;
 		memcpy(p, init_ptr, init_len);
 	}
@@ -318,6 +335,24 @@ void rseq_poison_item(void *p, size_t item_len, uintptr_t poison)
 
 	for (offset = 0; offset < item_len; offset += sizeof(uintptr_t))
 		*((uintptr_t *) (p + offset)) = poison;
+}
+
+static
+intptr_t rseq_cmp_poison_item(void *p, size_t item_len, uintptr_t poison, intptr_t *unexpected_value)
+{
+	size_t offset;
+	intptr_t res = 0;
+
+	for (offset = 0; offset < item_len; offset += sizeof(uintptr_t)) {
+		intptr_t v = *((intptr_t *) (p + offset));
+
+		if ((res = v - (intptr_t) poison) != 0) {
+			if (unexpected_value)
+				*unexpected_value = v;
+			break;
+		}
+	}
+	return res;
 }
 
 static
@@ -335,8 +370,17 @@ void rseq_percpu_poison_item(struct rseq_mempool *pool,
 		char *p = __rseq_pool_range_percpu_ptr(range, i,
 				item_offset, pool->attr.stride);
 
-		/* Update propagated */
-		if (init_p && !memcmp(init_p, p, pool->item_len))
+		/*
+		 * If the update propagated through a shared mapping,
+		 * or the item already has the correct content, skip
+		 * writing it into the cpu item to eliminate useless
+		 * COW of the page.
+		 *
+		 * It is recommended to use zero as poison value for
+		 * populate-all pools to eliminate COW due to writing
+		 * poison to unused CPU memory.
+		 */
+		if (rseq_cmp_poison_item(p, pool->item_len, poison, NULL) == 0)
 			continue;
 		rseq_poison_item(p, pool->item_len, poison);
 	}
@@ -347,18 +391,14 @@ static inline __attribute__((always_inline))
 void rseq_check_poison_item(const struct rseq_mempool *pool, uintptr_t item_offset,
 		void *p, size_t item_len, uintptr_t poison)
 {
-	size_t offset;
+	intptr_t unexpected_value;
 
-	for (offset = 0; offset < item_len; offset += sizeof(uintptr_t)) {
-		uintptr_t v;
+	if (rseq_cmp_poison_item(p, item_len, poison, &unexpected_value) == 0)
+		return;
 
-		v = *((uintptr_t *) (p + offset));
-		if (v != poison) {
-			fprintf(stderr, "%s: Poison corruption detected (0x%lx) for pool: \"%s\" (%p), item offset: %zu, caller: %p.\n",
-				__func__, (unsigned long) v, get_pool_name(pool), pool, item_offset, (void *) __builtin_return_address(0));
-			abort();
-		}
-	}
+	fprintf(stderr, "%s: Poison corruption detected (0x%lx) for pool: \"%s\" (%p), item offset: %zu, caller: %p.\n",
+		__func__, (unsigned long) unexpected_value, get_pool_name(pool), pool, item_offset, (void *) __builtin_return_address(0));
+	abort();
 }
 
 /* Always inline for __builtin_return_address(0). */
