@@ -258,13 +258,20 @@ off_t ptr_to_off_t(void *p)
 }
 
 static
-int memcmpbyte(const char *s, int c, size_t n)
+intptr_t rseq_cmp_item(void *p, size_t item_len, intptr_t cmp_value, intptr_t *unexpected_value)
 {
-	int res = 0;
+	size_t offset;
+	intptr_t res = 0;
 
-	while (n-- > 0)
-		if ((res = *(s++) - c) != 0)
+	for (offset = 0; offset < item_len; offset += sizeof(uintptr_t)) {
+		intptr_t v = *((intptr_t *) (p + offset));
+
+		if ((res = v - cmp_value) != 0) {
+			if (unexpected_value)
+				*unexpected_value = v;
 			break;
+		}
+	}
 	return res;
 }
 
@@ -295,7 +302,7 @@ void rseq_percpu_zero_item(struct rseq_mempool *pool,
 		 * malloc_init() in populate-all pools if it populates
 		 * non-zero content.
 		 */
-		if (!memcmpbyte(p, 0, pool->item_len))
+		if (!rseq_cmp_item(p, pool->item_len, 0, NULL))
 			continue;
 		bzero(p, pool->item_len);
 	}
@@ -338,24 +345,6 @@ void rseq_poison_item(void *p, size_t item_len, uintptr_t poison)
 }
 
 static
-intptr_t rseq_cmp_poison_item(void *p, size_t item_len, uintptr_t poison, intptr_t *unexpected_value)
-{
-	size_t offset;
-	intptr_t res = 0;
-
-	for (offset = 0; offset < item_len; offset += sizeof(uintptr_t)) {
-		intptr_t v = *((intptr_t *) (p + offset));
-
-		if ((res = v - (intptr_t) poison) != 0) {
-			if (unexpected_value)
-				*unexpected_value = v;
-			break;
-		}
-	}
-	return res;
-}
-
-static
 void rseq_percpu_poison_item(struct rseq_mempool *pool,
 		struct rseq_mempool_range *range, uintptr_t item_offset)
 {
@@ -380,7 +369,7 @@ void rseq_percpu_poison_item(struct rseq_mempool *pool,
 		 * populate-all pools to eliminate COW due to writing
 		 * poison to unused CPU memory.
 		 */
-		if (rseq_cmp_poison_item(p, pool->item_len, poison, NULL) == 0)
+		if (rseq_cmp_item(p, pool->item_len, poison, NULL) == 0)
 			continue;
 		rseq_poison_item(p, pool->item_len, poison);
 	}
@@ -393,7 +382,7 @@ void rseq_check_poison_item(const struct rseq_mempool *pool, uintptr_t item_offs
 {
 	intptr_t unexpected_value;
 
-	if (rseq_cmp_poison_item(p, item_len, poison, &unexpected_value) == 0)
+	if (rseq_cmp_item(p, item_len, poison, &unexpected_value) == 0)
 		return;
 
 	fprintf(stderr, "%s: Poison corruption detected (0x%lx) for pool: \"%s\" (%p), item offset: %zu, caller: %p.\n",
