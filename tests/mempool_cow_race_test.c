@@ -38,7 +38,6 @@
 
 #define TEST_DURATION_S	10	/* seconds */
 #define TEST_ARRAY_LEN	256
-#define TEST_STRIDE	16384
 
 enum phase {
 	PHASE_RESET_POOL,
@@ -74,7 +73,7 @@ static void *test_init_thread(void *arg)
 		ret = rseq_mempool_attr_set_robust(attr);
 		if (ret)
 			abort();
-		ret = rseq_mempool_attr_set_percpu(attr, TEST_STRIDE, 1);
+		ret = rseq_mempool_attr_set_percpu(attr, 0, 1);
 		if (ret)
 			abort();
 		ret = rseq_mempool_attr_set_max_nr_ranges(attr, 1);
@@ -112,8 +111,8 @@ static void *test_init_thread(void *arg)
 
 		while (rseq_smp_load_acquire(&thread_args->phase) != PHASE_RESET_POOL) { }
 
-		rseq_mempool_percpu_free(thread_args->ptr2, TEST_STRIDE);
-		rseq_mempool_percpu_free(thread_args->ptr1, TEST_STRIDE);
+		rseq_mempool_percpu_free(thread_args->ptr2);
+		rseq_mempool_percpu_free(thread_args->ptr1);
 
 		if (rseq_mempool_destroy(mempool))
 			abort();
