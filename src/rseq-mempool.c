@@ -103,7 +103,7 @@ struct rseq_mempool_range {
 	 * - CPU 1,
 	 * ...
 	 * - CPU max_nr_cpus - 1
-	 * - init values (unpopulated for RSEQ_MEMPOOL_POPULATE_ALL).
+	 * - init values (unpopulated for RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL).
 	 *   Aliases with free-list for non-robust populate none pool.
 	 * - free list (for robust pool).
 	 *
@@ -116,7 +116,7 @@ struct rseq_mempool_range {
 	void *base;
 	/*
 	 * The init values contains malloc_init/zmalloc values.
-	 * Pointer is NULL for RSEQ_MEMPOOL_POPULATE_ALL.
+	 * Pointer is NULL for RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL.
 	 */
 	void *init;
 	size_t next_unused;
@@ -216,12 +216,12 @@ void __rseq_percpu *__rseq_free_list_to_percpu_ptr(const struct rseq_mempool *po
 		/* Skip cpus. */
 		p -= pool->attr.max_nr_cpus * pool->attr.stride;
 		/* Skip init values */
-		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_ALL)
+		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
 			p -= pool->attr.stride;
 
 	} else {
 		/* Populate none free list is in init values */
-		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_ALL)
+		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
 			p -= pool->attr.max_nr_cpus * pool->attr.stride;
 	}
 	return p;
@@ -235,12 +235,12 @@ struct free_list_node *__rseq_percpu_to_free_list_ptr(const struct rseq_mempool 
 		/* Skip cpus. */
 		p += pool->attr.max_nr_cpus * pool->attr.stride;
 		/* Skip init values */
-		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_ALL)
+		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
 			p += pool->attr.stride;
 
 	} else {
 		/* Populate none free list is in init values */
-		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_ALL)
+		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
 			p += pool->attr.max_nr_cpus * pool->attr.stride;
 	}
 	return (struct free_list_node *) p;
@@ -746,7 +746,7 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	page_size = rseq_get_page_len();
 
 	range_len = pool->attr.stride * pool->attr.max_nr_cpus;
-	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_ALL)
+	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
 		range_len += pool->attr.stride;	/* init values */
 	if (pool->attr.robust_set)
 		range_len += pool->attr.stride;	/* free list */
@@ -761,7 +761,7 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	range->mmap_addr = header;
 	range->mmap_len = page_size + range_len;
 
-	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_ALL) {
+	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL) {
 		range->init = base + (pool->attr.stride * pool->attr.max_nr_cpus);
 		/* Populate init values pages from memfd */
 		if (rseq_memfd_reserve_init(range->init, pool->attr.stride))
@@ -831,7 +831,7 @@ int rseq_mempool_memfd_ref(struct rseq_mempool *pool)
 {
 	int ret = 0;
 
-	if (pool->attr.populate_policy == RSEQ_MEMPOOL_POPULATE_ALL)
+	if (pool->attr.populate_policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
 		return 0;
 
 	pthread_mutex_lock(&memfd.lock);
@@ -852,7 +852,7 @@ unlock:
 static
 void rseq_mempool_memfd_unref(struct rseq_mempool *pool)
 {
-	if (pool->attr.populate_policy == RSEQ_MEMPOOL_POPULATE_ALL)
+	if (pool->attr.populate_policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
 		return;
 
 	pthread_mutex_lock(&memfd.lock);
@@ -931,7 +931,8 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 		break;
 	case MEMPOOL_TYPE_GLOBAL:
 		/* Override populate policy for global type. */
-		attr.populate_policy = RSEQ_MEMPOOL_POPULATE_ALL;
+		if (attr.populate_policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE)
+			attr.populate_policy = RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL;
 		/* Use a 1-cpu pool for global mempool type. */
 		attr.max_nr_cpus = 1;
 		break;

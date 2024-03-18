@@ -539,19 +539,21 @@ int rseq_mempool_attr_set_poison(struct rseq_mempool_attr *attr,
 
 enum rseq_mempool_populate_policy {
 	/*
-	 * RSEQ_MEMPOOL_POPULATE_NONE (default):
+	 * RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE (default):
 	 *   Do not populate pages for any of the CPUs when creating the
 	 *   mempool. Rely on copy-on-write (COW) of per-cpu pages to
 	 *   populate per-cpu pages from the initial values pages on
-	 *   first write.
+	 *   first write. This mempool is only meant for single-process
+	 *   use (private mapping).
 	 */
-	RSEQ_MEMPOOL_POPULATE_NONE = 0,
+	RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE = 0,
 	/*
-	 * RSEQ_MEMPOOL_POPULATE_ALL:
+	 * RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL:
 	 *   Populate pages for all CPUs from 0 to (max_nr_cpus - 1)
-	 *   when creating the mempool.
+	 *   when creating the mempool. This mempool is only meant for
+	 *   single-process use (private mapping).
 	 */
-	RSEQ_MEMPOOL_POPULATE_ALL = 1,
+	RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL = 1,
 };
 
 /*

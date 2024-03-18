@@ -67,7 +67,7 @@ static void test_mempool_fill(enum rseq_mempool_populate_policy policy,
 	ok(ret == 0, "Setting mempool poison");
 	ret = rseq_mempool_attr_set_populate_policy(attr, policy);
 	ok(ret == 0, "Setting mempool populate policy to %s",
-		policy == RSEQ_MEMPOOL_POPULATE_NONE ? "NONE" : "ALL");
+		policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE ? "NONE" : "ALL");
 	mempool = rseq_mempool_create("test_data",
 			sizeof(struct test_data), attr);
 	ok(mempool, "Create mempool of size %zu", stride);
@@ -159,7 +159,7 @@ static void test_robust_corrupt_after_free(struct rseq_mempool *pool,
 	 * after the last cpu memory range for populate all, and after
 	 * the init values memory range for populate none.
 	 */
-	if (policy == RSEQ_MEMPOOL_POPULATE_ALL)
+	if (policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
 		cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, rseq_mempool_get_max_nr_cpus(pool));
 	else
 		cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, rseq_mempool_get_max_nr_cpus(pool) + 1);
@@ -190,7 +190,7 @@ static void test_robust_free_list_corruption(struct rseq_mempool *pool,
 	 * after the last cpu memory range for populate all, and after
 	 * the init values memory range for populate none.
 	 */
-	if (policy == RSEQ_MEMPOOL_POPULATE_ALL)
+	if (policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
 		cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, rseq_mempool_get_max_nr_cpus(pool));
 	else
 		cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, rseq_mempool_get_max_nr_cpus(pool) + 1);
@@ -277,7 +277,7 @@ static void run_robust_tests(enum rseq_mempool_populate_policy policy)
 
 	ret = rseq_mempool_attr_set_populate_policy(attr, policy);
 	ok(ret == 0, "Setting mempool populate policy to %s",
-		policy == RSEQ_MEMPOOL_POPULATE_NONE ? "NONE" : "ALL");
+		policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE ? "PRIVATE_NONE" : "PRIVATE_ALL");
 
 	pool = rseq_mempool_create("mempool-robust",
 				sizeof(struct test_data), attr);
@@ -315,8 +315,8 @@ int main(void)
 	for (nr_ranges = 1; nr_ranges < 32; nr_ranges <<= 1) {
 		/* From page size to 64kB */
 		for (len = rseq_get_page_len(); len < 65536; len <<= 1) {
-			test_mempool_fill(RSEQ_MEMPOOL_POPULATE_ALL, nr_ranges, len);
-			test_mempool_fill(RSEQ_MEMPOOL_POPULATE_NONE, nr_ranges, len);
+			test_mempool_fill(RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL, nr_ranges, len);
+			test_mempool_fill(RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE, nr_ranges, len);
 		}
 	}
 
@@ -325,12 +325,12 @@ int main(void)
 		len = 65536;
 	/* From min(page size, 64kB) to 4MB */
 	for (; len < 4096 * 1024; len <<= 1) {
-		test_mempool_fill(RSEQ_MEMPOOL_POPULATE_ALL, 1, len);
-		test_mempool_fill(RSEQ_MEMPOOL_POPULATE_NONE, 1, len);
+		test_mempool_fill(RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL, 1, len);
+		test_mempool_fill(RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE, 1, len);
 	}
 
-	run_robust_tests(RSEQ_MEMPOOL_POPULATE_ALL);
-	run_robust_tests(RSEQ_MEMPOOL_POPULATE_NONE);
+	run_robust_tests(RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL);
+	run_robust_tests(RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE);
 
 	exit(exit_status());
 }
