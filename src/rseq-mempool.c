@@ -773,7 +773,7 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 		 * with the children processes across fork. Prevent the
 		 * whole mapping from being used across fork.
 		 */
-		if (madvise(range->mmap_addr, pool->mmap_len, MADV_DONTFORK))
+		if (madvise(range->mmap_addr, range->mmap_len, MADV_DONTFORK))
 			goto error_alloc;
 		rseq_memfd_close(memfd);
 		memfd = -1;
