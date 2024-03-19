@@ -545,7 +545,9 @@ enum rseq_mempool_populate_policy {
 	 *   populate per-cpu pages from the initial values pages on
 	 *   first write. This mempool is only meant for single-process
 	 *   use (private mapping). Note that this type of pool cannot
-	 *   be accessed from children processes across fork.
+	 *   be accessed from children processes across fork. It is
+	 *   however valid to destroy a pool from a child process after
+	 *   a fork to free its remaining resources.
 	 */
 	RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE = 0,
 	/*
