@@ -671,11 +671,20 @@ alloc_error:
 }
 
 static
-int rseq_memfd_create_init(size_t init_len)
+int rseq_memfd_create_init(const char *poolname, size_t init_len)
 {
 	int fd;
+	char buf[249];		/* Limit is 249 bytes. */
+	const char *name;
 
-	fd = memfd_create("mempool", MFD_CLOEXEC);
+	if (poolname) {
+		snprintf(buf, sizeof(buf), "%s:rseq-mempool", poolname);
+		name = buf;
+	} else {
+		name = "<anonymous>:rseq-mempool";
+	}
+
+	fd = memfd_create(name, MFD_CLOEXEC);
 	if (fd < 0) {
 		perror("memfd_create");
 		goto end;
@@ -732,7 +741,7 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 
 		range->init = base + (pool->attr.stride * pool->attr.max_nr_cpus);
 		/* Populate init values pages from memfd */
-		memfd = rseq_memfd_create_init(pool->attr.stride);
+		memfd = rseq_memfd_create_init(pool->name, pool->attr.stride);
 		if (memfd < 0)
 			goto error_alloc;
 		if (mmap(range->init, pool->attr.stride, PROT_READ | PROT_WRITE,
