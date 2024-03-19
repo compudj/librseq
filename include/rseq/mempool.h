@@ -544,7 +544,8 @@ enum rseq_mempool_populate_policy {
 	 *   mempool. Rely on copy-on-write (COW) of per-cpu pages to
 	 *   populate per-cpu pages from the initial values pages on
 	 *   first write. This mempool is only meant for single-process
-	 *   use (private mapping).
+	 *   use (private mapping). Note that this type of pool cannot
+	 *   be accessed from children processes across fork.
 	 */
 	RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE = 0,
 	/*

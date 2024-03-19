@@ -751,12 +751,6 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 				MAP_SHARED | MAP_FIXED, memfd, 0) != (void *) range->init) {
 			goto error_alloc;
 		}
-		/*
-		 * Make sure the init values shared mapping is not
-		 * shared with the children processes across fork.
-		 */
-		if (madvise(range->init, pool->attr.stride, MADV_DONTFORK))
-			goto error_alloc;
 		assert(pool->attr.type == MEMPOOL_TYPE_PERCPU);
 		/*
 		 * Map per-cpu memory as private COW mappings of init values.
@@ -774,6 +768,13 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 				}
 			}
 		}
+		/*
+		 * The init values shared mapping should not be shared
+		 * with the children processes across fork. Prevent the
+		 * whole mapping from being used across fork.
+		 */
+		if (madvise(range->mmap_addr, pool->mmap_len, MADV_DONTFORK))
+			goto error_alloc;
 		rseq_memfd_close(memfd);
 		memfd = -1;
 	}
