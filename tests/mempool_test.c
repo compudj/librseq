@@ -235,11 +235,53 @@ static void test_robust_poison_corruption_destroy(struct rseq_mempool *pool,
 	rseq_mempool_destroy(pool);
 }
 
+static struct rseq_mempool *make_test_pool(enum rseq_mempool_populate_policy policy)
+{
+	struct rseq_mempool_attr *attr;
+	struct rseq_mempool *pool;
+	int ret;
+
+	pool = NULL;
+
+	attr = rseq_mempool_attr_create();
+
+	if (!attr) {
+		goto out;
+	}
+
+	ret = rseq_mempool_attr_set_robust(attr);
+
+	if (0 != ret) {
+		goto err_attr;
+	}
+
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, 1);
+
+	if (0 != ret) {
+		goto err_attr;
+	}
+
+	ret = rseq_mempool_attr_set_populate_policy(attr, policy);
+
+	if (0 != ret) {
+		goto err_attr;
+	}
+
+	pool = rseq_mempool_create("mempool-robust",
+				sizeof(struct test_data), attr);
+err_attr:
+	rseq_mempool_attr_destroy(attr);
+out:
+	return pool;
+
+}
+
 static int run_robust_test(void (*test)(struct rseq_mempool *, enum rseq_mempool_populate_policy),
-			struct rseq_mempool *pool, enum rseq_mempool_populate_policy policy)
+			enum rseq_mempool_populate_policy policy)
 {
 	pid_t cpid;
 	int status;
+	struct rseq_mempool *pool;
 
 	cpid = fork();
 
@@ -247,6 +289,13 @@ static int run_robust_test(void (*test)(struct rseq_mempool *, enum rseq_mempool
 	case -1:
 		return 0;
 	case 0:
+		/*
+		 * Intentional leak of test pool because some tests might want
+		 * to do an explicit destroy on it.
+		 */
+		pool = make_test_pool(policy);
+		if (!pool)
+			_exit(EXIT_FAILURE);
 		test(pool, policy);
 		_exit(EXIT_FAILURE);
 	default:
@@ -262,47 +311,24 @@ static int run_robust_test(void (*test)(struct rseq_mempool *, enum rseq_mempool
 
 static void run_robust_tests(enum rseq_mempool_populate_policy policy)
 {
-	struct rseq_mempool_attr *attr;
-	struct rseq_mempool *pool;
-	int ret;
 
-	attr = rseq_mempool_attr_create();
-	ok(attr, "Create mempool attributes");
-
-	ret = rseq_mempool_attr_set_robust(attr);
-	ok(ret == 0, "Setting mempool robust attribute");
-
-	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, 1);
-	ok(ret == 0, "Setting mempool percpu type");
-
-	ret = rseq_mempool_attr_set_populate_policy(attr, policy);
-	ok(ret == 0, "Setting mempool populate policy to %s",
-		policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE ? "PRIVATE_NONE" : "PRIVATE_ALL");
-
-	pool = rseq_mempool_create("mempool-robust",
-				sizeof(struct test_data), attr);
-
-	rseq_mempool_attr_destroy(attr);
-
-	ok(run_robust_test(test_robust_double_free, pool, policy),
+	ok(run_robust_test(test_robust_double_free, policy),
 		"robust-double-free");
 
-	ok(run_robust_test(test_robust_memory_leak, pool, policy),
+	ok(run_robust_test(test_robust_memory_leak, policy),
 		"robust-memory-leak");
 
-	ok(run_robust_test(test_robust_poison_corruption_malloc, pool, policy),
+	ok(run_robust_test(test_robust_poison_corruption_malloc, policy),
 		"robust-poison-corruption-malloc");
 
-	ok(run_robust_test(test_robust_poison_corruption_destroy, pool, policy),
+	ok(run_robust_test(test_robust_poison_corruption_destroy, policy),
 		"robust-poison-corruption-destroy");
 
-	ok(run_robust_test(test_robust_corrupt_after_free, pool, policy),
+	ok(run_robust_test(test_robust_corrupt_after_free, policy),
 		"robust-corrupt-after-free");
 
-	ok(run_robust_test(test_robust_free_list_corruption, pool, policy),
+	ok(run_robust_test(test_robust_free_list_corruption, policy),
 		"robust-free-list-corruption");
-
-	rseq_mempool_destroy(pool);
 }
 
 int main(void)
