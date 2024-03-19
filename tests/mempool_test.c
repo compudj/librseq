@@ -331,6 +331,44 @@ static void run_robust_tests(enum rseq_mempool_populate_policy policy)
 		"robust-free-list-corruption");
 }
 
+static void fork_child(struct rseq_mempool *pool,
+		enum rseq_mempool_populate_policy policy __attribute__((unused)))
+{
+	rseq_mempool_destroy(pool);
+}
+
+/*
+ * Test that destroying a mempool works in child after fork.
+ */
+static int run_fork_destroy_pool_test(void (*test)(struct rseq_mempool *, enum rseq_mempool_populate_policy),
+			enum rseq_mempool_populate_policy policy)
+{
+	pid_t cpid;
+	int status;
+	struct rseq_mempool *pool;
+
+	pool = make_test_pool(policy);
+	if (!pool)
+		_exit(EXIT_FAILURE);
+
+	cpid = fork();
+
+	switch (cpid) {
+	case -1:
+		return 0;
+	case 0:
+		test(pool, policy);
+		_exit(EXIT_SUCCESS);
+	default:
+		waitpid(cpid, &status, 0);
+	}
+
+	if (WIFSIGNALED(status))
+		return 0;
+
+	return 1;
+}
+
 int main(void)
 {
 	size_t len;
@@ -357,6 +395,10 @@ int main(void)
 
 	run_robust_tests(RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL);
 	run_robust_tests(RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE);
+	ok(run_fork_destroy_pool_test(fork_child, RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL),
+		"fork destroy pool test populate private all");
+	ok(run_fork_destroy_pool_test(fork_child, RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE),
+		"fork destroy pool test populate private none");
 
 	exit(exit_status());
 }
