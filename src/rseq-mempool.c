@@ -690,6 +690,8 @@ int rseq_memfd_create_init(const char *poolname, size_t init_len)
 		goto end;
 	}
 	if (ftruncate(fd, (off_t) init_len)) {
+		if (close(fd))
+			perror("close");
 		fd = -1;
 		goto end;
 	}
@@ -700,6 +702,8 @@ end:
 static
 void rseq_memfd_close(int fd)
 {
+	if (fd < 0)
+		return;
 	if (close(fd))
 		perror("close");
 }
@@ -712,6 +716,7 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	void *header;
 	void *base;
 	size_t range_len;	/* Range len excludes header. */
+	int memfd = -1;
 
 	if (pool->attr.max_nr_ranges &&
 			pool->nr_ranges >= pool->attr.max_nr_ranges) {
@@ -737,8 +742,6 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	range->mmap_len = page_size + range_len;
 
 	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL) {
-		int memfd;
-
 		range->init = base + (pool->attr.stride * pool->attr.max_nr_cpus);
 		/* Populate init values pages from memfd */
 		memfd = rseq_memfd_create_init(pool->name, pool->attr.stride);
@@ -772,6 +775,7 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 			}
 		}
 		rseq_memfd_close(memfd);
+		memfd = -1;
 	}
 
 	if (pool->attr.robust_set) {
@@ -806,6 +810,7 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	return range;
 
 error_alloc:
+	rseq_memfd_close(memfd);
 	(void) rseq_mempool_range_destroy(pool, range);
 	return NULL;
 }
