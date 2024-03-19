@@ -164,26 +164,6 @@ struct rseq_mempool_set {
 	struct rseq_mempool *entries[POOL_SET_NR_ENTRIES];
 };
 
-/*
- * This memfd is used to implement the user COW behavior for the page
- * protection scheme. memfd is a sparse virtual file. Its layout (in
- * offset from beginning of file) matches the process address space
- * (pointers directly converted to file offsets).
- */
-struct rseq_memfd {
-	pthread_mutex_t lock;
-	size_t reserved_size;
-	unsigned int refcount;
-	int fd;
-};
-
-static struct rseq_memfd memfd = {
-	.lock = PTHREAD_MUTEX_INITIALIZER,
-	.reserved_size = 0,
-	.refcount = 0,
-	.fd = -1,
-};
-
 static
 const char *get_pool_name(const struct rseq_mempool *pool)
 {
@@ -244,12 +224,6 @@ struct free_list_node *__rseq_percpu_to_free_list_ptr(const struct rseq_mempool 
 			p += pool->attr.max_nr_cpus * pool->attr.stride;
 	}
 	return (struct free_list_node *) p;
-}
-
-static
-off_t ptr_to_off_t(void *p)
-{
-	return (off_t) (uintptr_t) p;
 }
 
 static
@@ -606,20 +580,7 @@ static inline __attribute__((always_inline))
 int rseq_mempool_range_destroy(struct rseq_mempool *pool,
 		struct rseq_mempool_range *range)
 {
-	int ret = 0;
-
 	destroy_alloc_bitmap(pool, range);
-
-	/*
-	 * Punch a hole into memfd where the init values used to be.
-	 */
-	if (range->init) {
-		ret = fallocate(memfd.fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
-			ptr_to_off_t(range->init), pool->attr.stride);
-		if (ret)
-			return ret;
-		range->init = NULL;
-	}
 
 	/* range is a header located one page before the aligned mapping. */
 	return munmap(range->mmap_addr, range->mmap_len);
@@ -710,23 +671,28 @@ alloc_error:
 }
 
 static
-int rseq_memfd_reserve_init(void *init, size_t init_len)
+int rseq_memfd_create_init(size_t init_len)
 {
-	int ret = 0;
-	size_t reserve_len;
+	int fd;
 
-	pthread_mutex_lock(&memfd.lock);
-	reserve_len = (size_t) ptr_to_off_t(init) + init_len;
-	if (reserve_len > memfd.reserved_size) {
-		if (ftruncate(memfd.fd, (off_t) reserve_len)) {
-			ret = -1;
-			goto unlock;
-		}
-		memfd.reserved_size = reserve_len;
+	fd = memfd_create("mempool", MFD_CLOEXEC);
+	if (fd < 0) {
+		perror("memfd_create");
+		goto end;
 	}
-unlock:
-	pthread_mutex_unlock(&memfd.lock);
-	return ret;
+	if (ftruncate(fd, (off_t) init_len)) {
+		fd = -1;
+		goto end;
+	}
+end:
+	return fd;
+}
+
+static
+void rseq_memfd_close(int fd)
+{
+	if (close(fd))
+		perror("close");
 }
 
 static
@@ -762,13 +728,15 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	range->mmap_len = page_size + range_len;
 
 	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL) {
+		int memfd;
+
 		range->init = base + (pool->attr.stride * pool->attr.max_nr_cpus);
 		/* Populate init values pages from memfd */
-		if (rseq_memfd_reserve_init(range->init, pool->attr.stride))
+		memfd = rseq_memfd_create_init(pool->attr.stride);
+		if (memfd < 0)
 			goto error_alloc;
 		if (mmap(range->init, pool->attr.stride, PROT_READ | PROT_WRITE,
-				MAP_SHARED | MAP_FIXED, memfd.fd,
-				ptr_to_off_t(range->init)) != (void *) range->init) {
+				MAP_SHARED | MAP_FIXED, memfd, 0) != (void *) range->init) {
 			goto error_alloc;
 		}
 		assert(pool->attr.type == MEMPOOL_TYPE_PERCPU);
@@ -783,11 +751,12 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 				size_t len = pool->attr.stride;
 
 				if (mmap(p, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED,
-						memfd.fd, ptr_to_off_t(range->init)) != (void *) p) {
+						memfd, 0) != (void *) p) {
 					goto error_alloc;
 				}
 			}
 		}
+		rseq_memfd_close(memfd);
 	}
 
 	if (pool->attr.robust_set) {
@@ -826,48 +795,6 @@ error_alloc:
 	return NULL;
 }
 
-static
-int rseq_mempool_memfd_ref(struct rseq_mempool *pool)
-{
-	int ret = 0;
-
-	if (pool->attr.populate_policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
-		return 0;
-
-	pthread_mutex_lock(&memfd.lock);
-	if (memfd.refcount == 0) {
-		memfd.fd = memfd_create("mempool", MFD_CLOEXEC);
-		if (memfd.fd < 0) {
-			perror("memfd_create");
-			ret = -1;
-			goto unlock;
-		}
-	}
-	memfd.refcount++;
-unlock:
-	pthread_mutex_unlock(&memfd.lock);
-	return ret;
-}
-
-static
-void rseq_mempool_memfd_unref(struct rseq_mempool *pool)
-{
-	if (pool->attr.populate_policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
-		return;
-
-	pthread_mutex_lock(&memfd.lock);
-	if (memfd.refcount == 1) {
-		if (close(memfd.fd)) {
-			perror("close");
-			abort();
-		}
-		memfd.fd = -1;
-		memfd.reserved_size = 0;
-	}
-	memfd.refcount--;
-	pthread_mutex_unlock(&memfd.lock);
-}
-
 int rseq_mempool_destroy(struct rseq_mempool *pool)
 {
 	struct rseq_mempool_range *range, *next_range;
@@ -884,7 +811,6 @@ int rseq_mempool_destroy(struct rseq_mempool *pool)
 		/* Update list head to keep list coherent in case of partial failure. */
 		pool->range_list = next_range;
 	}
-	rseq_mempool_memfd_unref(pool);
 	pthread_mutex_destroy(&pool->lock);
 	free(pool->name);
 	free(pool);
@@ -957,9 +883,6 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 	pthread_mutex_init(&pool->lock, NULL);
 	pool->item_len = item_len;
 	pool->item_order = order;
-
-	if (rseq_mempool_memfd_ref(pool))
-		goto error_alloc;
 
 	pool->range_list = rseq_mempool_range_create(pool);
 	if (!pool->range_list)
