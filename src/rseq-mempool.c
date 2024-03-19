@@ -56,10 +56,12 @@
 #define RANGE_HEADER_OFFSET	sizeof(struct rseq_mempool_range)
 
 #if RSEQ_BITS_PER_LONG == 64
-# define DEFAULT_PRIVATE_POISON_VALUE	0x5555555555555555ULL
+# define DEFAULT_COW_INIT_POISON_VALUE	0x5555555555555555ULL
 #else
-# define DEFAULT_PRIVATE_POISON_VALUE	0x55555555UL
+# define DEFAULT_COW_INIT_POISON_VALUE	0x55555555UL
 #endif
+
+#define DEFAULT_COW_ZERO_POISON_VALUE	0x0
 
 struct free_list_node;
 
@@ -952,7 +954,10 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 		attr.stride = RSEQ_MEMPOOL_STRIDE;	/* Use default */
 	if (attr.robust_set && !attr.poison_set) {
 		attr.poison_set = true;
-		attr.poison = DEFAULT_PRIVATE_POISON_VALUE;
+		if (attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
+			attr.poison = DEFAULT_COW_INIT_POISON_VALUE;
+		else
+			attr.poison = DEFAULT_COW_ZERO_POISON_VALUE;
 	}
 	if (item_len > attr.stride || attr.stride < (size_t) rseq_get_page_len() ||
 			!is_pow2(attr.stride)) {
