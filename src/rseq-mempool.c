@@ -38,6 +38,8 @@
 
 #define POOL_SET_NR_ENTRIES	RSEQ_BITS_PER_LONG
 
+#define POOL_HEADER_NR_PAGES	2
+
 /*
  * Smallest allocation should hold enough space for a free list pointer.
  */
@@ -97,7 +99,9 @@ struct rseq_mempool_range {
 
 	/*
 	 * Memory layout of a mempool range:
-	 * - Header page (contains struct rseq_mempool_range at the very end),
+	 * - Canary header page (for destroy-after-fork detection),
+	 * - Header page (contains struct rseq_mempool_range at the
+	 *   very end),
 	 * - Base of the per-cpu data, starting with CPU 0.
 	 *   Aliases with free-list for non-robust populate all pool.
 	 * - CPU 1,
@@ -478,13 +482,13 @@ bool percpu_addr_in_pool(const struct rseq_mempool *pool, void __rseq_percpu *_a
 
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
-void check_free_list(const struct rseq_mempool *pool)
+void check_free_list(const struct rseq_mempool *pool, bool mapping_accessible)
 {
 	size_t total_item = 0, total_never_allocated = 0, total_freed = 0,
 		max_list_traversal = 0, traversal_iteration = 0;
 	struct rseq_mempool_range *range;
 
-	if (!pool->attr.robust_set)
+	if (!pool->attr.robust_set || !mapping_accessible)
 		return;
 
 	for (range = pool->range_list; range; range = range->next) {
@@ -540,11 +544,11 @@ void check_range_poison(const struct rseq_mempool *pool,
 
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
-void check_pool_poison(const struct rseq_mempool *pool)
+void check_pool_poison(const struct rseq_mempool *pool, bool mapping_accessible)
 {
 	struct rseq_mempool_range *range;
 
-	if (!pool->attr.robust_set)
+	if (!pool->attr.robust_set || !mapping_accessible)
 		return;
 	for (range = pool->range_list; range; range = range->next)
 		check_range_poison(pool, range);
@@ -578,11 +582,17 @@ void destroy_alloc_bitmap(struct rseq_mempool *pool, struct rseq_mempool_range *
 /* Always inline for __builtin_return_address(0). */
 static inline __attribute__((always_inline))
 int rseq_mempool_range_destroy(struct rseq_mempool *pool,
-		struct rseq_mempool_range *range)
+		struct rseq_mempool_range *range,
+		bool mapping_accessible)
 {
 	destroy_alloc_bitmap(pool, range);
-
-	/* range is a header located one page before the aligned mapping. */
+	if (!mapping_accessible) {
+		/*
+		 * Only the header pages are populated in the child
+		 * process.
+		 */
+		return munmap(range->header, POOL_HEADER_NR_PAGES * rseq_get_page_len());
+	}
 	return munmap(range->mmap_addr, range->mmap_len);
 }
 
@@ -716,6 +726,7 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	void *header;
 	void *base;
 	size_t range_len;	/* Range len excludes header. */
+	size_t header_len;
 	int memfd = -1;
 
 	if (pool->attr.max_nr_ranges &&
@@ -725,13 +736,14 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	}
 	page_size = rseq_get_page_len();
 
+	header_len = POOL_HEADER_NR_PAGES * page_size;
 	range_len = pool->attr.stride * pool->attr.max_nr_cpus;
 	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
 		range_len += pool->attr.stride;	/* init values */
 	if (pool->attr.robust_set)
 		range_len += pool->attr.stride;	/* free list */
 	base = aligned_mmap_anonymous(page_size, range_len,
-			pool->attr.stride, &header, page_size);
+			pool->attr.stride, &header, header_len);
 	if (!base)
 		return NULL;
 	range = (struct rseq_mempool_range *) (base - RANGE_HEADER_OFFSET);
@@ -739,7 +751,7 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	range->header = header;
 	range->base = base;
 	range->mmap_addr = header;
-	range->mmap_len = page_size + range_len;
+	range->mmap_len = header_len + range_len;
 
 	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL) {
 		range->init = base + (pool->attr.stride * pool->attr.max_nr_cpus);
@@ -748,9 +760,8 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 		if (memfd < 0)
 			goto error_alloc;
 		if (mmap(range->init, pool->attr.stride, PROT_READ | PROT_WRITE,
-				MAP_SHARED | MAP_FIXED, memfd, 0) != (void *) range->init) {
+				MAP_SHARED | MAP_FIXED, memfd, 0) != (void *) range->init)
 			goto error_alloc;
-		}
 		assert(pool->attr.type == MEMPOOL_TYPE_PERCPU);
 		/*
 		 * Map per-cpu memory as private COW mappings of init values.
@@ -763,9 +774,8 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 				size_t len = pool->attr.stride;
 
 				if (mmap(p, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED,
-						memfd, 0) != (void *) p) {
+						memfd, 0) != (void *) p)
 					goto error_alloc;
-				}
 			}
 		}
 		/*
@@ -773,8 +783,25 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 		 * with the children processes across fork. Prevent the
 		 * whole mapping from being used across fork.
 		 */
-		if (madvise(range->mmap_addr, range->mmap_len, MADV_DONTFORK))
+		if (madvise(base, range_len, MADV_DONTFORK))
 			goto error_alloc;
+
+		/*
+		 * Write 0x1 in first byte of header first page, which
+		 * will be WIPEONFORK (and thus cleared) in children
+		 * processes. Used to find out if pool destroy is called
+		 * from a child process after fork.
+		 */
+		*((char *) header) = 0x1;
+		if (madvise(header, page_size, MADV_WIPEONFORK))
+			goto error_alloc;
+
+		/*
+		 * The second header page contains the struct
+		 * rseq_mempool_range, which is needed by pool destroy.
+		 * Leave this anonymous page populated (COW) in child
+		 * processes.
+		 */
 		rseq_memfd_close(memfd);
 		memfd = -1;
 	}
@@ -812,22 +839,59 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 
 error_alloc:
 	rseq_memfd_close(memfd);
-	(void) rseq_mempool_range_destroy(pool, range);
+	(void) rseq_mempool_range_destroy(pool, range, true);
 	return NULL;
+}
+
+static
+bool pool_mappings_accessible(struct rseq_mempool *pool)
+{
+	struct rseq_mempool_range *range;
+	size_t page_size;
+	char *addr;
+
+	if (pool->attr.populate_policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
+		return true;
+	range = pool->range_list;
+	if (!range)
+		return true;
+	page_size = rseq_get_page_len();
+	/*
+	 * Header first page is one page before the page containing the
+	 * range structure.
+	 */
+	addr = (char *) ((uintptr_t) range & ~(page_size - 1)) - page_size;
+	/*
+	 * Look for 0x1 first byte marker in header first page.
+	 */
+	if (*addr != 0x1)
+		return false;
+	return true;
 }
 
 int rseq_mempool_destroy(struct rseq_mempool *pool)
 {
 	struct rseq_mempool_range *range, *next_range;
+	bool mapping_accessible;
 	int ret = 0;
 
 	if (!pool)
 		return 0;
-	check_free_list(pool);
-	check_pool_poison(pool);
+
+	/*
+	 * Validate that the pool mappings are accessible before doing
+	 * free list/poison validation and unmapping ranges. This allows
+	 * calling pool destroy in child process after a fork for
+	 * populate-none pools to free pool resources.
+	 */
+	mapping_accessible = pool_mappings_accessible(pool);
+
+	check_free_list(pool, mapping_accessible);
+	check_pool_poison(pool, mapping_accessible);
+
 	/* Iteration safe against removal. */
 	for (range = pool->range_list; range && (next_range = range->next, 1); range = next_range) {
-		if (rseq_mempool_range_destroy(pool, range))
+		if (rseq_mempool_range_destroy(pool, range, mapping_accessible))
 			goto end;
 		/* Update list head to keep list coherent in case of partial failure. */
 		pool->range_list = next_range;
