@@ -748,6 +748,12 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 				MAP_SHARED | MAP_FIXED, memfd, 0) != (void *) range->init) {
 			goto error_alloc;
 		}
+		/*
+		 * Make sure the init values shared mapping is not
+		 * shared with the children processes across fork.
+		 */
+		if (madvise(range->init, pool->attr.stride, MADV_DONTFORK))
+			goto error_alloc;
 		assert(pool->attr.type == MEMPOOL_TYPE_PERCPU);
 		/*
 		 * Map per-cpu memory as private COW mappings of init values.
