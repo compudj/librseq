@@ -79,7 +79,7 @@ static void *test_init_thread(void *arg)
 		ret = rseq_mempool_attr_set_max_nr_ranges(attr, 1);
 		if (ret)
 			abort();
-		ret = rseq_mempool_attr_set_populate_policy(attr, RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE);
+		ret = rseq_mempool_attr_set_populate_policy(attr, RSEQ_MEMPOOL_POPULATE_COW_INIT);
 		if (ret)
 			abort();
 		mempool = rseq_mempool_create("test_data", sizeof(struct test_data), attr);

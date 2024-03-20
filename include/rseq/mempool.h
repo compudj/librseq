@@ -421,7 +421,6 @@ void *rseq_mempool_set_malloc_init(struct rseq_mempool_set *pool_set, void *init
 	return (void *) rseq_mempool_set_percpu_malloc_init(pool_set, init_ptr, len);
 }
 
-
 /*
  * rseq_mempool_init_numa: Move pages to the NUMA node associated to their CPU topology.
  *
@@ -485,7 +484,8 @@ int rseq_mempool_attr_set_init(struct rseq_mempool_attr *attr,
  * There is a marginal runtime overhead on malloc/free operations.
  *
  * The memory overhead is (pool->percpu_len / pool->item_len) / CHAR_BIT
- * bytes, over the lifetime of the pool.
+ * bytes, plus one additional stride range for a separate free list,
+ * over the lifetime of the pool.
  *
  * Returns 0 on success, -1 with errno=EINVAL if arguments are invalid.
  */
@@ -540,24 +540,28 @@ int rseq_mempool_attr_set_poison(struct rseq_mempool_attr *attr,
 
 enum rseq_mempool_populate_policy {
 	/*
-	 * RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE (default):
-	 *   Do not populate pages for any of the CPUs when creating the
-	 *   mempool. Rely on copy-on-write (COW) of per-cpu pages to
-	 *   populate per-cpu pages from the initial values pages on
-	 *   first write. This mempool is only meant for single-process
-	 *   use (private mapping). Note that this type of pool cannot
-	 *   be accessed from children processes across fork. It is
-	 *   however valid to destroy a pool from a child process after
-	 *   a fork to free its remaining resources.
+	 * RSEQ_MEMPOOL_POPULATE_COW_INIT (default):
+	 *   Rely on copy-on-write (COW) of per-cpu pages to populate
+	 *   per-cpu pages from the initial values pages on first write.
+	 *   Note that this type of pool cannot be accessed from
+	 *   children processes across fork. It is however valid to
+	 *   destroy a pool from a child process after a fork to free
+	 *   its remaining resources.
 	 */
-	RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE = 0,
+	RSEQ_MEMPOOL_POPULATE_COW_INIT = 0,
+
 	/*
-	 * RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL:
-	 *   Populate pages for all CPUs from 0 to (max_nr_cpus - 1)
-	 *   when creating the mempool. This mempool is only meant for
-	 *   single-process use (private mapping).
+	 * RSEQ_MEMPOOL_POPULATE_COW_ZERO:
+	 *   Rely on copy-on-write (COW) of per-cpu pages to populate
+	 *   per-cpu pages from the zero page on first write. As long
+	 *   as the user only uses malloc, zmalloc, or malloc_init with
+	 *   zeroed content to allocate items, it does not trigger COW
+	 *   of per-cpu pages, leaving in place the zero page until an
+	 *   active CPU writes to its per-cpu item. The recommended (and
+	 *   default) poison value for this pool policy is 0 to prevent
+	 *   useless COW page allocation.
 	 */
-	RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL = 1,
+	RSEQ_MEMPOOL_POPULATE_COW_ZERO = 1,
 };
 
 /*

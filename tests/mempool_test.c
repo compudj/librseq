@@ -67,7 +67,7 @@ static void test_mempool_fill(enum rseq_mempool_populate_policy policy,
 	ok(ret == 0, "Setting mempool poison");
 	ret = rseq_mempool_attr_set_populate_policy(attr, policy);
 	ok(ret == 0, "Setting mempool populate policy to %s",
-		policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE ? "NONE" : "ALL");
+		policy == RSEQ_MEMPOOL_POPULATE_COW_INIT ? "COW_INIT" : "COW_ZERO");
 	mempool = rseq_mempool_create("test_data",
 			sizeof(struct test_data), attr);
 	ok(mempool, "Create mempool of size %zu", stride);
@@ -156,10 +156,10 @@ static void test_robust_corrupt_after_free(struct rseq_mempool *pool,
 	ptr = (struct test_data __rseq_percpu *) rseq_mempool_percpu_malloc(pool);
 	/*
 	 * Corrupt free list: For robust pools, the free list is located
-	 * after the last cpu memory range for populate all, and after
-	 * the init values memory range for populate none.
+	 * after the last cpu memory range for COW_ZERO, and after the init
+	 * values memory range for COW_INIT.
 	 */
-	if (policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
+	if (policy == RSEQ_MEMPOOL_POPULATE_COW_ZERO)
 		cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, rseq_mempool_get_max_nr_cpus(pool));
 	else
 		cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, rseq_mempool_get_max_nr_cpus(pool) + 1);
@@ -187,10 +187,10 @@ static void test_robust_free_list_corruption(struct rseq_mempool *pool,
 	ptr = (struct test_data __rseq_percpu *) rseq_mempool_percpu_malloc(pool);
 	/*
 	 * Corrupt free list: For robust pools, the free list is located
-	 * after the last cpu memory range for populate all, and after
-	 * the init values memory range for populate none.
+	 * after the last cpu memory range for COW_ZERO, and after the init
+	 * values memory range for COW_INIT.
 	 */
-	if (policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
+	if (policy == RSEQ_MEMPOOL_POPULATE_COW_ZERO)
 		cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, rseq_mempool_get_max_nr_cpus(pool));
 	else
 		cpuptr = (struct test_data *) rseq_percpu_ptr(ptr, rseq_mempool_get_max_nr_cpus(pool) + 1);
@@ -379,8 +379,8 @@ int main(void)
 	for (nr_ranges = 1; nr_ranges < 32; nr_ranges <<= 1) {
 		/* From page size to 64kB */
 		for (len = rseq_get_page_len(); len < 65536; len <<= 1) {
-			test_mempool_fill(RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL, nr_ranges, len);
-			test_mempool_fill(RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE, nr_ranges, len);
+			test_mempool_fill(RSEQ_MEMPOOL_POPULATE_COW_ZERO, nr_ranges, len);
+			test_mempool_fill(RSEQ_MEMPOOL_POPULATE_COW_INIT, nr_ranges, len);
 		}
 	}
 
@@ -389,16 +389,16 @@ int main(void)
 		len = 65536;
 	/* From min(page size, 64kB) to 4MB */
 	for (; len < 4096 * 1024; len <<= 1) {
-		test_mempool_fill(RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL, 1, len);
-		test_mempool_fill(RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE, 1, len);
+		test_mempool_fill(RSEQ_MEMPOOL_POPULATE_COW_ZERO, 1, len);
+		test_mempool_fill(RSEQ_MEMPOOL_POPULATE_COW_INIT, 1, len);
 	}
 
-	run_robust_tests(RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL);
-	run_robust_tests(RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE);
-	ok(run_fork_destroy_pool_test(fork_child, RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL),
-		"fork destroy pool test populate private all");
-	ok(run_fork_destroy_pool_test(fork_child, RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE),
-		"fork destroy pool test populate private none");
+	run_robust_tests(RSEQ_MEMPOOL_POPULATE_COW_ZERO);
+	run_robust_tests(RSEQ_MEMPOOL_POPULATE_COW_INIT);
+	ok(run_fork_destroy_pool_test(fork_child, RSEQ_MEMPOOL_POPULATE_COW_ZERO),
+		"fork destroy pool test populate COW_ZERO");
+	ok(run_fork_destroy_pool_test(fork_child, RSEQ_MEMPOOL_POPULATE_COW_INIT),
+		"fork destroy pool test populate COW_INIT");
 
 	exit(exit_status());
 }

@@ -62,6 +62,10 @@
 # define DEFAULT_COW_INIT_POISON_VALUE	0x55555555UL
 #endif
 
+/*
+ * Define the default COW_ZERO poison value as zero to prevent useless
+ * COW page allocation when writing poison values when freeing items.
+ */
 #define DEFAULT_COW_ZERO_POISON_VALUE	0x0
 
 struct free_list_node;
@@ -102,28 +106,29 @@ struct rseq_mempool_range {
 
 	/*
 	 * Memory layout of a mempool range:
-	 * - Canary header page (for destroy-after-fork detection),
+	 * - Canary header page (for detection of destroy-after-fork of
+	 *   COW_INIT pool),
 	 * - Header page (contains struct rseq_mempool_range at the
 	 *   very end),
 	 * - Base of the per-cpu data, starting with CPU 0.
-	 *   Aliases with free-list for non-robust populate all pool.
+	 *   Aliases with free-list for non-robust COW_ZERO pool.
 	 * - CPU 1,
 	 * ...
 	 * - CPU max_nr_cpus - 1
-	 * - init values (unpopulated for RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL).
-	 *   Aliases with free-list for non-robust populate none pool.
+	 * - init values (only allocated for COW_INIT pool).
+	 *   Aliases with free-list for non-robust COW_INIT pool.
 	 * - free list (for robust pool).
 	 *
 	 * The free list aliases the CPU 0 memory area for non-robust
-	 * populate all pools. It aliases with init values for
-	 * non-robust populate none pools. It is located immediately
-	 * after the init values for robust pools.
+	 * COW_ZERO pools. It aliases with init values for non-robust
+	 * COW_INIT pools. It is located immediately after the init
+	 * values for robust pools.
 	 */
 	void *header;
 	void *base;
 	/*
 	 * The init values contains malloc_init/zmalloc values.
-	 * Pointer is NULL for RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL.
+	 * Pointer is NULL for RSEQ_MEMPOOL_POPULATE_COW_ZERO.
 	 */
 	void *init;
 	size_t next_unused;
@@ -145,11 +150,21 @@ struct rseq_mempool {
 	int item_order;
 
 	/*
-	 * The free list chains freed items on the CPU 0 address range.
-	 * We should rethink this decision if false sharing between
-	 * malloc/free from other CPUs and data accesses from CPU 0
-	 * becomes an issue. This is a NULL-terminated singly-linked
-	 * list.
+	 * COW_INIT non-robust pools:
+	 *                 The free list chains freed items on the init
+	 *                 values address range.
+	 *
+	 * COW_ZERO non-robust pools:
+	 *                 The free list chains freed items on the CPU 0
+	 *                 address range. We should rethink this
+	 *                 decision if false sharing between malloc/free
+	 *                 from other CPUs and data accesses from CPU 0
+	 *                 becomes an issue.
+	 *
+	 * Robust pools:   The free list chains freed items in the
+	 *                 address range dedicated for the free list.
+	 *
+	 * This is a NULL-terminated singly-linked list.
 	 */
 	struct free_list_node *free_list_head;
 
@@ -203,12 +218,12 @@ void __rseq_percpu *__rseq_free_list_to_percpu_ptr(const struct rseq_mempool *po
 		/* Skip cpus. */
 		p -= pool->attr.max_nr_cpus * pool->attr.stride;
 		/* Skip init values */
-		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
+		if (pool->attr.populate_policy == RSEQ_MEMPOOL_POPULATE_COW_INIT)
 			p -= pool->attr.stride;
 
 	} else {
-		/* Populate none free list is in init values */
-		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
+		/* COW_INIT free list is in init values */
+		if (pool->attr.populate_policy == RSEQ_MEMPOOL_POPULATE_COW_INIT)
 			p -= pool->attr.max_nr_cpus * pool->attr.stride;
 	}
 	return p;
@@ -222,12 +237,12 @@ struct free_list_node *__rseq_percpu_to_free_list_ptr(const struct rseq_mempool 
 		/* Skip cpus. */
 		p += pool->attr.max_nr_cpus * pool->attr.stride;
 		/* Skip init values */
-		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
+		if (pool->attr.populate_policy == RSEQ_MEMPOOL_POPULATE_COW_INIT)
 			p += pool->attr.stride;
 
 	} else {
-		/* Populate none free list is in init values */
-		if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
+		/* COW_INIT free list is in init values */
+		if (pool->attr.populate_policy == RSEQ_MEMPOOL_POPULATE_COW_INIT)
 			p += pool->attr.max_nr_cpus * pool->attr.stride;
 	}
 	return (struct free_list_node *) p;
@@ -272,7 +287,7 @@ void rseq_percpu_zero_item(struct rseq_mempool *pool,
 		 * write to the page. This eliminates useless COW over
 		 * the zero page just for overwriting it with zeroes.
 		 *
-		 * This means zmalloc() in populate all policy pool do
+		 * This means zmalloc() in COW_ZERO policy pool do
 		 * not trigger COW for CPUs which are not actively
 		 * writing to the pool. This is however not the case for
 		 * malloc_init() in populate-all pools if it populates
@@ -342,8 +357,8 @@ void rseq_percpu_poison_item(struct rseq_mempool *pool,
 		 * COW of the page.
 		 *
 		 * It is recommended to use zero as poison value for
-		 * populate-all pools to eliminate COW due to writing
-		 * poison to unused CPU memory.
+		 * COW_ZERO pools to eliminate COW due to writing
+		 * poison to CPU memory still backed by the zero page.
 		 */
 		if (rseq_cmp_item(p, pool->item_len, poison, NULL) == 0)
 			continue;
@@ -741,10 +756,10 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 
 	header_len = POOL_HEADER_NR_PAGES * page_size;
 	range_len = pool->attr.stride * pool->attr.max_nr_cpus;
-	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
+	if (pool->attr.populate_policy == RSEQ_MEMPOOL_POPULATE_COW_INIT)
 		range_len += pool->attr.stride;	/* init values */
 	if (pool->attr.robust_set)
-		range_len += pool->attr.stride;	/* free list */
+		range_len += pool->attr.stride;	/* dedicated free list */
 	base = aligned_mmap_anonymous(page_size, range_len,
 			pool->attr.stride, &header, header_len);
 	if (!base)
@@ -756,7 +771,7 @@ struct rseq_mempool_range *rseq_mempool_range_create(struct rseq_mempool *pool)
 	range->mmap_addr = header;
 	range->mmap_len = header_len + range_len;
 
-	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL) {
+	if (pool->attr.populate_policy == RSEQ_MEMPOOL_POPULATE_COW_INIT) {
 		range->init = base + (pool->attr.stride * pool->attr.max_nr_cpus);
 		/* Populate init values pages from memfd */
 		memfd = rseq_memfd_create_init(pool->name, pool->attr.stride);
@@ -853,7 +868,7 @@ bool pool_mappings_accessible(struct rseq_mempool *pool)
 	size_t page_size;
 	char *addr;
 
-	if (pool->attr.populate_policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
+	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_COW_INIT)
 		return true;
 	range = pool->range_list;
 	if (!range)
@@ -884,8 +899,8 @@ int rseq_mempool_destroy(struct rseq_mempool *pool)
 	/*
 	 * Validate that the pool mappings are accessible before doing
 	 * free list/poison validation and unmapping ranges. This allows
-	 * calling pool destroy in child process after a fork for
-	 * populate-none pools to free pool resources.
+	 * calling pool destroy in child process after a fork for COW_INIT
+	 * pools to free pool resources.
 	 */
 	mapping_accessible = pool_mappings_accessible(pool);
 
@@ -928,6 +943,19 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 	if (_attr)
 		memcpy(&attr, _attr, sizeof(attr));
 
+	/*
+	 * Validate that the pool populate policy requested is known.
+	 */
+	switch (attr.populate_policy) {
+	case RSEQ_MEMPOOL_POPULATE_COW_INIT:
+		break;
+	case RSEQ_MEMPOOL_POPULATE_COW_ZERO:
+		break;
+	default:
+		errno = EINVAL;
+		return NULL;
+	}
+
 	switch (attr.type) {
 	case MEMPOOL_TYPE_PERCPU:
 		if (attr.max_nr_cpus < 0) {
@@ -945,8 +973,8 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 		break;
 	case MEMPOOL_TYPE_GLOBAL:
 		/* Override populate policy for global type. */
-		if (attr.populate_policy == RSEQ_MEMPOOL_POPULATE_PRIVATE_NONE)
-			attr.populate_policy = RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL;
+		if (attr.populate_policy == RSEQ_MEMPOOL_POPULATE_COW_INIT)
+			attr.populate_policy = RSEQ_MEMPOOL_POPULATE_COW_ZERO;
 		/* Use a 1-cpu pool for global mempool type. */
 		attr.max_nr_cpus = 1;
 		break;
@@ -955,7 +983,7 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 		attr.stride = RSEQ_MEMPOOL_STRIDE;	/* Use default */
 	if (attr.robust_set && !attr.poison_set) {
 		attr.poison_set = true;
-		if (attr.populate_policy != RSEQ_MEMPOOL_POPULATE_PRIVATE_ALL)
+		if (attr.populate_policy == RSEQ_MEMPOOL_POPULATE_COW_INIT)
 			attr.poison = DEFAULT_COW_INIT_POISON_VALUE;
 		else
 			attr.poison = DEFAULT_COW_ZERO_POISON_VALUE;
@@ -1140,8 +1168,8 @@ void librseq_mempool_percpu_free(void __rseq_percpu *_ptr, size_t stride)
 	item = __rseq_percpu_to_free_list_ptr(pool, _ptr);
 	/*
 	 * Setting the next pointer will overwrite the first uintptr_t
-	 * poison for either CPU 0 (populate all) or init data (populate
-	 * none).
+	 * poison for either CPU 0 (COW_ZERO, non-robust), or init data
+	 * (COW_INIT, non-robust).
 	 */
 	item->next = head;
 	pool->free_list_head = item;
@@ -1276,6 +1304,7 @@ int rseq_mempool_attr_set_init(struct rseq_mempool_attr *attr,
 	attr->init_set = true;
 	attr->init_func = init_func;
 	attr->init_priv = init_priv;
+	attr->populate_policy = RSEQ_MEMPOOL_POPULATE_COW_INIT;
 	return 0;
 }
 
