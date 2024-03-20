@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /* SPDX-FileCopyrightText: 2024 Mathieu Desnoyers <mathieu.desnoyers@efficios.com> */
+/* SPDX-FileCopyrightText: 2024 Olivier Dion <odion@efficios.com> */
 
 #ifndef _RSEQ_MEMPOOL_H
 #define _RSEQ_MEMPOOL_H
