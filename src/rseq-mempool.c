@@ -75,8 +75,8 @@ struct free_list_node {
 };
 
 enum mempool_type {
-	MEMPOOL_TYPE_GLOBAL = 0,	/* Default */
-	MEMPOOL_TYPE_PERCPU = 1,
+	MEMPOOL_TYPE_PERCPU = 0,	/* Default */
+	MEMPOOL_TYPE_GLOBAL = 1,
 };
 
 struct rseq_mempool_attr {

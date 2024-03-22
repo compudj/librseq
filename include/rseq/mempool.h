@@ -80,12 +80,12 @@ struct rseq_mempool;
  * The @attr pointer used to specify the pool attributes. If NULL, use a
  * default attribute values. The @attr can be destroyed immediately
  * after rseq_mempool_create() returns. The caller keeps ownership
- * of @attr. Default attributes select a global mempool type.
+ * of @attr. Default attributes select a per-cpu mempool type.
  *
- * The argument @pool_name can be used to given a name to the pool for
+ * The argument @pool_name can be used to give a name to the pool for
  * debugging purposes. It can be NULL if no name is given.
  *
- * Returns a pointer to the created percpu pool. Return NULL on error,
+ * Returns a pointer to the created memory pool. Return NULL on error,
  * with errno set accordingly:
  *
  *   EINVAL: Invalid argument.
