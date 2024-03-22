@@ -35,6 +35,8 @@ noinst_PROGRAMS = \
 	param_test_compare_twice_cxx \
 	param_test_mm_cid_compare_twice \
 	param_test_mm_cid_compare_twice_cxx \
+	percpu_lru_test.tap \
+	percpu_lru_test_cxx.tap \
 	no_syscall_test_cxx.tap \
 	no_syscall_test.tap \
 	unregistered_test_cxx.tap \
@@ -147,6 +149,12 @@ param_test_mm_cid_compare_twice_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS
 param_test_mm_cid_compare_twice_cxx_SOURCES = param_test_cxx.cpp
 param_test_mm_cid_compare_twice_cxx_CPPFLAGS = $(AM_CPPFLAGS) -DRSEQ_COMPARE_TWICE -DBUILDOPT_RSEQ_PERCPU_MM_CID
 param_test_mm_cid_compare_twice_cxx_LDADD = $(top_builddir)/src/librseq.la $(DL_LIBS)
+
+percpu_lru_test_tap_SOURCES = percpu_lru_test.c list.h prio-heap.c prio-heap.h
+percpu_lru_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la -lurcu-memb $(DL_LIBS)
+
+percpu_lru_test_cxx_tap_SOURCES = percpu_lru_test_cxx.cpp list.h prio-heap.c prio-heap.h
+percpu_lru_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la -lurcu-memb $(DL_LIBS)
 
 # Run shorter tests first
 TESTS = \

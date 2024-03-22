@@ -78,6 +78,8 @@ dkms.conf
 /tests/param_test_mm_cid_benchmark_cxx
 /tests/param_test_mm_cid_compare_twice
 /tests/param_test_mm_cid_compare_twice_cxx
+/tests/percpu_lru_test.tap
+/tests/percpu_lru_test_cxx.tap
 /tests/no_syscall_test_cxx.tap
 /tests/no_syscall_test.tap
 /tests/unregistered_test_cxx.tap
