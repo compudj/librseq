@@ -464,7 +464,7 @@ static void *listener_thread(void *arg __attribute__((unused)))
 			obj->key, obj_data->str);
 
 		urcu_memb_read_unlock();
-		(void) poll(NULL, 0, 10);	/* wait 10ms */
+		(void) poll(NULL, 0, 500);	/* wait 500ms */
 	}
 	urcu_memb_unregister_thread();
 	return NULL;
