@@ -34,20 +34,23 @@
 #include "tap.h"
 #include "prio-heap.h"
 
-#define NR_LISTENERS		4
-#define NR_FREE_ITEMS		5
-#define KEYSPACE		20
-
-#define TTL_RANDOM_RANGE	4	/* TTL random range in seconds. */
-
 #define DATA_STR_LEN		128
 
-static int verbose;
+static int opt_verbose = 0,
+	opt_ttl_range = 4,
+	opt_nr_listeners = 4,
+	opt_nr_free_items = 5,
+	opt_ttl_refresh_max = 10,
+	opt_keyspace = 20,
+	opt_test_duration = 20,		/* s */
+	opt_listener_delay = 0,		/* ms */
+	opt_ttl_manager_delay = 300,	/* ms */
+	opt_lru_manager_delay = 100;	/* ms */
 
 #define dbg_printf(fmt, ...)					\
 do {								\
 	/* do nothing but check printf format */		\
-	if (verbose)						\
+	if (opt_verbose)					\
 		printf("[debug] " fmt, ## __VA_ARGS__);		\
 } while (0)
 
@@ -402,7 +405,7 @@ static struct object_data *populate_data(int key, struct timespec *ts)
 	data = (struct object_data *) calloc(1, sizeof(struct object_data));
 	if (!data)
 		abort();
-	ttl = rand_r(&randseed) % TTL_RANDOM_RANGE;
+	ttl = rand_r(&randseed) % opt_ttl_range;
 	data->ttl_expire_time.tv_sec = ts->tv_sec + ttl;
 	data->ttl_expire_time.tv_nsec = ts->tv_nsec;
 	snprintf(data->str, DATA_STR_LEN, "Data for key: %d, TTL: %d", key, ttl);
@@ -468,13 +471,16 @@ ttl_ok_unlock:
  */
 static void *listener_thread(void *arg __attribute__((unused)))
 {
+	if (opt_listener_delay < 0)
+		return NULL;
+
 	urcu_memb_register_thread();
 	while (!__atomic_load_n(&stop, __ATOMIC_RELAXED)) {
 		struct object_data *obj_data;
 		struct global_object *obj;
 		int key;
 
-		key = rand_r(&randseed) % KEYSPACE;
+		key = rand_r(&randseed) % opt_keyspace;
 		urcu_memb_read_lock();
 		obj = obj_lookup(key);
 		if (!obj || !(obj = object_access(obj)))
@@ -488,7 +494,8 @@ static void *listener_thread(void *arg __attribute__((unused)))
 			obj->key, obj_data->str);
 
 		urcu_memb_read_unlock();
-		(void) poll(NULL, 0, 1);	/* wait 1ms */
+		if (opt_listener_delay)
+			(void) poll(NULL, 0, opt_listener_delay);
 	}
 	urcu_memb_unregister_thread();
 	return NULL;
@@ -554,10 +561,14 @@ static void free_items(int nr_items)
 
 static void *lru_manager_thread(void *arg __attribute__((unused)))
 {
+	if (opt_lru_manager_delay < 0)
+		return NULL;
+
 	urcu_memb_register_thread();
 	while (!__atomic_load_n(&stop, __ATOMIC_RELAXED)) {
-		free_items(NR_FREE_ITEMS);
-		(void) poll(NULL, 0, 100);	/* wait 100ms */
+		free_items(opt_nr_free_items);
+		if (opt_lru_manager_delay)
+			(void) poll(NULL, 0, opt_lru_manager_delay);
 	}
 	urcu_memb_unregister_thread();
 	return NULL;
@@ -615,24 +626,136 @@ static int refresh_expired_ttl(int max_refresh)
 
 static void *ttl_manager_thread(void *arg __attribute__((unused)))
 {
+	if (opt_ttl_manager_delay < 0)
+		return NULL;
+
 	urcu_memb_register_thread();
 	while (!__atomic_load_n(&stop, __ATOMIC_RELAXED)) {
 		int nr_refresh;
 
-		nr_refresh = refresh_expired_ttl(10);
+		nr_refresh = refresh_expired_ttl(opt_ttl_refresh_max);
 		dbg_printf("Refreshed %d records\n", nr_refresh);
-		(void) poll(NULL, 0, 300);	/* wait 300ms */
+		if (opt_ttl_manager_delay)
+			(void) poll(NULL, 0, opt_ttl_manager_delay);
 	}
 	urcu_memb_unregister_thread();
 	return NULL;
 }
 
-int main(void)
+static void show_usage(char **argv)
 {
-	pthread_t listener_id[NR_LISTENERS];
+	printf("Usage : %s <OPTIONS>\n",
+		argv[0]);
+	printf("OPTIONS:\n");
+	printf("	[-t N] Random TTL range ([0..N-1]) (default 4)\n");
+	printf("	[-l N] Number of listener threads (default 4)\n");
+	printf("	[-b N] Batch size to free items from LRU manager (default 5)\n");
+	printf("	[-r N] Maximum TTL refresh batch size (default 10)\n");
+	printf("	[-k N] Random keyspace range ([0..N-1]) (default 20)\n");
+	printf("	[-D N] Test duration in s (default 20)\n");
+	printf("	[-d N] Listener thread delay in ms (default 0) (-1: disabled)\n");
+	printf("	[-e N] TTL manager thread delay in ms (default 300) (-1: disabled)\n");
+	printf("	[-f N] LRU manager thread delay in ms (default 100) (-1: disabled)\n");
+	printf("	[-v] Verbose output.\n");
+	printf("	[-h] Show this help.\n");
+	printf("\n");
+}
+
+static int parse_args(int argc, char **argv)
+{
+	int i;
+
+	for (i = 1; i < argc; i++) {
+		int value = 0;
+		char opt;
+
+		if (argv[i][0] != '-')
+			continue;
+		opt = argv[i][1];
+		switch (opt) {
+		case 't':
+		case 'l':
+		case 'b':
+		case 'r':
+		case 'k':
+		case 'D':
+		case 'd':
+		case 'e':
+		case 'f':
+			if (argc < i + 2) {
+				show_usage(argv);
+				goto error;
+			}
+			value = atol(argv[i + 1]);
+			i++;
+			break;
+		case 'h':
+			show_usage(argv);
+			goto end;
+		case 'v':
+			opt_verbose = 1;
+			break;
+		default:
+			show_usage(argv);
+			goto error;
+		}
+
+		switch (opt) {
+		case 't':
+			opt_ttl_range = value;
+			break;
+		case 'l':
+			opt_nr_listeners = value;
+			break;
+		case 'b':
+			opt_nr_free_items = value;
+			break;
+		case 'r':
+			opt_ttl_refresh_max = value;
+			break;
+		case 'k':
+			opt_keyspace = value;
+			break;
+		case 'D':
+			opt_test_duration = value;
+			break;
+		case 'd':
+			opt_listener_delay = value;
+			break;
+		case 'e':
+			opt_ttl_manager_delay = value;
+			break;
+		case 'f':
+			opt_lru_manager_delay = value;
+			break;
+		default:
+			break;
+		}
+	}
+	return 0;
+end:
+	return 1;
+error:
+	return -1;
+}
+
+int main(int argc, char **argv)
+{
+	pthread_t *listener_id;
 	pthread_t lru_manager_id, ttl_manager_id;
-	int cpu, i, err;
+	int cpu, i, err, ret;
+	unsigned int left;
 	void *tret;
+
+	ret = parse_args(argc, argv);
+	if (ret < 0)
+		abort();
+	if (ret == 1)
+		exit(0);
+
+	listener_id = (pthread_t *) calloc(opt_nr_listeners, sizeof(pthread_t));
+	if (!listener_id)
+		abort();
 
 	plan_no_plan();
 
@@ -664,16 +787,20 @@ int main(void)
 	err = pthread_create(&ttl_manager_id, NULL, ttl_manager_thread, NULL);
 	if (err != 0)
 		exit(1);
-	for (i = 0; i < NR_LISTENERS; i++) {
+	for (i = 0; i < opt_nr_listeners; i++) {
 		err = pthread_create(&listener_id[i], NULL, listener_thread, NULL);
 		if (err != 0)
 			exit(1);
 	}
 
-	sleep(20);
+	left = opt_test_duration;
+	do {
+		left = sleep(left);
+	} while (left);
+
 	__atomic_store_n(&stop, 1, __ATOMIC_RELAXED);
 
-	for (i = 0; i < NR_LISTENERS; i++) {
+	for (i = 0; i < opt_nr_listeners; i++) {
 		err = pthread_join(listener_id[i], &tret);
 		if (err != 0)
 			exit(1);
@@ -713,6 +840,8 @@ int main(void)
 		abort();
 	if (rseq_mempool_destroy(pool_head))
 		abort();
+
+	free(listener_id);
 
 	exit(exit_status());
 }
