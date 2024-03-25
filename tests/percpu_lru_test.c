@@ -335,22 +335,49 @@ static struct global_object *object_create(int key)
 	bool rwlock_held = false;
 	int cpu;
 
+	cpu = rseq_current_cpu();
+	cpu_lru_head = rseq_percpu_ptr(percpu_lru_head, cpu);
+
 retry:
+	/* Opportunistically take reader lock. */
+	if (!rwlock_held && cds_list_empty(&cpu_lru_head->head)) {
+		if (pthread_rwlock_rdlock(&lrulist_head_rwlock))
+			abort();
+		rwlock_held = true;
+	}
+	pthread_mutex_lock(&cpu_lru_head->lock);
 	/* Create object and add to lookup RCU list. */
 	pthread_mutex_lock(&rculist_lock);
 	/* Check for duplicate keys with lock. */
 	obj = obj_lookup(key);
 	if (obj) {
 		pthread_mutex_unlock(&rculist_lock);
-		/*
-		 * object_access() cannot nest within rculist_lock
-		 * due to locking dependency.
-		 */
+		pthread_mutex_unlock(&cpu_lru_head->lock);
+		if (rwlock_held && pthread_rwlock_unlock(&lrulist_head_rwlock))
+			abort();
+		rwlock_held = false;
+
 		obj = object_access(obj);
 		if (!obj)
 			goto retry;	/* Concurrently removed. */
 		return obj;
 	}
+
+	/*
+	 * Validate list emptiness again with LRU lock held.
+	 */
+	if (!rwlock_held && cds_list_empty(&cpu_lru_head->head)) {
+		pthread_mutex_unlock(&rculist_lock);
+		pthread_mutex_unlock(&cpu_lru_head->lock);
+		if (pthread_rwlock_rdlock(&lrulist_head_rwlock))
+			abort();
+		rwlock_held = true;
+		goto retry;
+	}
+
+	/*
+	 * Create new object.
+	 */
 	obj = (struct global_object *) calloc(1, sizeof(*obj));
 	if (!obj)
 		abort();
@@ -360,37 +387,19 @@ retry:
 				rseq_mempool_percpu_zmalloc(pool_node);
 	if (!percpu_lru_node)
 		abort();
-	obj->percpu_lru_node = percpu_lru_node;
-
-	cds_list_add_rcu(&obj->node, &rculist);
-	pthread_mutex_unlock(&rculist_lock);
-
-	/* Newly created, add it to current CPU LRU list */
-	cpu = rseq_current_cpu();
-	cpu_lru_head = rseq_percpu_ptr(percpu_lru_head, cpu);
 	cpu_lru_node = rseq_percpu_ptr(percpu_lru_node, cpu);
+	obj->percpu_lru_node = percpu_lru_node;
+	cds_list_add_rcu(&obj->node, &rculist);
 
-	/* Opportunistically take reader lock. */
-	if (cds_list_empty(&cpu_lru_head->head)) {
-		if (pthread_rwlock_rdlock(&lrulist_head_rwlock))
-			abort();
-		rwlock_held = true;
-	}
-	pthread_mutex_lock(&cpu_lru_head->lock);
 	/*
-	 * Validate again list emptiness check with LRU lock held.
+	 * Newly created, add it to current CPU LRU list.
 	 */
-	if (!rwlock_held && cds_list_empty(&cpu_lru_head->head)) {
-		pthread_mutex_unlock(&cpu_lru_head->lock);
-		if (pthread_rwlock_rdlock(&lrulist_head_rwlock))
-			abort();
-		rwlock_held = true;
-		pthread_mutex_lock(&cpu_lru_head->lock);
-	}
+
 	cds_list_add_tail(&cpu_lru_node->node, &cpu_lru_head->head);
 	if (clock_gettime(CLOCK_MONOTONIC, &cpu_lru_node->last_access_time))
 		abort();
 	cpu_lru_node->obj = obj;
+	pthread_mutex_unlock(&rculist_lock);
 	pthread_mutex_unlock(&cpu_lru_head->lock);
 	if (rwlock_held && pthread_rwlock_unlock(&lrulist_head_rwlock))
 		abort();
