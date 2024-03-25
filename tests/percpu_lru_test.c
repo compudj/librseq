@@ -162,7 +162,7 @@ static void reclaim_data(struct rcu_head *head)
 {
 	struct object_data *data = caa_container_of(head,
 			struct object_data, rcu_head);
-	fprintf(stderr, "free object data=\"%s\"\n", data->str);
+	printf("free object data=\"%s\"\n", data->str);
 	free(data);
 }
 
@@ -170,7 +170,7 @@ static void reclaim_obj(struct rcu_head *head)
 {
 	struct global_object *obj = caa_container_of(head,
 			struct global_object, rcu_head);
-	fprintf(stderr, "free object key=%d, data=\"%s\"\n", obj->key, obj->data->str);
+	printf("free object key=%d, data=\"%s\"\n", obj->key, obj->data->str);
 	free(obj->data);
 	free(obj);
 }
@@ -460,7 +460,7 @@ static void *listener_thread(void *arg __attribute__((unused)))
 		if (!obj_data)
 			abort();
 
-		fprintf(stderr, "Access object key=%d, data=\"%s\"\n",
+		printf("Access object key=%d, data=\"%s\"\n",
 			obj->key, obj_data->str);
 
 		urcu_memb_read_unlock();
@@ -495,7 +495,7 @@ static void free_items(int nr_items)
 		pthread_mutex_unlock(&cpu_lru_head->lock);
 	}
 
-	fprintf(stderr, "Free %d oldest items (globally sorted)\n", nr_items);
+	printf("Free %d oldest items (globally sorted)\n", nr_items);
 	/* Remove oldest elements from "global" LRU in sorted order. */
 	for (;;) {
 		struct percpu_lru_head *cpu_lru_head;
@@ -506,7 +506,7 @@ static void free_items(int nr_items)
 			break;
 		pthread_mutex_lock(&cpu_lru_head->lock);
 		cpu_lru_node = cds_list_first_entry(&cpu_lru_head->head, struct percpu_lru_node, node);
-		fprintf(stderr, "Obj reference put. key=%d, cpu=%d, obj=%p, last_access_time=%10jd.%09ld\n",
+		printf("Obj reference put. key=%d, cpu=%d, obj=%p, last_access_time=%10jd.%09ld\n",
 			cpu_lru_node->obj->key, cpu_lru_head->cpu, cpu_lru_node->obj,
 			cpu_lru_node->last_access_time.tv_sec,
 			cpu_lru_node->last_access_time.tv_nsec);
@@ -591,14 +591,14 @@ int main(void)
 	if (err != 0)
 		exit(1);
 
-	fprintf(stderr, "Free unsorted (finalize)\n");
+	printf("Free unsorted (finalize)\n");
 	/* Free all remaining items (in any global order). */
 	for (cpu = 0; cpu < nr_possible_cpus; cpu++) {
 		struct percpu_lru_head *cpu_lru_head = rseq_percpu_ptr(percpu_lru_head, cpu);
 		struct percpu_lru_node *cpu_lru_node, *tmp;
 
 		cds_list_for_each_entry_safe(cpu_lru_node, tmp, &cpu_lru_head->head, node) {
-			fprintf(stderr, "Obj reference put. key=%d, cpu=%d, obj=%p, last_access_time=%10jd.%09ld\n",
+			printf("Obj reference put. key=%d, cpu=%d, obj=%p, last_access_time=%10jd.%09ld\n",
 				cpu_lru_node->obj->key, cpu, cpu_lru_node->obj,
 				cpu_lru_node->last_access_time.tv_sec,
 				cpu_lru_node->last_access_time.tv_nsec);
