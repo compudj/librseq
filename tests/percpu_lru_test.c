@@ -258,20 +258,23 @@ static struct global_object *object_access(struct global_object *obj)
 {
 	struct percpu_lru_node *cpu_lru_node;
 	struct percpu_lru_head *cpu_lru_head;
-	bool rwlock_held = false;
+	bool rwlock_held = false, list_empty = false, first_entry = false;
 	int cpu;
 
 	cpu = rseq_current_cpu();
 	cpu_lru_head = rseq_percpu_ptr(percpu_lru_head, cpu);
 	cpu_lru_node = rseq_percpu_ptr(obj->percpu_lru_node, cpu);
 	/* Opportunistically take reader lock. */
-	if (cds_list_empty(&cpu_lru_head->head) || cds_list_first_entry(&cpu_lru_head->head,
-			struct percpu_lru_node, node) == cpu_lru_node) {
+	list_empty = cds_list_empty(&cpu_lru_head->head);
+	if (!list_empty)
+		first_entry = (cds_list_first_entry(&cpu_lru_head->head,
+					struct percpu_lru_node, node) == cpu_lru_node);
+retry:
+	if (!rwlock_held && (list_empty || first_entry)) {
 		if (pthread_rwlock_rdlock(&lrulist_head_rwlock))
 			abort();
 		rwlock_held = true;
 	}
-retry:
 	pthread_mutex_lock(&cpu_lru_head->lock);
 	if (cpu_lru_node->last_access_time.tv_sec == 0 &&
 			cpu_lru_node->last_access_time.tv_nsec == 0) {
@@ -281,11 +284,9 @@ retry:
 		 * update access time and add to LRU list.
 		 * Validate again list emptiness check with LRU lock held.
 		 */
-		if (!rwlock_held && cds_list_empty(&cpu_lru_head->head)) {
+		list_empty = cds_list_empty(&cpu_lru_head->head);
+		if (!rwlock_held && list_empty) {
 			pthread_mutex_unlock(&cpu_lru_head->lock);
-			if (pthread_rwlock_rdlock(&lrulist_head_rwlock))
-				abort();
-			rwlock_held = true;
 			goto retry;
 		}
 		if (urcu_ref_get_unless_zero(&obj->refcount)) {
@@ -302,16 +303,14 @@ retry:
 		 * Update access time and move it to the tail of the LRU.
 		 * Validate again if first entry in list with LRU lock held.
 		 */
-		if (!rwlock_held && cds_list_first_entry(&cpu_lru_head->head,
-				struct percpu_lru_node, node) == cpu_lru_node) {
+		first_entry = (cds_list_first_entry(&cpu_lru_head->head,
+					struct percpu_lru_node, node) == cpu_lru_node);
+		if (!rwlock_held && first_entry) {
 			/*
 			 * If node is at list head, grab reader lock to
 			 * provide mutual exclusion with respect to heap state.
 			 */
 			pthread_mutex_unlock(&cpu_lru_head->lock);
-			if (pthread_rwlock_rdlock(&lrulist_head_rwlock))
-				abort();
-			rwlock_held = true;
 			goto retry;
 		}
 		if (clock_gettime(CLOCK_MONOTONIC, &cpu_lru_node->last_access_time))
