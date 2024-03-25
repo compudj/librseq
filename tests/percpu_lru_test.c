@@ -479,7 +479,7 @@ static void *listener_thread(void *arg __attribute__((unused)))
 			obj->key, obj_data->str);
 
 		urcu_memb_read_unlock();
-		(void) poll(NULL, 0, 500);	/* wait 500ms */
+		(void) poll(NULL, 0, 1);	/* wait 1ms */
 	}
 	urcu_memb_unregister_thread();
 	return NULL;
@@ -548,7 +548,7 @@ static void *lru_manager_thread(void *arg __attribute__((unused)))
 	urcu_memb_register_thread();
 	while (!__atomic_load_n(&stop, __ATOMIC_RELAXED)) {
 		free_items(NR_FREE_ITEMS);
-		(void) poll(NULL, 0, 1000);	/* wait 1s */
+		(void) poll(NULL, 0, 100);	/* wait 100ms */
 	}
 	urcu_memb_unregister_thread();
 	return NULL;
@@ -612,7 +612,7 @@ static void *ttl_manager_thread(void *arg __attribute__((unused)))
 
 		nr_refresh = refresh_expired_ttl(10);
 		printf("Refreshed %d records\n", nr_refresh);
-		(void) poll(NULL, 0, 3000);	/* wait 3s */
+		(void) poll(NULL, 0, 300);	/* wait 300ms */
 	}
 	urcu_memb_unregister_thread();
 	return NULL;
