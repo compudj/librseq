@@ -528,7 +528,7 @@ static void free_items(int nr_items)
 	bt_heap_free(&heap);
 }
 
-static void *manager_thread(void *arg __attribute__((unused)))
+static void *lru_manager_thread(void *arg __attribute__((unused)))
 {
 	urcu_memb_register_thread();
 	while (!__atomic_load_n(&stop, __ATOMIC_RELAXED)) {
@@ -539,10 +539,74 @@ static void *manager_thread(void *arg __attribute__((unused)))
 	return NULL;
 }
 
+static int refresh_expired_ttl(int max_refresh)
+{
+	int nr_refresh = 0;
+
+	for (;;) {
+		struct global_object *obj;
+		struct object_data *data = NULL, *new_data;
+		struct timespec ts;
+		bool expired = false;
+
+		pthread_mutex_lock(&ttl_heap_lock);
+
+		obj = (struct global_object *) bt_heap_remove(&ttl_heap);
+		if (!obj)
+			goto unlock;
+
+		if (clock_gettime(CLOCK_MONOTONIC, &ts))
+			abort();
+
+		data = obj->data;
+		if (!data)
+			goto expired;
+
+		if (ts.tv_sec < data->ttl_expire_time.tv_sec)
+			goto ttl_ok;
+		if (ts.tv_sec > data->ttl_expire_time.tv_sec)
+			goto expired;
+		if (ts.tv_nsec < data->ttl_expire_time.tv_nsec)
+			goto ttl_ok;
+	expired:
+		expired = true;
+		new_data = populate_data(obj->key, &ts);
+		rcu_set_pointer(&obj->data, new_data);
+	ttl_ok:
+		if (bt_heap_insert(&ttl_heap, obj))
+			abort();
+	unlock:
+		pthread_mutex_unlock(&ttl_heap_lock);
+		if (expired && data)
+			urcu_memb_call_rcu(&data->rcu_head, reclaim_data);
+		/*
+		 * Stop when all expired data has been refreshed, up to
+		 * a maximum count.
+		 */
+		if (!obj || !expired || nr_refresh++ > max_refresh)
+			break;
+	}
+	return nr_refresh;
+}
+
+static void *ttl_manager_thread(void *arg __attribute__((unused)))
+{
+	urcu_memb_register_thread();
+	while (!__atomic_load_n(&stop, __ATOMIC_RELAXED)) {
+		int nr_refresh;
+
+		nr_refresh = refresh_expired_ttl(10);
+		printf("Refreshed %d records\n", nr_refresh);
+		(void) poll(NULL, 0, 3000);	/* wait 3s */
+	}
+	urcu_memb_unregister_thread();
+	return NULL;
+}
+
 int main(void)
 {
 	pthread_t listener_id[NR_LISTENERS];
-	pthread_t manager_id;
+	pthread_t lru_manager_id, ttl_manager_id;
 	int cpu, i, err;
 	void *tret;
 
@@ -570,7 +634,10 @@ int main(void)
 	if (bt_heap_init(&ttl_heap, 128, compare_ttl_lt))
 		abort();
 
-	err = pthread_create(&manager_id, NULL, manager_thread, NULL);
+	err = pthread_create(&lru_manager_id, NULL, lru_manager_thread, NULL);
+	if (err != 0)
+		exit(1);
+	err = pthread_create(&ttl_manager_id, NULL, ttl_manager_thread, NULL);
 	if (err != 0)
 		exit(1);
 	for (i = 0; i < NR_LISTENERS; i++) {
@@ -587,7 +654,10 @@ int main(void)
 		if (err != 0)
 			exit(1);
 	}
-	err = pthread_join(manager_id, &tret);
+	err = pthread_join(lru_manager_id, &tret);
+	if (err != 0)
+		exit(1);
+	err = pthread_join(ttl_manager_id, &tret);
 	if (err != 0)
 		exit(1);
 
