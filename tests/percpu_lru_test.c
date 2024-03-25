@@ -42,6 +42,15 @@
 
 #define DATA_STR_LEN		128
 
+static int verbose;
+
+#define dbg_printf(fmt, ...)					\
+do {								\
+	/* do nothing but check printf format */		\
+	if (verbose)						\
+		printf("[debug] " fmt, ## __VA_ARGS__);		\
+} while (0)
+
 struct percpu_lru_node {
 	struct cds_list_head node;		/* Per-cpu LRU list node. */
 	struct timespec last_access_time;	/* Last access time of node. { 0, 0 } initially. */
@@ -162,7 +171,7 @@ static void reclaim_data(struct rcu_head *head)
 {
 	struct object_data *data = caa_container_of(head,
 			struct object_data, rcu_head);
-	printf("free object data=\"%s\"\n", data->str);
+	dbg_printf("free object data=\"%s\"\n", data->str);
 	free(data);
 }
 
@@ -170,7 +179,7 @@ static void reclaim_obj(struct rcu_head *head)
 {
 	struct global_object *obj = caa_container_of(head,
 			struct global_object, rcu_head);
-	printf("free object key=%d, data=\"%s\"\n", obj->key, obj->data->str);
+	dbg_printf("free object key=%d, data=\"%s\"\n", obj->key, obj->data->str);
 	free(obj->data);
 	free(obj);
 }
@@ -475,7 +484,7 @@ static void *listener_thread(void *arg __attribute__((unused)))
 		if (!obj_data)
 			abort();
 
-		printf("Access object key=%d, data=\"%s\"\n",
+		dbg_printf("Access object key=%d, data=\"%s\"\n",
 			obj->key, obj_data->str);
 
 		urcu_memb_read_unlock();
@@ -510,7 +519,7 @@ static void free_items(int nr_items)
 		pthread_mutex_unlock(&cpu_lru_head->lock);
 	}
 
-	printf("Free %d oldest items (globally sorted)\n", nr_items);
+	dbg_printf("Free %d oldest items (globally sorted)\n", nr_items);
 	/* Remove oldest elements from "global" LRU in sorted order. */
 	for (;;) {
 		struct percpu_lru_head *cpu_lru_head;
@@ -521,7 +530,7 @@ static void free_items(int nr_items)
 			break;
 		pthread_mutex_lock(&cpu_lru_head->lock);
 		cpu_lru_node = cds_list_first_entry(&cpu_lru_head->head, struct percpu_lru_node, node);
-		printf("Obj reference put. key=%d, cpu=%d, obj=%p, last_access_time=%10jd.%09ld\n",
+		dbg_printf("Obj reference put. key=%d, cpu=%d, obj=%p, last_access_time=%10jd.%09ld\n",
 			cpu_lru_node->obj->key, cpu_lru_head->cpu, cpu_lru_node->obj,
 			cpu_lru_node->last_access_time.tv_sec,
 			cpu_lru_node->last_access_time.tv_nsec);
@@ -611,7 +620,7 @@ static void *ttl_manager_thread(void *arg __attribute__((unused)))
 		int nr_refresh;
 
 		nr_refresh = refresh_expired_ttl(10);
-		printf("Refreshed %d records\n", nr_refresh);
+		dbg_printf("Refreshed %d records\n", nr_refresh);
 		(void) poll(NULL, 0, 300);	/* wait 300ms */
 	}
 	urcu_memb_unregister_thread();
@@ -676,14 +685,14 @@ int main(void)
 	if (err != 0)
 		exit(1);
 
-	printf("Free unsorted (finalize)\n");
+	dbg_printf("Free unsorted (finalize)\n");
 	/* Free all remaining items (in any global order). */
 	for (cpu = 0; cpu < nr_possible_cpus; cpu++) {
 		struct percpu_lru_head *cpu_lru_head = rseq_percpu_ptr(percpu_lru_head, cpu);
 		struct percpu_lru_node *cpu_lru_node, *tmp;
 
 		cds_list_for_each_entry_safe(cpu_lru_node, tmp, &cpu_lru_head->head, node) {
-			printf("Obj reference put. key=%d, cpu=%d, obj=%p, last_access_time=%10jd.%09ld\n",
+			dbg_printf("Obj reference put. key=%d, cpu=%d, obj=%p, last_access_time=%10jd.%09ld\n",
 				cpu_lru_node->obj->key, cpu, cpu_lru_node->obj,
 				cpu_lru_node->last_access_time.tv_sec,
 				cpu_lru_node->last_access_time.tv_nsec);
