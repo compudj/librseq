@@ -34,9 +34,13 @@
 #include "tap.h"
 #include "prio-heap.h"
 
-#define NR_LISTENERS	4
-#define NR_FREE_ITEMS	5
-#define KEYSPACE	20
+#define NR_LISTENERS		4
+#define NR_FREE_ITEMS		5
+#define KEYSPACE		20
+
+#define TTL_RANDOM_RANGE	4	/* TTL random range in seconds. */
+
+#define DATA_STR_LEN		128
 
 struct percpu_lru_node {
 	struct cds_list_head node;		/* Per-cpu LRU list node. */
@@ -48,7 +52,19 @@ struct percpu_lru_node {
  * Locking dependency:
  * - The per-cpu LRU locks nest inside the lrulist_head_rwlock.
  * - The RCU list lock nest inside the per-cpu LRU locks.
+ * - The ttl_heap_lock nest inside the RCU list lock.
  */
+
+/*
+ * object_data is immutable after creation. TTL expiry is handled by
+ * replacing the object data with a new version. Replacing object data
+ * is protected by the ttl_heap_lock.
+ */
+struct object_data {
+	struct timespec ttl_expire_time;
+	struct rcu_head rcu_head;	/* for call_rcu */
+	char str[DATA_STR_LEN];
+};
 
 /*
  * A global object can be linked into at most nr_possible_cpus
@@ -65,12 +81,12 @@ struct percpu_lru_node {
 struct global_object {
 	struct urcu_ref refcount;
 	struct percpu_lru_node __rseq_percpu *percpu_lru_node;
-	struct rcu_head rcu_head;
+	struct rcu_head rcu_head;	/* for call_rcu */
 	struct cds_list_head node;
 
 	/* Lookup key. */
 	int key;
-	//TODO: add object data.
+	struct object_data *data;	/* RCU pointer. */
 };
 
 /*
@@ -118,6 +134,15 @@ static CDS_LIST_HEAD(rculist);
  */
 static pthread_mutex_t rculist_lock = PTHREAD_MUTEX_INITIALIZER;
 
+/*
+ * TTL heap keeping track of object data TTL expire in sorted order.
+ */
+static struct ptr_heap ttl_heap;
+/*
+ * Protect TTL heap updates.
+ */
+static pthread_mutex_t ttl_heap_lock = PTHREAD_MUTEX_INITIALIZER;
+
 static unsigned int randseed = 42;
 
 /* Call with RCU read-side lock held. */
@@ -133,11 +158,20 @@ static struct global_object *obj_lookup(int key)
 	return NULL;
 }
 
+static void reclaim_data(struct rcu_head *head)
+{
+	struct object_data *data = caa_container_of(head,
+			struct object_data, rcu_head);
+	fprintf(stderr, "free object data=\"%s\"\n", data->str);
+	free(data);
+}
+
 static void reclaim_obj(struct rcu_head *head)
 {
 	struct global_object *obj = caa_container_of(head,
 			struct global_object, rcu_head);
-	fprintf(stderr, "free object key=%d\n", obj->key);
+	fprintf(stderr, "free object key=%d, data=\"%s\"\n", obj->key, obj->data->str);
+	free(obj->data);
 	free(obj);
 }
 
@@ -146,7 +180,11 @@ static void release_obj(struct urcu_ref *ref)
 	struct global_object *obj = caa_container_of(ref, struct global_object, refcount);
 
 	pthread_mutex_lock(&rculist_lock);
+	pthread_mutex_lock(&ttl_heap_lock);
 	cds_list_del_rcu(&obj->node);
+	if (bt_heap_cherrypick(&ttl_heap, obj) != obj)
+		abort();
+	pthread_mutex_unlock(&ttl_heap_lock);
 	pthread_mutex_unlock(&rculist_lock);
 
 	urcu_memb_call_rcu(&obj->rcu_head, reclaim_obj);
@@ -167,6 +205,25 @@ static int compare_lru_lt(void *a, void *b)
 	if (node_a->last_access_time.tv_sec > node_b->last_access_time.tv_sec)
 		return 0;
 	if (node_a->last_access_time.tv_nsec < node_b->last_access_time.tv_nsec)
+		return 1;
+	return 0;
+}
+
+/*
+ * Reverse gt logic to return min rather than max.
+ * Called with ttl_heap_lock held.
+ */
+static int compare_ttl_lt(void *a, void *b)
+{
+	struct global_object *obj_a, *obj_b;
+
+	obj_a = (struct global_object *) a;
+	obj_b = (struct global_object *) b;
+	if (obj_a->data->ttl_expire_time.tv_sec < obj_b->data->ttl_expire_time.tv_sec)
+		return 1;
+	if (obj_a->data->ttl_expire_time.tv_sec > obj_b->data->ttl_expire_time.tv_sec)
+		return 0;
+	if (obj_a->data->ttl_expire_time.tv_nsec < obj_b->data->ttl_expire_time.tv_nsec)
 		return 1;
 	return 0;
 }
@@ -327,6 +384,58 @@ retry:
 	return obj;
 }
 
+static struct object_data *populate_data(int key, struct timespec *ts)
+{
+	struct object_data *data;
+	int ttl;
+
+	data = (struct object_data *) calloc(1, sizeof(struct object_data));
+	if (!data)
+		abort();
+	ttl = rand_r(&randseed) % TTL_RANDOM_RANGE;
+	data->ttl_expire_time.tv_sec = ts->tv_sec + ttl;
+	data->ttl_expire_time.tv_nsec = ts->tv_nsec;
+	snprintf(data->str, DATA_STR_LEN, "Data for key: %d, TTL: %d", key, ttl);
+	return data;
+}
+
+/* Called with RCU read-side lock held. */
+static struct object_data *object_get_data(struct global_object *obj, int key)
+{
+	struct object_data *data, *new_data;
+	struct timespec ts;
+
+	if (clock_gettime(CLOCK_MONOTONIC, &ts))
+		abort();
+
+	data = rcu_dereference(obj->data);
+	if (!data)
+		goto expired;
+
+	if (ts.tv_sec < data->ttl_expire_time.tv_sec)
+		goto ttl_ok;
+	if (ts.tv_sec > data->ttl_expire_time.tv_sec)
+		goto expired;
+	if (ts.tv_nsec < data->ttl_expire_time.tv_nsec)
+		goto ttl_ok;
+expired:
+	pthread_mutex_lock(&ttl_heap_lock);
+	new_data = populate_data(key, &ts);
+	rcu_set_pointer(&obj->data, new_data);
+	if (data) {
+		if (bt_heap_cherrypick(&ttl_heap, obj) != obj)
+			abort();
+	}
+	if (bt_heap_insert(&ttl_heap, obj))
+		abort();
+	pthread_mutex_unlock(&ttl_heap_lock);
+	if (data)
+		urcu_memb_call_rcu(&data->rcu_head, reclaim_data);
+	data = new_data;
+ttl_ok:
+	return data;
+}
+
 /*
  * Lookup by using a random key. If found, either move its LRU node to
  * the tail of the current per-CPU LRU list or add it to the per-CPU LRU
@@ -337,6 +446,7 @@ static void *listener_thread(void *arg __attribute__((unused)))
 {
 	urcu_memb_register_thread();
 	while (!__atomic_load_n(&stop, __ATOMIC_RELAXED)) {
+		struct object_data *obj_data;
 		struct global_object *obj;
 		int key;
 
@@ -346,7 +456,12 @@ static void *listener_thread(void *arg __attribute__((unused)))
 		if (!obj || !(obj = object_access(obj)))
 			obj = object_create(key);
 
-		/* TODO: Read from object data..... */
+		obj_data = object_get_data(obj, key);
+		if (!obj_data)
+			abort();
+
+		fprintf(stderr, "Access object key=%d, data=\"%s\"\n",
+			obj->key, obj_data->str);
 
 		urcu_memb_read_unlock();
 		(void) poll(NULL, 0, 10);	/* wait 10ms */
@@ -452,6 +567,9 @@ int main(void)
 		cpu_lru_head->cpu = cpu;
 	}
 
+	if (bt_heap_init(&ttl_heap, 128, compare_ttl_lt))
+		abort();
+
 	err = pthread_create(&manager_id, NULL, manager_thread, NULL);
 	if (err != 0)
 		exit(1);
@@ -492,6 +610,8 @@ int main(void)
 	}
 
 	ok(1, "result");
+
+	bt_heap_free(&ttl_heap);
 
 	rseq_mempool_percpu_free(percpu_lru_head);
 
