@@ -259,6 +259,7 @@ static struct global_object *object_access(struct global_object *obj)
 			abort();
 		rwlock_held = true;
 	}
+retry:
 	pthread_mutex_lock(&cpu_lru_head->lock);
 	if (cpu_lru_node->last_access_time.tv_sec == 0 &&
 			cpu_lru_node->last_access_time.tv_nsec == 0) {
@@ -272,8 +273,8 @@ static struct global_object *object_access(struct global_object *obj)
 			pthread_mutex_unlock(&cpu_lru_head->lock);
 			if (pthread_rwlock_rdlock(&lrulist_head_rwlock))
 				abort();
-			pthread_mutex_lock(&cpu_lru_head->lock);
 			rwlock_held = true;
+			goto retry;
 		}
 		if (urcu_ref_get_unless_zero(&obj->refcount)) {
 			if (clock_gettime(CLOCK_MONOTONIC, &cpu_lru_node->last_access_time))
@@ -298,8 +299,8 @@ static struct global_object *object_access(struct global_object *obj)
 			pthread_mutex_unlock(&cpu_lru_head->lock);
 			if (pthread_rwlock_rdlock(&lrulist_head_rwlock))
 				abort();
-			pthread_mutex_lock(&cpu_lru_head->lock);
 			rwlock_held = true;
+			goto retry;
 		}
 		if (clock_gettime(CLOCK_MONOTONIC, &cpu_lru_node->last_access_time))
 			abort();
@@ -420,6 +421,16 @@ static struct object_data *object_get_data(struct global_object *obj, int key)
 		goto ttl_ok;
 expired:
 	pthread_mutex_lock(&ttl_heap_lock);
+	data = obj->data;
+	if (data) {
+		if (ts.tv_sec < data->ttl_expire_time.tv_sec)
+			goto ttl_ok_unlock;
+		if (ts.tv_sec > data->ttl_expire_time.tv_sec)
+			goto expired_locked;
+		if (ts.tv_nsec < data->ttl_expire_time.tv_nsec)
+			goto ttl_ok_unlock;
+	}
+expired_locked:
 	new_data = populate_data(key, &ts);
 	rcu_set_pointer(&obj->data, new_data);
 	if (data) {
@@ -433,6 +444,10 @@ expired:
 		urcu_memb_call_rcu(&data->rcu_head, reclaim_data);
 	data = new_data;
 ttl_ok:
+	return data;
+
+ttl_ok_unlock:
+	pthread_mutex_unlock(&ttl_heap_lock);
 	return data;
 }
 
