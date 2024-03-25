@@ -332,22 +332,34 @@ static struct global_object *object_create(int key)
 	struct percpu_lru_node *cpu_lru_node;
 	struct percpu_lru_head *cpu_lru_head;
 	struct global_object *obj;
-	bool rwlock_held = false;
+	bool rwlock_held = false, list_empty = false;
 	int cpu;
 
 	cpu = rseq_current_cpu();
 	cpu_lru_head = rseq_percpu_ptr(percpu_lru_head, cpu);
 
-retry:
 	/* Opportunistically take reader lock. */
-	if (!rwlock_held && cds_list_empty(&cpu_lru_head->head)) {
+retry:
+	list_empty = cds_list_empty(&cpu_lru_head->head);
+retry_list_empty:
+	if (!rwlock_held && list_empty) {
 		if (pthread_rwlock_rdlock(&lrulist_head_rwlock))
 			abort();
 		rwlock_held = true;
 	}
 	pthread_mutex_lock(&cpu_lru_head->lock);
+	/* Validate list emptiness again with LRU lock held. */
+	if (!rwlock_held) {
+		list_empty = cds_list_empty(&cpu_lru_head->head);
+		if (list_empty) {
+			pthread_mutex_unlock(&cpu_lru_head->lock);
+			goto retry_list_empty;
+		}
+	}
+
 	/* Create object and add to lookup RCU list. */
 	pthread_mutex_lock(&rculist_lock);
+
 	/* Check for duplicate keys with lock. */
 	obj = obj_lookup(key);
 	if (obj) {
@@ -361,18 +373,6 @@ retry:
 		if (!obj)
 			goto retry;	/* Concurrently removed. */
 		return obj;
-	}
-
-	/*
-	 * Validate list emptiness again with LRU lock held.
-	 */
-	if (!rwlock_held && cds_list_empty(&cpu_lru_head->head)) {
-		pthread_mutex_unlock(&rculist_lock);
-		pthread_mutex_unlock(&cpu_lru_head->lock);
-		if (pthread_rwlock_rdlock(&lrulist_head_rwlock))
-			abort();
-		rwlock_held = true;
-		goto retry;
 	}
 
 	/*
@@ -394,7 +394,6 @@ retry:
 	/*
 	 * Newly created, add it to current CPU LRU list.
 	 */
-
 	cds_list_add_tail(&cpu_lru_node->node, &cpu_lru_head->head);
 	if (clock_gettime(CLOCK_MONOTONIC, &cpu_lru_node->last_access_time))
 		abort();
