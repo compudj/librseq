@@ -452,10 +452,8 @@ expired:
 expired_locked:
 	new_data = populate_data(key, &ts);
 	rcu_set_pointer(&obj->data, new_data);
-	if (data) {
-		if (bt_heap_cherrypick(&ttl_heap, obj) != obj)
-			abort();
-	}
+	if (data && bt_heap_cherrypick(&ttl_heap, obj) != obj)
+		abort();
 	if (bt_heap_insert(&ttl_heap, obj))
 		abort();
 	pthread_mutex_unlock(&ttl_heap_lock);
