@@ -623,7 +623,7 @@ static int refresh_expired_ttl(int max_refresh)
 		 * Stop when all expired data has been refreshed, up to
 		 * a maximum count.
 		 */
-		if (!obj || !expired || nr_refresh++ > max_refresh)
+		if (!obj || !expired || ++nr_refresh >= max_refresh)
 			break;
 	}
 	return nr_refresh;
