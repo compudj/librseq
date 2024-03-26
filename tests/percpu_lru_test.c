@@ -49,7 +49,6 @@ static int opt_verbose = 0,
 
 #define dbg_printf(fmt, ...)					\
 do {								\
-	/* do nothing but check printf format */		\
 	if (opt_verbose)					\
 		printf("[debug] " fmt, ## __VA_ARGS__);		\
 } while (0)
@@ -150,6 +149,7 @@ static pthread_mutex_t rculist_lock = PTHREAD_MUTEX_INITIALIZER;
  * TTL heap keeping track of object data TTL expire in sorted order.
  */
 static struct ptr_heap ttl_heap;
+
 /*
  * Protect TTL heap updates.
  */
@@ -264,6 +264,7 @@ static struct global_object *object_access(struct global_object *obj)
 	cpu = rseq_current_cpu();
 	cpu_lru_head = rseq_percpu_ptr(percpu_lru_head, cpu);
 	cpu_lru_node = rseq_percpu_ptr(obj->percpu_lru_node, cpu);
+
 	/* Opportunistically take reader lock. */
 	rwlock_needed = cds_list_empty(&cpu_lru_head->head) ||
 			(cds_list_first_entry(&cpu_lru_head->head,
@@ -346,6 +347,7 @@ retry_rwlock_needed:
 		rwlock_held = true;
 	}
 	pthread_mutex_lock(&cpu_lru_head->lock);
+
 	/* Validate list emptiness again with LRU lock held. */
 	if (!rwlock_held) {
 		rwlock_needed = cds_list_empty(&cpu_lru_head->head);
@@ -530,8 +532,8 @@ static void free_items(int nr_items)
 		pthread_mutex_unlock(&cpu_lru_head->lock);
 	}
 
-	dbg_printf("Free %d oldest items (globally sorted)\n", nr_items);
 	/* Remove oldest elements from "global" LRU in sorted order. */
+	dbg_printf("Free %d oldest items (globally sorted)\n", nr_items);
 	for (;;) {
 		struct percpu_lru_head *cpu_lru_head;
 		struct percpu_lru_node *cpu_lru_node;
