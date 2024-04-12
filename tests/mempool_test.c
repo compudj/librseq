@@ -21,7 +21,7 @@
 #include <rseq/mempool.h>
 #include "../src/rseq-utils.h"
 
-#include "list.h"
+#include "../src/list.h"
 #include "tap.h"
 
 #if RSEQ_BITS_PER_LONG == 64

@@ -22,6 +22,7 @@
 #endif
 
 #include "rseq-utils.h"
+#include "list.h"
 #include <rseq/rseq.h>
 
 /*
@@ -101,7 +102,7 @@ struct rseq_mempool_attr {
 struct rseq_mempool_range;
 
 struct rseq_mempool_range {
-	struct rseq_mempool_range *next;	/* Linked list of ranges. */
+	struct list_head node;			/* Linked list of ranges. */
 	struct rseq_mempool *pool;		/* Backward reference to container pool. */
 
 	/*
@@ -144,8 +145,7 @@ struct rseq_mempool_range {
 };
 
 struct rseq_mempool {
-	/* Head of ranges linked-list. */
-	struct rseq_mempool_range *range_list;
+	struct list_head range_list;	/* Head of ranges linked-list. */
 	unsigned long nr_ranges;
 
 	size_t item_len;
@@ -493,7 +493,7 @@ bool percpu_addr_in_pool(const struct rseq_mempool *pool, void __rseq_percpu *_a
 	struct rseq_mempool_range *range;
 	void *addr = (void *) _addr;
 
-	for (range = pool->range_list; range; range = range->next) {
+	list_for_each_entry(range, &pool->range_list, node) {
 		if (addr >= range->base && addr < range->base + range->next_unused)
 			return true;
 	}
@@ -511,7 +511,7 @@ void check_free_list(const struct rseq_mempool *pool, bool mapping_accessible)
 	if (!pool->attr.robust_set || !mapping_accessible)
 		return;
 
-	for (range = pool->range_list; range; range = range->next) {
+	list_for_each_entry(range, &pool->range_list, node) {
 		total_item += pool->attr.stride >> pool->item_order;
 		total_never_allocated += (pool->attr.stride - range->next_unused) >> pool->item_order;
 	}
@@ -570,7 +570,7 @@ void check_pool_poison(const struct rseq_mempool *pool, bool mapping_accessible)
 
 	if (!pool->attr.robust_set || !mapping_accessible)
 		return;
-	for (range = pool->range_list; range; range = range->next)
+	list_for_each_entry(range, &pool->range_list, node)
 		check_range_poison(pool, range);
 }
 
@@ -872,9 +872,9 @@ bool pool_mappings_accessible(struct rseq_mempool *pool)
 
 	if (pool->attr.populate_policy != RSEQ_MEMPOOL_POPULATE_COW_INIT)
 		return true;
-	range = pool->range_list;
-	if (!range)
+	if (list_empty(&pool->range_list))
 		return true;
+	range = list_first_entry(&pool->range_list, struct rseq_mempool_range, node);
 	page_size = rseq_get_page_len();
 	/*
 	 * Header first page is one page before the page containing the
@@ -891,7 +891,7 @@ bool pool_mappings_accessible(struct rseq_mempool *pool)
 
 int rseq_mempool_destroy(struct rseq_mempool *pool)
 {
-	struct rseq_mempool_range *range, *next_range;
+	struct rseq_mempool_range *range, *tmp_range;
 	bool mapping_accessible;
 	int ret = 0;
 
@@ -910,11 +910,13 @@ int rseq_mempool_destroy(struct rseq_mempool *pool)
 	check_pool_poison(pool, mapping_accessible);
 
 	/* Iteration safe against removal. */
-	for (range = pool->range_list; range && (next_range = range->next, 1); range = next_range) {
-		if (rseq_mempool_range_destroy(pool, range, mapping_accessible))
+	list_for_each_entry_safe(range, tmp_range, &pool->range_list, node) {
+		list_del(&range->node);
+		if (rseq_mempool_range_destroy(pool, range, mapping_accessible)) {
+			/* Keep list coherent in case of partial failure. */
+			list_add(&range->node, &pool->range_list);
 			goto end;
-		/* Update list head to keep list coherent in case of partial failure. */
-		pool->range_list = next_range;
+		}
 	}
 	pthread_mutex_destroy(&pool->lock);
 	free(pool->name);
@@ -926,8 +928,9 @@ end:
 struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 		size_t item_len, const struct rseq_mempool_attr *_attr)
 {
-	struct rseq_mempool *pool;
 	struct rseq_mempool_attr attr = {};
+	struct rseq_mempool_range *range;
+	struct rseq_mempool *pool;
 	int order;
 
 	/* Make sure each item is large enough to contain free list pointers. */
@@ -1004,10 +1007,12 @@ struct rseq_mempool *rseq_mempool_create(const char *pool_name,
 	pthread_mutex_init(&pool->lock, NULL);
 	pool->item_len = item_len;
 	pool->item_order = order;
+	INIT_LIST_HEAD(&pool->range_list);
 
-	pool->range_list = rseq_mempool_range_create(pool);
-	if (!pool->range_list)
+	range = rseq_mempool_range_create(pool);
+	if (!range)
 		goto error_alloc;
+	list_add(&range->node, &pool->range_list);
 
 	if (pool_name) {
 		pool->name = strdup(pool_name);
@@ -1080,7 +1085,7 @@ void __rseq_percpu *__rseq_percpu_malloc(struct rseq_mempool *pool,
 	 * room left, create a new range and prepend it to the list
 	 * head.
 	 */
-	range = pool->range_list;
+	range = list_first_entry(&pool->range_list, struct rseq_mempool_range, node);
 	if (range->next_unused + pool->item_len > pool->attr.stride) {
 		range = rseq_mempool_range_create(pool);
 		if (!range) {
@@ -1089,8 +1094,7 @@ void __rseq_percpu *__rseq_percpu_malloc(struct rseq_mempool *pool,
 			goto end;
 		}
 		/* Add range to head of list. */
-		range->next = pool->range_list;
-		pool->range_list = range;
+		list_add(&range->node, &pool->range_list);
 	}
 	/* First range in list has room left. */
 	item_offset = range->next_unused;

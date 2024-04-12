@@ -90,10 +90,10 @@ basic_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/util
 basic_test_cxx_tap_SOURCES = basic_test_cxx.cpp
 basic_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
-mempool_test_tap_SOURCES = mempool_test.c list.h
+mempool_test_tap_SOURCES = mempool_test.c
 mempool_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
-mempool_test_cxx_tap_SOURCES = mempool_test_cxx.cpp list.h
+mempool_test_cxx_tap_SOURCES = mempool_test_cxx.cpp
 mempool_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
 mempool_cow_race_test_tap_SOURCES = mempool_cow_race_test.c
