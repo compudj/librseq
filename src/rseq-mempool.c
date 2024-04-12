@@ -1081,21 +1081,27 @@ void __rseq_percpu *__rseq_percpu_malloc(struct rseq_mempool *pool,
 		goto end;
 	}
 	/*
-	 * If the most recent range (first in list) does not have any
-	 * room left, create a new range and prepend it to the list
-	 * head.
+	 * If there are no ranges, or if the most recent range (first in
+	 * list) does not have any room left, create a new range and
+	 * prepend it to the list head.
 	 */
+	if (list_empty(&pool->range_list))
+		goto create_range;
 	range = list_first_entry(&pool->range_list, struct rseq_mempool_range, node);
-	if (range->next_unused + pool->item_len > pool->attr.stride) {
-		range = rseq_mempool_range_create(pool);
-		if (!range) {
-			errno = ENOMEM;
-			addr = NULL;
-			goto end;
-		}
-		/* Add range to head of list. */
-		list_add(&range->node, &pool->range_list);
+	if (range->next_unused + pool->item_len > pool->attr.stride)
+		goto create_range;
+	else
+		goto room_left;
+create_range:
+	range = rseq_mempool_range_create(pool);
+	if (!range) {
+		errno = ENOMEM;
+		addr = NULL;
+		goto end;
 	}
+	/* Add range to head of list. */
+	list_add(&range->node, &pool->range_list);
+room_left:
 	/* First range in list has room left. */
 	item_offset = range->next_unused;
 	addr = (void __rseq_percpu *) (range->base + item_offset);
