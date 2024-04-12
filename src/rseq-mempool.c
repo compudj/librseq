@@ -138,8 +138,6 @@ struct rseq_mempool_range {
 	void *mmap_addr;
 	size_t mmap_len;
 
-	size_t allocated_items;
-
 	/* Track alloc/free. */
 	unsigned long *alloc_bitmap;
 };
@@ -1107,10 +1105,8 @@ room_left:
 	addr = (void __rseq_percpu *) (range->base + item_offset);
 	range->next_unused += pool->item_len;
 end:
-	if (addr) {
-		range->allocated_items++;
+	if (addr)
 		set_alloc_slot(pool, range, item_offset);
-	}
 	pthread_mutex_unlock(&pool->lock);
 	if (addr) {
 		if (zeroed)
@@ -1175,13 +1171,6 @@ void librseq_mempool_percpu_free(void __rseq_percpu *_ptr, size_t stride)
 
 	pthread_mutex_lock(&pool->lock);
 	clear_alloc_slot(pool, range, item_offset);
-	if (!range->allocated_items) {
-		fprintf(stderr, "%s: Trying to free an item from an empty pool range within pool \"%s\" (%p), item offset: %zu, caller: %p.\n",
-			__func__, get_pool_name(pool), pool, item_offset,
-			(void *) __builtin_return_address(0));
-		abort();
-	}
-	range->allocated_items--;
 	/* Add ptr to head of free list */
 	head = pool->free_list_head;
 	if (pool->attr.poison_set)
