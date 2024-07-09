@@ -10,7 +10,7 @@
 
 #include "tap.h"
 
-#define NR_TESTS 5
+#define NR_TESTS 4
 
 /*
  * Check the state of the public symbols when the rseq syscall is available but
@@ -31,8 +31,7 @@ int main(void)
 	/* The syscall is available but the current thread is not registered. */
 
 	ok(rseq_flags == 0, "rseq_flags prior to registration is 0 (%d)", rseq_flags);
-	ok(rseq_size >= 32, "rseq_size prior to registration is 32 or greater (%d)", rseq_size);
-	ok(rseq_feature_size >= 20, "rseq_feature_size prior to registration is 20 or greater (%d)", rseq_feature_size);
+	ok(rseq_size >= 20, "rseq_size prior to registration is 20 or greater (%d)", rseq_size);
 	ok(rseq_offset != 0, "rseq_offset prior to registration is not 0 (%td)", rseq_offset);
 
 	rseq_abi = rseq_get_abi();

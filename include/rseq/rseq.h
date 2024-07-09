@@ -59,19 +59,24 @@ extern "C" {
 extern ptrdiff_t rseq_offset;
 
 /*
- * Size of the registered rseq area. 0 if the registration was
+ * The rseq ABI is composed of extensible feature fields. The extensions
+ * are done by appending additional fields at the end of the structure.
+ * The rseq_size defines the size of the active feature set which can be
+ * used by the application for the current rseq registration. Features
+ * starting at offset >= rseq_size are inactive and should not be used.
+ *
+ * The rseq_size is the intersection between the available allocation
+ * size for the rseq area and the feature size supported by the kernel.
+ */
+
+/*
+ * Size of the active rseq feature set. 0 if the registration was
  * unsuccessful.
  */
 extern unsigned int rseq_size;
 
 /* Flags used during rseq registration. */
 extern unsigned int rseq_flags;
-
-/*
- * rseq feature size supported by the kernel. 0 if the registration was
- * unsuccessful.
- */
-extern unsigned int rseq_feature_size;
 
 /*
  * Returns a pointer to the rseq area.
@@ -177,7 +182,7 @@ uint32_t rseq_current_cpu(void)
 static inline __attribute__((always_inline))
 bool rseq_node_id_available(void)
 {
-	return (int) rseq_feature_size >= (int) rseq_offsetofend(struct rseq_abi, node_id);
+	return (int) rseq_size >= (int) rseq_offsetofend(struct rseq_abi, node_id);
 }
 
 /*
@@ -193,7 +198,7 @@ uint32_t rseq_current_node_id(void)
 static inline __attribute__((always_inline))
 bool rseq_mm_cid_available(void)
 {
-	return (int) rseq_feature_size >= (int) rseq_offsetofend(struct rseq_abi, mm_cid);
+	return (int) rseq_size >= (int) rseq_offsetofend(struct rseq_abi, mm_cid);
 }
 
 static inline __attribute__((always_inline))

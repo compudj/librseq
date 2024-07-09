@@ -34,7 +34,6 @@ int main(void)
 
 	ok(rseq_flags == 0, "rseq_flags prior to registration is 0 (%d)", rseq_flags);
 	ok(rseq_size == 0, "rseq_size prior to registration is 0 (%d)", rseq_size);
-	ok(rseq_feature_size == 0, "rseq_feature_size prior to registration is 0 (%d)", rseq_feature_size);
 	ok(rseq_offset != 0, "rseq_offset prior to registration is not 0 (%td)", rseq_offset);
 
 	rseq_abi = rseq_get_abi();
