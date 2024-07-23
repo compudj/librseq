@@ -18,5 +18,6 @@ EXTRA_DIST = \
 	LICENSES/FSFAP.txt \
 	LICENSES/GPL-2.0-or-later.txt \
 	LICENSES/GPL-3.0-or-later.txt \
+	LICENSES/LGPL-2.1-or-later.txt \
 	LICENSES/Linux-syscall-note.txt \
 	LICENSES/MIT.txt
