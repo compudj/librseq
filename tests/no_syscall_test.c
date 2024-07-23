@@ -10,7 +10,7 @@
 
 #include "tap.h"
 
-#define NR_TESTS 5
+#define NR_TESTS 4
 
 /*
  * Check the state of the public symbols when the rseq syscall is unavailable.
