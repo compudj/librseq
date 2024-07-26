@@ -37,6 +37,8 @@ noinst_PROGRAMS = \
 	param_test_mm_cid_compare_twice_cxx \
 	no_syscall_test_cxx.tap \
 	no_syscall_test.tap \
+	syscall_errors_test.tap \
+	syscall_errors_test_cxx.tap \
 	unregistered_test_cxx.tap \
 	unregistered_test.tap
 
@@ -45,6 +47,8 @@ dist_noinst_SCRIPTS = \
 	run_no_syscall_test.tap \
 	run_param_test_cxx.tap \
 	run_param_test.tap \
+	run_syscall_errors_test_cxx.tap \
+	run_syscall_errors_test.tap \
 	run_unregistered_test_cxx.tap \
 	run_unregistered_test.tap
 
@@ -71,6 +75,12 @@ basic_percpu_ops_mm_cid_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_bu
 basic_percpu_ops_mm_cid_test_cxx_tap_SOURCES = basic_percpu_ops_test_cxx.cpp
 basic_percpu_ops_mm_cid_test_cxx_tap_CPPFLAGS = $(AM_CPPFLAGS) -DBUILDOPT_RSEQ_PERCPU_MM_CID
 basic_percpu_ops_mm_cid_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
+
+syscall_errors_test_tap_SOURCES = syscall_errors_test.c
+syscall_errors_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
+
+syscall_errors_test_cxx_tap_SOURCES = syscall_errors_test_cxx.cpp
+syscall_errors_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
 unregistered_test_tap_SOURCES = unregistered_test.c
 unregistered_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
@@ -154,6 +164,8 @@ TESTS = \
 	basic_test_cxx.tap \
 	run_unregistered_test.tap \
 	run_unregistered_test_cxx.tap \
+	run_syscall_errors_test.tap \
+	run_syscall_errors_test_cxx.tap \
 	mempool_cow_race_test.tap \
 	mempool_cow_race_test_cxx.tap \
 	mempool_test.tap \

@@ -80,6 +80,8 @@ dkms.conf
 /tests/param_test_mm_cid_compare_twice_cxx
 /tests/no_syscall_test_cxx.tap
 /tests/no_syscall_test.tap
+/tests/syscall_errors_test_cxx.tap
+/tests/syscall_errors_test.tap
 /tests/unregistered_test_cxx.tap
 /tests/unregistered_test.tap
 
