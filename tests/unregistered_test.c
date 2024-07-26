@@ -31,7 +31,7 @@ int main(void)
 	/* The syscall is available but the current thread is not registered. */
 
 	ok(rseq_flags == 0, "rseq_flags prior to registration is 0 (%d)", rseq_flags);
-	ok(rseq_size >= 20, "rseq_size prior to registration is 20 or greater (%d)", rseq_size);
+	ok(rseq_size == 0, "rseq_size prior to registration is 0 (%d)", rseq_size);
 	ok(rseq_offset != 0, "rseq_offset prior to registration is not 0 (%td)", rseq_offset);
 
 	rseq_abi = rseq_get_abi();

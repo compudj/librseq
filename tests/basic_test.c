@@ -18,6 +18,19 @@
 
 #include "tap.h"
 
+static void test_registered(void)
+{
+	struct rseq_abi *rseq_abi = rseq_get_abi();
+
+	ok(rseq_flags == 0, "rseq_flags after registration is 0 (%d)", rseq_flags);
+	ok(rseq_size >= 20, "rseq_size after registration is 20 or greater (%d)", rseq_size);
+	ok(rseq_offset != 0, "rseq_offset after registration is not 0 (%td)", rseq_offset);
+
+	ok((int32_t) rseq_abi->cpu_id >= 0,
+			"rseq->cpu_id after registration is 0 or greater (%d)",
+			(int32_t) rseq_abi->cpu_id);
+}
+
 static void test_cpu_pointer(void)
 {
 	cpu_set_t affinity, test_affinity;
@@ -70,6 +83,7 @@ int main(void)
 		pass("Registered current thread with rseq");
 	}
 
+	test_registered();
 	test_cpu_pointer();
 
 	if (rseq_unregister_current_thread()) {
