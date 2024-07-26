@@ -432,7 +432,9 @@ contains an invalid value, or
 .I rseq
 contains an address which is not appropriately aligned, or
 .I rseq_len
-contains an incorrect size.
+contains an incorrect size, or restartable sequence is already
+registered for this thread and at least one argument differs from the
+active registration.
 .TP
 .B ENOSYS
 The
@@ -444,7 +446,8 @@ system call is not implemented by this kernel.
 is an invalid address.
 .TP
 .B EBUSY
-Restartable sequence is already registered for this thread.
+Restartable sequence is already registered for this thread and all arguments
+are the same as the active registration.
 .TP
 .B EPERM
 The
