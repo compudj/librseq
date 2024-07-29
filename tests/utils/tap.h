@@ -85,6 +85,8 @@ void todo_end(void);
 
 int exit_status(void);
 
+void disable_cleanup(void);
+
 #ifdef __cplusplus
 }
 #endif

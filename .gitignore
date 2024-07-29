@@ -62,6 +62,8 @@ dkms.conf
 /tests/basic_percpu_ops_mm_cid_test_cxx.tap
 /tests/basic_test.tap
 /tests/basic_test_cxx.tap
+/tests/fork_test.tap
+/tests/fork_test_cxx.tap
 /tests/mempool_cow_race_test.tap
 /tests/mempool_cow_race_test_cxx.tap
 /tests/mempool_test.tap

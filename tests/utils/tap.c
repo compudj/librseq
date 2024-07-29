@@ -15,6 +15,7 @@
 
 #include "tap.h"
 
+static int no_cleanup = 0;
 static int no_plan = 0;
 static int skip_all = 0;
 static int have_plan = 0;
@@ -396,6 +397,16 @@ exit_status(void)
 	return r;
 }
 
+void
+disable_cleanup(void)
+{
+	LOCK;
+
+	no_cleanup = 1;
+
+	UNLOCK;
+}
+
 /*
  * Cleanup at the end of the run, produce any final output that might be
  * required.
@@ -405,6 +416,11 @@ _cleanup(void)
 {
 
 	LOCK;
+
+	if(no_cleanup) {
+		UNLOCK;
+		return;
+	}
 
 	/* If plan_no_plan() wasn't called, and we don't have a plan,
 	   and we're not skipping everything, then something happened
