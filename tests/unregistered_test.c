@@ -13,6 +13,17 @@
 #define NR_TESTS 4
 
 /*
+ * Ensure the main executable has at least one TLS variable which will be
+ * allocated before the rseq area, making sure the rseq_offset is not 0.  This
+ * allows testing that the rseq_offset variable is properly initialized by
+ * checking it is not 0.
+ *
+ * Most toolchains will add at least one main exec TLS variable but it's
+ * currently not the case on RISC-V.
+ */
+__thread int dummy_tls = -1;
+
+/*
  * Check the state of the public symbols when the rseq syscall is available but
  * no thread has registered.
  */
