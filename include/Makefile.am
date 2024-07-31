@@ -15,6 +15,7 @@ nobase_include_HEADERS = \
 	rseq/arch/ppc/thread-pointer.h \
 	rseq/arch/riscv/bits.h \
 	rseq/arch/riscv.h \
+	rseq/arch/riscv/thread-pointer.h \
 	rseq/arch/s390/bits.h \
 	rseq/arch/s390.h \
 	rseq/arch/templates/bits.h \

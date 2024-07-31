@@ -25,6 +25,10 @@
 
 #include <rseq/arch/ppc/thread-pointer.h>
 
+#elif defined(__riscv)
+
+#include <rseq/arch/riscv/thread-pointer.h>
+
 #else
 
 #include <rseq/arch/generic/thread-pointer.h>
