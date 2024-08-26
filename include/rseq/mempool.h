@@ -257,7 +257,7 @@ void librseq_mempool_percpu_free(void __rseq_percpu *ptr, size_t stride);
  * This API is MT-safe.
  */
 #define rseq_mempool_free(_ptr, _stride...)		\
-	librseq_percpu_free((void __rseq_percpu *) _ptr, RSEQ_PARAM_SELECT_ARG1(_, ##_stride, RSEQ_MEMPOOL_STRIDE))
+	librseq_mempool_percpu_free((void __rseq_percpu *) _ptr, RSEQ_PARAM_SELECT_ARG1(_, ##_stride, RSEQ_MEMPOOL_STRIDE))
 
 /*
  * rseq_percpu_ptr: Offset a per-cpu pointer for a given CPU.
