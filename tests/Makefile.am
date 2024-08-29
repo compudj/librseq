@@ -17,6 +17,10 @@ noinst_PROGRAMS = \
 	basic_percpu_ops_test_cxx.tap \
 	basic_percpu_ops_mm_cid_test.tap \
 	basic_percpu_ops_mm_cid_test_cxx.tap \
+	basic_percpu_benchmark.tap \
+	basic_percpu_benchmark_cxx.tap \
+	basic_percpu_mm_cid_benchmark.tap \
+	basic_percpu_mm_cid_benchmark_cxx.tap \
 	basic_test.tap \
 	basic_test_cxx.tap \
 	fork_test.tap \
@@ -79,6 +83,20 @@ basic_percpu_ops_mm_cid_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_bu
 basic_percpu_ops_mm_cid_test_cxx_tap_SOURCES = basic_percpu_ops_test_cxx.cpp
 basic_percpu_ops_mm_cid_test_cxx_tap_CPPFLAGS = $(AM_CPPFLAGS) -DBUILDOPT_RSEQ_PERCPU_MM_CID
 basic_percpu_ops_mm_cid_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
+
+basic_percpu_benchmark_tap_SOURCES = basic_percpu_benchmark.c
+basic_percpu_benchmark_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
+
+basic_percpu_benchmark_cxx_tap_SOURCES = basic_percpu_benchmark_cxx.cpp
+basic_percpu_benchmark_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
+
+basic_percpu_mm_cid_benchmark_tap_SOURCES = basic_percpu_benchmark.c
+basic_percpu_mm_cid_benchmark_tap_CPPFLAGS = $(AM_CPPFLAGS) -DBUILDOPT_RSEQ_PERCPU_MM_CID
+basic_percpu_mm_cid_benchmark_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
+
+basic_percpu_mm_cid_benchmark_cxx_tap_SOURCES = basic_percpu_benchmark_cxx.cpp
+basic_percpu_mm_cid_benchmark_cxx_tap_CPPFLAGS = $(AM_CPPFLAGS) -DBUILDOPT_RSEQ_PERCPU_MM_CID
+basic_percpu_mm_cid_benchmark_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
 syscall_errors_test_tap_SOURCES = syscall_errors_test.c
 syscall_errors_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
