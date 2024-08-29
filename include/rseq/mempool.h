@@ -422,22 +422,6 @@ void *rseq_mempool_set_malloc_init(struct rseq_mempool_set *pool_set, void *init
 }
 
 /*
- * rseq_mempool_init_numa: Move pages to the NUMA node associated to their CPU topology.
- *
- * For pages allocated within @pool, invoke move_pages(2) with the given
- * @numa_flags to move the pages to the NUMA node associated to their
- * CPU topology.
- *
- * Argument @numa_flags are passed to move_pages(2). The expected flags are:
- *   MPOL_MF_MOVE:     move process-private pages to cpu-specific numa nodes.
- *   MPOL_MF_MOVE_ALL: move shared pages to cpu-specific numa nodes
- *                     (requires CAP_SYS_NICE).
- *
- * Returns 0 on success, else return -1 with errno set by move_pages(2).
- */
-int rseq_mempool_init_numa(struct rseq_mempool *pool, int numa_flags);
-
-/*
  * rseq_mempool_attr_create: Create a pool attribute structure.
  */
 struct rseq_mempool_attr *rseq_mempool_attr_create(void);
