@@ -220,7 +220,6 @@ void rseq_init(void)
 	pthread_mutex_lock(&init_lock);
 	if (init_done)
 		goto unlock;
-	RSEQ_WRITE_ONCE(init_done, 1);
 
 	/*
 	 * Check for glibc rseq support, if the 3 public symbols are found and
@@ -287,6 +286,7 @@ void rseq_init(void)
 	 */
 	rseq_size = 0;
 unlock:
+	RSEQ_WRITE_ONCE(init_done, 1);
 	pthread_mutex_unlock(&init_lock);
 }
 
