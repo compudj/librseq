@@ -209,8 +209,12 @@ int rseq_unregister_current_thread(void)
 static
 void rseq_init(void)
 {
-	/* Ensure initialization is only done once. */
-	if (RSEQ_READ_ONCE(init_done))
+	/*
+	 * Ensure initialization is only done once. Use load-acquire to
+	 * observe the initialization performed by a concurrently
+	 * running thread.
+	 */
+	if (rseq_smp_load_acquire(&init_done))
 		return;
 
 	/*
@@ -220,7 +224,6 @@ void rseq_init(void)
 	pthread_mutex_lock(&init_lock);
 	if (init_done)
 		goto unlock;
-	RSEQ_WRITE_ONCE(init_done, 1);
 
 	/*
 	 * Check for glibc rseq support, if the 3 public symbols are found and
@@ -286,6 +289,11 @@ void rseq_init(void)
 	 * libc behavior.
 	 */
 	rseq_size = 0;
+	/*
+	 * Set init_done with store-release, to make sure concurrently
+	 * running threads observe the initialized state.
+	 */
+	rseq_smp_store_release(&init_done, 1);
 unlock:
 	pthread_mutex_unlock(&init_lock);
 }
