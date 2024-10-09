@@ -81,7 +81,7 @@ static int sys_rseq(struct rseq_abi *rseq_abi, uint32_t rseq_len,
 	return syscall(__NR_rseq, rseq_abi, rseq_len, flags, sig);
 }
 
-static int sys_getcpu(unsigned *cpu, unsigned *node)
+static int sys_getcpu(unsigned int *cpu, unsigned int *node)
 {
 	return syscall(__NR_getcpu, cpu, node, NULL);
 }
@@ -116,7 +116,7 @@ bool rseq_available(unsigned int query)
 
 /* The rseq areas need to be at least 32 bytes. */
 static
-unsigned get_rseq_min_alloc_size(void)
+unsigned int get_rseq_min_alloc_size(void)
 {
 	unsigned int alloc_size = rseq_size;
 
