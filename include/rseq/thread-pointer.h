@@ -29,6 +29,10 @@
 
 #include <rseq/arch/riscv/thread-pointer.h>
 
+#elif defined(__loongarch__)
+
+#include <rseq/arch/loongarch/thread-pointer.h>
+
 #else
 
 #include <rseq/arch/generic/thread-pointer.h>

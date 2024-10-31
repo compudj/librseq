@@ -87,6 +87,11 @@
 #define RSEQ_ARCH_RISCV 1
 #include <rseq/arch/riscv.h>
 
+#elif defined(__loongarch__)
+
+#define RSEQ_ARCH_LOONGARCH 1
+#include <rseq/arch/loongarch.h>
+
 #else
 #error "Cannot build: unrecognized architecture, see <rseq/arch.h>."
 #endif
