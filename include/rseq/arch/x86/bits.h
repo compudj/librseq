@@ -15,6 +15,15 @@
 
 #ifdef __x86_64__
 
+#ifdef __ILP32__
+/*
+ * TODO: in order to support x32, every asm instruction expecting
+ * intptr_t to be 8 bytes need to instead use a 4 byte register or
+ * memory area on x32.
+ */
+# error "x32 is not supported yet."
+#endif
+
 #if defined(RSEQ_TEMPLATE_MO_RELAXED) && \
 	(defined(RSEQ_TEMPLATE_INDEX_CPU_ID) || defined(RSEQ_TEMPLATE_INDEX_MM_CID))
 
