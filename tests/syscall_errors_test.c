@@ -13,8 +13,9 @@
 
 #include "tap.h"
 
-#if RSEQ_BITS_PER_LONG == 64
+#if (RSEQ_BITS_PER_LONG == 64) && (!defined(RSEQ_ARCH_S390))
 #define NR_TESTS 8
+#define RUN_RSEQ_INVALID_ADDRESS_TEST 1
 #else
 #define NR_TESTS 7
 #endif
@@ -61,11 +62,15 @@ int main(void)
 	ok(ret != 0 && errno_copy == EINVAL, "Invalid size set errno to EINVAL (ret = %d, errno = %d)", ret, errno_copy);
 
 
-#if RSEQ_BITS_PER_LONG == 64
+#if defined(RUN_RSEQ_INVALID_ADDRESS_TEST)
 	/*
 	 * We haven't found a reliable way to find an invalid address when
 	 * running a 32bit userspace on a 64bit kernel, so only run this test
 	 * on 64bit builds for the moment.
+	 *
+	 * Also exclude architectures that select
+	 * CONFIG_ALTERNATE_USER_ADDRESS_SPACE where the kernel and userspace
+	 * have their own address space and this failure can't happen.
 	 */
 
 	/* EFAULT */
