@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <syscall.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <rseq/rseq.h>
@@ -49,17 +50,17 @@ int main(void)
 	errno = 0;
 	ret = sys_rseq(global_rseq, 32, -1, RSEQ_SIG);
 	errno_copy = errno;
-	ok(ret != 0 && errno_copy == EINVAL, "Invalid flag set errno to EINVAL (ret = %d, errno = %d)", ret, errno_copy);
+	ok(ret != 0 && errno_copy == EINVAL, "Invalid flag set errno to EINVAL (ret = %d, errno = %s)", ret, strerrorname_np(errno_copy));
 
 	errno = 0;
 	ret = sys_rseq((char *) global_rseq + 1, 32, 0, RSEQ_SIG);
 	errno_copy = errno;
-	ok(ret != 0 && errno_copy == EINVAL, "Unaligned rseq_abi set errno to EINVAL (ret = %d, errno = %d)", ret, errno_copy);
+	ok(ret != 0 && errno_copy == EINVAL, "Unaligned rseq_abi set errno to EINVAL (ret = %d, errno = %s)", ret, strerrorname_np(errno_copy));
 
 	errno = 0;
 	ret = sys_rseq(global_rseq, 31, 0, RSEQ_SIG);
 	errno_copy = errno;
-	ok(ret != 0 && errno_copy == EINVAL, "Invalid size set errno to EINVAL (ret = %d, errno = %d)", ret, errno_copy);
+	ok(ret != 0 && errno_copy == EINVAL, "Invalid size set errno to EINVAL (ret = %d, errno = %s)", ret, strerrorname_np(errno_copy));
 
 
 #if defined(RUN_RSEQ_INVALID_ADDRESS_TEST)
@@ -77,13 +78,13 @@ int main(void)
 	errno = 0;
 	ret = sys_rseq((void *) -4096UL, 32, 0, RSEQ_SIG);
 	errno_copy = errno;
-	ok(ret != 0 && errno_copy == EFAULT, "Invalid address set errno to EFAULT (ret = %d, errno = %d)", ret, errno_copy);
+	ok(ret != 0 && errno_copy == EFAULT, "Invalid address set errno to EFAULT (ret = %d, errno = %s)", ret, strerrorname_np(errno_copy));
 #endif
 
 	errno = 0;
 	ret = sys_rseq(global_rseq, 32, 0, RSEQ_SIG);
 	errno_copy = errno;
-	ok(ret == 0, "Register rseq for the current thread (ret = %d, errno = %d)", ret, errno_copy);
+	ok(ret == 0, "Register rseq for the current thread (ret = %d, errno = %s)", ret, strerrorname_np(errno_copy));
 
 	/* The current thread is registered. */
 
@@ -91,18 +92,18 @@ int main(void)
 	errno = 0;
 	ret = sys_rseq(global_rseq, 32, 0, RSEQ_SIG);
 	errno_copy = errno;
-	ok(ret != 0 && errno_copy == EBUSY, "Same registration set errno to EBUSY (ret = %d, errno = %d)", ret, errno_copy);
+	ok(ret != 0 && errno_copy == EBUSY, "Same registration set errno to EBUSY (ret = %d, errno = %s)", ret, strerrorname_np(errno_copy));
 
 	/* EPERM */
 	errno = 0;
 	ret = sys_rseq(global_rseq, 32, RSEQ_ABI_FLAG_UNREGISTER, RSEQ_SIG + 1);
 	errno_copy = errno;
-	ok(ret != 0 && errno_copy == EPERM, "Unregistration with wrong RSEQ_SIG set errno to EPERM (ret = %d, errno = %d)", ret, errno_copy);
+	ok(ret != 0 && errno_copy == EPERM, "Unregistration with wrong RSEQ_SIG set errno to EPERM (ret = %d, errno = %s)", ret, strerrorname_np(errno_copy));
 
 	errno = 0;
 	ret = sys_rseq(global_rseq, 32, RSEQ_ABI_FLAG_UNREGISTER, RSEQ_SIG);
 	errno_copy = errno;
-	ok(ret == 0, "Unregister rseq for the current thread (ret = %d, errno = %d)", ret, errno_copy);
+	ok(ret == 0, "Unregister rseq for the current thread (ret = %d, errno = %s)", ret, strerrorname_np(errno_copy));
 
 end:
 	exit(exit_status());
