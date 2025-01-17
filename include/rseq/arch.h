@@ -12,20 +12,20 @@
  *
  * The following defines are used internally for architecture specific code.
  *
- * URCU_ARCH_X86 : All x86 variants 32 and 64 bits
- *   URCU_ARCH_I386 : Specific to the i386
- *   URCU_ARCH_AMD64 : All 64 bits x86 variants
+ * RSEQ_ARCH_X86 : All x86 variants 32 and 64 bits
+ *   RSEQ_ARCH_I386 : Specific to the i386
+ *   RSEQ_ARCH_AMD64 : All 64 bits x86 variants
  *
- * URCU_ARCH_PPC : All PowerPC variants 32 and 64 bits
- *   URCU_ARCH_PPC64 : Specific to 64 bits variants
+ * RSEQ_ARCH_PPC : All PowerPC variants 32 and 64 bits
+ *   RSEQ_ARCH_PPC64 : Specific to 64 bits variants
  *
- * URCU_ARCH_S390 : All IBM s390 / s390x variants
- *   URCU_ARCH_S390X : Specific to z/Architecture 64 bits
+ * RSEQ_ARCH_S390 : All IBM s390 / s390x variants
+ *   RSEQ_ARCH_S390X : Specific to z/Architecture 64 bits
  *
- * URCU_ARCH_ARM : All ARM 32 bits variants
- * URCU_ARCH_AARCH64 : All ARM 64 bits variants
- * URCU_ARCH_MIPS : All MIPS variants
- * URCU_ARCH_RISCV : All RISC-V variants
+ * RSEQ_ARCH_ARM : All ARM 32 bits variants
+ * RSEQ_ARCH_AARCH64 : All ARM 64 bits variants
+ * RSEQ_ARCH_MIPS : All MIPS variants
+ * RSEQ_ARCH_RISCV : All RISC-V variants
  */
 
 #ifndef _RSEQ_ARCH_H
