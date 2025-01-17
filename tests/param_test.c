@@ -123,7 +123,7 @@ int yield_mod_cnt, nr_abort;
 	, [loop_cnt_5]"m"(loop_cnt[5]) \
 	, [loop_cnt_6]"m"(loop_cnt[6])
 
-#define INJECT_ASM_REG	"r12"
+#define INJECT_ASM_REG	"r0"
 
 #define RSEQ_INJECT_CLOBBER \
 	, INJECT_ASM_REG
