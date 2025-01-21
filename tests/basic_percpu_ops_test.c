@@ -33,11 +33,6 @@ bool rseq_validate_cpu_id(void)
 {
 	return rseq_mm_cid_available();
 }
-static
-bool rseq_use_cpu_index(void)
-{
-	return false;	/* Use mm_cid */
-}
 #else
 # define RSEQ_PERCPU	RSEQ_PERCPU_CPU_ID
 static
@@ -49,11 +44,6 @@ static
 bool rseq_validate_cpu_id(void)
 {
 	return rseq_current_cpu_raw() >= 0;
-}
-static
-bool rseq_use_cpu_index(void)
-{
-	return true;	/* Use cpu_id as index. */
 }
 #endif
 
@@ -290,17 +280,13 @@ static void test_percpu_list(void)
 	uint64_t sum = 0, expected_sum = 0;
 	struct percpu_list list;
 	pthread_t test_threads[200];
-	cpu_set_t allowed_cpus;
 
 	diag("percpu_list");
 
 	memset(&list, 0, sizeof(list));
 
-	/* Generate list entries for every usable cpu. */
-	sched_getaffinity(0, sizeof(allowed_cpus), &allowed_cpus);
+	/* Generate list entries for every possible cpu. */
 	for (i = 0; i < CPU_SETSIZE; i++) {
-		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
-			continue;
 		for (j = 1; j <= 100; j++) {
 			struct percpu_list_node *node;
 
@@ -324,9 +310,6 @@ static void test_percpu_list(void)
 	for (i = 0; i < CPU_SETSIZE; i++) {
 		struct percpu_list_node *node;
 
-		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
-			continue;
-
 		while ((node = __percpu_list_pop(&list, i))) {
 			sum += node->data;
 			free(node);
@@ -334,9 +317,7 @@ static void test_percpu_list(void)
 	}
 
 	/*
-	 * All entries should now be accounted for (unless some external
-	 * actor is interfering with our allowed affinity while this
-	 * test is running).
+	 * All entries should now be accounted for.
 	 */
 	ok(sum == expected_sum, "percpu_list - sum (%" PRIu64 " == %" PRIu64 ")", sum, expected_sum);
 }

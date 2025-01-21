@@ -311,11 +311,6 @@ bool rseq_validate_cpu_id(void)
 {
 	return rseq_mm_cid_available();
 }
-static
-bool rseq_use_cpu_index(void)
-{
-	return false;	/* Use mm_cid */
-}
 # ifdef TEST_MEMBARRIER
 /*
  * Membarrier does not currently support targeting a mm_cid, so
@@ -339,11 +334,6 @@ static
 bool rseq_validate_cpu_id(void)
 {
 	return rseq_current_cpu_raw() >= 0;
-}
-static
-bool rseq_use_cpu_index(void)
-{
-	return true;	/* Use cpu_id as index. */
 }
 # ifdef TEST_MEMBARRIER
 static
@@ -788,7 +778,6 @@ static void test_percpu_list(void)
 	uint64_t sum = 0, expected_sum = 0;
 	struct percpu_list __rseq_percpu *list;
 	pthread_t test_threads[num_threads];
-	cpu_set_t allowed_cpus;
 	struct rseq_mempool *mempool;
 	struct rseq_mempool_attr *attr;
 
@@ -816,11 +805,8 @@ static void test_percpu_list(void)
 		abort();
 	}
 
-	/* Generate list entries for every usable cpu. */
-	sched_getaffinity(0, sizeof(allowed_cpus), &allowed_cpus);
+	/* Generate list entries for every possible cpus. */
 	for (i = 0; i < max_nr_cpus; i++) {
-		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
-			continue;
 		for (j = 1; j <= 100; j++) {
 			struct percpu_list *cpulist = rseq_percpu_ptr(list, i);
 			struct percpu_list_node *node;
@@ -857,9 +843,6 @@ static void test_percpu_list(void)
 	for (i = 0; i < max_nr_cpus; i++) {
 		struct percpu_list_node *node;
 
-		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
-			continue;
-
 		while ((node = __percpu_list_pop(list, i))) {
 			sum += node->data;
 			free(node);
@@ -867,9 +850,7 @@ static void test_percpu_list(void)
 	}
 
 	/*
-	 * All entries should now be accounted for (unless some external
-	 * actor is interfering with our allowed affinity while this
-	 * test is running).
+	 * All entries should now be accounted for.
 	 */
 	assert(sum == expected_sum);
 	rseq_mempool_percpu_free(list);
@@ -1012,7 +993,6 @@ static void test_percpu_buffer(void)
 	uint64_t sum = 0, expected_sum = 0;
 	struct percpu_buffer __rseq_percpu *buffer;
 	pthread_t test_threads[num_threads];
-	cpu_set_t allowed_cpus;
 	struct rseq_mempool *mempool;
 	struct rseq_mempool_attr *attr;
 
@@ -1040,13 +1020,10 @@ static void test_percpu_buffer(void)
 		abort();
 	}
 
-	/* Generate list entries for every usable cpu. */
-	sched_getaffinity(0, sizeof(allowed_cpus), &allowed_cpus);
+	/* Generate list entries for every possible cpu. */
 	for (i = 0; i < max_nr_cpus; i++) {
 		struct percpu_buffer *cpubuffer;
 
-		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
-			continue;
 		cpubuffer = rseq_percpu_ptr(buffer, i);
 		/* Worse-case is every item in same CPU. */
 		cpubuffer->array =
@@ -1098,9 +1075,6 @@ static void test_percpu_buffer(void)
 		struct percpu_buffer *cpubuffer;
 		struct percpu_buffer_node *node;
 
-		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
-			continue;
-
 		cpubuffer = rseq_percpu_ptr(buffer, i);
 		while ((node = __percpu_buffer_pop(buffer, i))) {
 			sum += node->data;
@@ -1110,9 +1084,7 @@ static void test_percpu_buffer(void)
 	}
 
 	/*
-	 * All entries should now be accounted for (unless some external
-	 * actor is interfering with our allowed affinity while this
-	 * test is running).
+	 * All entries should now be accounted for.
 	 */
 	assert(sum == expected_sum);
 	rseq_mempool_percpu_free(buffer);
@@ -1265,7 +1237,6 @@ static void test_percpu_memcpy_buffer(void)
 	uint64_t sum = 0, expected_sum = 0;
 	struct percpu_memcpy_buffer *buffer;
 	pthread_t test_threads[num_threads];
-	cpu_set_t allowed_cpus;
 	struct rseq_mempool *mempool;
 	struct rseq_mempool_attr *attr;
 
@@ -1293,13 +1264,10 @@ static void test_percpu_memcpy_buffer(void)
 		abort();
 	}
 
-	/* Generate list entries for every usable cpu. */
-	sched_getaffinity(0, sizeof(allowed_cpus), &allowed_cpus);
+	/* Generate list entries for every possible cpu. */
 	for (i = 0; i < max_nr_cpus; i++) {
 		struct percpu_memcpy_buffer *cpubuffer;
 
-		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
-			continue;
 		cpubuffer = rseq_percpu_ptr(buffer, i);
 		/* Worse-case is every item in same CPU. */
 		cpubuffer->array =
@@ -1348,9 +1316,6 @@ static void test_percpu_memcpy_buffer(void)
 		struct percpu_memcpy_buffer_node item;
 		struct percpu_memcpy_buffer *cpubuffer;
 
-		if (rseq_use_cpu_index() && !CPU_ISSET(i, &allowed_cpus))
-			continue;
-
 		cpubuffer = rseq_percpu_ptr(buffer, i);
 		while (__percpu_memcpy_buffer_pop(buffer, &item, i)) {
 			sum += item.data1;
@@ -1360,9 +1325,7 @@ static void test_percpu_memcpy_buffer(void)
 	}
 
 	/*
-	 * All entries should now be accounted for (unless some external
-	 * actor is interfering with our allowed affinity while this
-	 * test is running).
+	 * All entries should now be accounted for.
 	 */
 	assert(sum == expected_sum);
 	rseq_mempool_percpu_free(buffer);
