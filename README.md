@@ -10,6 +10,15 @@ Library for Restartable Sequences
 by Mathieu Desnoyers
 
 
+Required and optional dependencies
+----------------------------------
+
+The following dependencies are optional:
+
+  - [libnuma](https://github.com/numactl/numactl)
+    To build without this dependency run `./configure` with `--disable-numa`
+  - [libseccomp](https://github.com/seccomp/libseccomp/)
+
 Building
 --------
 
