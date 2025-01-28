@@ -24,6 +24,7 @@ compile the Git repository tree:
     **Autoheader >= 2.69**;
     make sure your system-wide `automake` points to a recent version!)
   - **[GNU Libtool](https://www.gnu.org/software/libtool/) >= 2.2**
+  - **[GNU Make](https://www.gnu.org/software/make/)**
   - **[pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config)**
   - **Linux kernel headers** from kernel **>= 4.18** to build on x86, arm,
     ppc, and mips and from kernel **>= 4.19** to build on s390.
