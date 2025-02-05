@@ -105,6 +105,11 @@ extern "C" {
 #endif
 
 /*
+ * librseq-reg-helper API: rseq_register_current_thread()
+ *
+ * Only useful when using the librseq-reg-helper library to allow using
+ * rseq with a libc which does not implement rseq support.
+ *
  * Register rseq for the current thread. This needs to be called once
  * by any thread which uses restartable sequences, before they start
  * using restartable sequences, to ensure restartable sequences
@@ -114,6 +119,11 @@ extern "C" {
 int rseq_register_current_thread(void);
 
 /*
+ * librseq-reg-helper API: rseq_unregister_current_thread()
+ *
+ * Only useful when using the librseq-reg-helper library to allow using
+ * rseq with a libc which does not implement rseq support.
+ *
  * Unregister rseq for current thread.
  */
 int rseq_unregister_current_thread(void);

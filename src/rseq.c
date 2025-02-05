@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <syscall.h>
 #include <assert.h>
 #include <signal.h>
 #include <limits.h>
@@ -22,14 +21,7 @@
 
 #include <rseq/rseq.h>
 #include "smp.h"
-
-#ifndef AT_RSEQ_FEATURE_SIZE
-# define AT_RSEQ_FEATURE_SIZE		27
-#endif
-
-#ifndef AT_RSEQ_ALIGN
-# define AT_RSEQ_ALIGN			28
-#endif
+#include "rseq-utils.h"
 
 static __attribute__((constructor))
 void rseq_init(void);
@@ -40,6 +32,8 @@ static int init_done;
 static const ptrdiff_t *libc_rseq_offset_p;
 static const unsigned int *libc_rseq_size_p;
 static const unsigned int *libc_rseq_flags_p;
+
+static int libc_has_rseq;
 
 /* Offset from the thread pointer to the rseq area. */
 ptrdiff_t rseq_offset;
@@ -53,42 +47,11 @@ unsigned int rseq_size = -1U;
 /* Flags used during rseq registration. */
 unsigned int rseq_flags;
 
-static int rseq_ownership;
-
-/* Allocate a large area for the TLS. */
-#define RSEQ_THREAD_AREA_ALLOC_SIZE	1024
-
-/* Original struct rseq feature size is 20 bytes. */
-#define ORIG_RSEQ_FEATURE_SIZE		20
-
-/* Original struct rseq allocation size is 32 bytes. */
-#define ORIG_RSEQ_ALLOC_SIZE		32
-
-/*
- * The alignment on RSEQ_THREAD_AREA_ALLOC_SIZE guarantees that the
- * rseq_abi structure allocated size is at least
- * RSEQ_THREAD_AREA_ALLOC_SIZE bytes to hold extra space for yet unknown
- * kernel rseq extensions.
- */
-static
-__thread struct rseq_abi __rseq_abi __attribute__((tls_model("initial-exec"), aligned(RSEQ_THREAD_AREA_ALLOC_SIZE))) = {
-	.cpu_id = RSEQ_ABI_CPU_ID_UNINITIALIZED,
-};
-
-static int sys_rseq(struct rseq_abi *rseq_abi, uint32_t rseq_len,
-		    int flags, uint32_t sig)
-{
-	return syscall(__NR_rseq, rseq_abi, rseq_len, flags, sig);
-}
-
-static int sys_getcpu(unsigned int *cpu, unsigned int *node)
-{
-	return syscall(__NR_getcpu, cpu, node, NULL);
-}
-
 bool rseq_available(unsigned int query)
 {
 	int rc;
+
+	rseq_init();
 
 	switch (query) {
 	case RSEQ_AVAILABLE_QUERY_KERNEL:
@@ -105,100 +68,13 @@ bool rseq_available(unsigned int query)
 		}
 		break;
 	case RSEQ_AVAILABLE_QUERY_LIBC:
-		if (rseq_size && !rseq_ownership)
+		if (libc_has_rseq)
 			return true;
 		break;
 	default:
 		break;
 	}
 	return false;
-}
-
-/* The rseq areas need to be at least 32 bytes. */
-static
-unsigned int get_rseq_min_alloc_size(void)
-{
-	unsigned int alloc_size = rseq_size;
-
-	if (alloc_size < ORIG_RSEQ_ALLOC_SIZE)
-		alloc_size = ORIG_RSEQ_ALLOC_SIZE;
-	return alloc_size;
-}
-
-/*
- * Return the feature size supported by the kernel.
- *
- * Depending on the value returned by getauxval(AT_RSEQ_FEATURE_SIZE):
- *
- * 0:   Return ORIG_RSEQ_FEATURE_SIZE (20)
- * > 0: Return the value from getauxval(AT_RSEQ_FEATURE_SIZE).
- *
- * It should never return a value below ORIG_RSEQ_FEATURE_SIZE.
- */
-static
-unsigned int get_rseq_kernel_feature_size(void)
-{
-	unsigned long auxv_rseq_feature_size, auxv_rseq_align;
-
-	auxv_rseq_align = getauxval(AT_RSEQ_ALIGN);
-	assert(!auxv_rseq_align || auxv_rseq_align <= RSEQ_THREAD_AREA_ALLOC_SIZE);
-
-	auxv_rseq_feature_size = getauxval(AT_RSEQ_FEATURE_SIZE);
-	assert(!auxv_rseq_feature_size || auxv_rseq_feature_size <= RSEQ_THREAD_AREA_ALLOC_SIZE);
-	if (auxv_rseq_feature_size)
-		return auxv_rseq_feature_size;
-	else
-		return ORIG_RSEQ_FEATURE_SIZE;
-}
-
-int rseq_register_current_thread(void)
-{
-	int rc;
-
-	rseq_init();
-
-	if (!rseq_ownership) {
-		/* Treat libc's ownership as a successful registration. */
-		return 0;
-	}
-	rc = sys_rseq(&__rseq_abi, get_rseq_min_alloc_size(), 0, RSEQ_SIG);
-	if (rc) {
-		/*
-		 * After at least one thread has registered successfully
-		 * (rseq_size > 0), the registration of other threads should
-		 * never fail.
-		 */
-		if (RSEQ_READ_ONCE(rseq_size) > 0) {
-			/* Incoherent success/failure within process. */
-			abort();
-		}
-		return -1;
-	}
-	assert(rseq_current_cpu_raw() >= 0);
-
-	/*
-	 * The first thread to register sets the rseq_size to mimic the libc
-	 * behavior.
-	 */
-	if (RSEQ_READ_ONCE(rseq_size) == 0) {
-		RSEQ_WRITE_ONCE(rseq_size, get_rseq_kernel_feature_size());
-	}
-
-	return 0;
-}
-
-int rseq_unregister_current_thread(void)
-{
-	int rc;
-
-	if (!rseq_ownership) {
-		/* Treat libc's ownership as a successful unregistration. */
-		return 0;
-	}
-	rc = sys_rseq(&__rseq_abi, get_rseq_min_alloc_size(), RSEQ_ABI_FLAG_UNREGISTER, RSEQ_SIG);
-	if (rc)
-		return -1;
-	return 0;
 }
 
 /*
@@ -237,6 +113,7 @@ void rseq_init(void)
 		unsigned int libc_rseq_size;
 
 		/* rseq registration owned by glibc */
+		libc_has_rseq = 1;
 		rseq_offset = *libc_rseq_offset_p;
 		libc_rseq_size = *libc_rseq_size_p;
 		rseq_flags = *libc_rseq_flags_p;
@@ -272,23 +149,8 @@ void rseq_init(void)
 			rseq_size = libc_rseq_size;
 			break;
 		}
-		goto unlock;
 	}
 
-	/* librseq owns the registration */
-	rseq_ownership = 1;
-
-	/* Calculate the offset of the rseq area from the thread pointer. */
-	rseq_offset = (uintptr_t)&__rseq_abi - (uintptr_t)rseq_thread_pointer();
-
-	/* rseq flags are deprecated, always set to 0. */
-	rseq_flags = 0;
-
-	/*
-	 * Set the size to 0 until at least one thread registers to mimic the
-	 * libc behavior.
-	 */
-	rseq_size = 0;
 	/*
 	 * Set init_done with store-release, to make sure concurrently
 	 * running threads observe the initialized state.
@@ -296,16 +158,6 @@ void rseq_init(void)
 	rseq_smp_store_release(&init_done, 1);
 unlock:
 	pthread_mutex_unlock(&init_lock);
-}
-
-static __attribute__((destructor))
-void rseq_exit(void)
-{
-	if (!rseq_ownership)
-		return;
-	rseq_offset = 0;
-	rseq_size = -1U;
-	rseq_ownership = 0;
 }
 
 int32_t rseq_fallback_current_cpu(void)

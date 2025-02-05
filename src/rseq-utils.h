@@ -6,6 +6,21 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <syscall.h>
+#include <unistd.h>
+#include <sys/auxv.h>
+#include <linux/auxvec.h>
+
+#include <rseq/rseq.h>
+
+/* Allocate a large area for the TLS. */
+#define RSEQ_THREAD_AREA_ALLOC_SIZE	1024
+
+/* Original struct rseq feature size is 20 bytes. */
+#define ORIG_RSEQ_FEATURE_SIZE		20
+
+/* Original struct rseq allocation size is 32 bytes. */
+#define ORIG_RSEQ_ALLOC_SIZE		32
 
 #define RSEQ_ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
@@ -132,6 +147,45 @@ static inline
 off_t offset_align(uintptr_t p, size_t alignment)
 {
 	return (alignment - p) & (alignment - 1);
+}
+
+static inline
+int sys_rseq(struct rseq_abi *rseq_abi, uint32_t rseq_len,
+	     int flags, uint32_t sig)
+{
+	return syscall(__NR_rseq, rseq_abi, rseq_len, flags, sig);
+}
+
+static inline
+int sys_getcpu(unsigned int *cpu, unsigned int *node)
+{
+	return syscall(__NR_getcpu, cpu, node, NULL);
+}
+
+/*
+ * Return the feature size supported by the kernel.
+ *
+ * Depending on the value returned by getauxval(AT_RSEQ_FEATURE_SIZE):
+ *
+ * 0:   Return ORIG_RSEQ_FEATURE_SIZE (20)
+ * > 0: Return the value from getauxval(AT_RSEQ_FEATURE_SIZE).
+ *
+ * It should never return a value below ORIG_RSEQ_FEATURE_SIZE.
+ */
+static inline
+unsigned int get_rseq_kernel_feature_size(void)
+{
+	unsigned long auxv_rseq_feature_size, auxv_rseq_align;
+
+	auxv_rseq_align = getauxval(AT_RSEQ_ALIGN);
+	assert(!auxv_rseq_align || auxv_rseq_align <= RSEQ_THREAD_AREA_ALLOC_SIZE);
+
+	auxv_rseq_feature_size = getauxval(AT_RSEQ_FEATURE_SIZE);
+	assert(!auxv_rseq_feature_size || auxv_rseq_feature_size <= RSEQ_THREAD_AREA_ALLOC_SIZE);
+	if (auxv_rseq_feature_size)
+		return auxv_rseq_feature_size;
+	else
+		return ORIG_RSEQ_FEATURE_SIZE;
 }
 
 #endif /* _RSEQ_COMMON_UTILS_H */
