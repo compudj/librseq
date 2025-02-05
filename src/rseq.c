@@ -272,7 +272,7 @@ void rseq_init(void)
 			rseq_size = libc_rseq_size;
 			break;
 		}
-		goto unlock;
+		goto init_done;
 	}
 
 	/* librseq owns the registration */
@@ -289,6 +289,8 @@ void rseq_init(void)
 	 * libc behavior.
 	 */
 	rseq_size = 0;
+
+init_done:
 	/*
 	 * Set init_done with store-release, to make sure concurrently
 	 * running threads observe the initialized state.
