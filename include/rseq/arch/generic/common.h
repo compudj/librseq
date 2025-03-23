@@ -27,11 +27,6 @@
 		__rseq_str(label) ":\n\t"				\
 		__RSEQ_ASM_DEFINE_CS_FIELDS(version, flags,		\
 			start_ip, post_commit_offset, abort_ip) "\n\t"	\
-		RSEQ_ASM_U32(__rseq_str(version)) "\n\t" 		\
-		RSEQ_ASM_U32(__rseq_str(flags)) "\n\t" 			\
-		RSEQ_ASM_U64_PTR(__rseq_str(start_ip)) "\n\t"		\
-		RSEQ_ASM_U64_PTR(__rseq_str(post_commit_offset)) "\n\t" \
-		RSEQ_ASM_U64_PTR(__rseq_str(abort_ip)) "\n\t"		\
 		".popsection\n\t"					\
 		".pushsection __rseq_cs_ptr_array, \"aw\"\n\t"		\
 		RSEQ_ASM_U64_PTR(__rseq_str(label) "b") "\n\t"		\
