@@ -7,6 +7,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <rseq/compiler.h>
+
 #define RSEQ_ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 #define __rseq_align_mask(v, mask)	(((v) + (mask)) & ~(mask))
