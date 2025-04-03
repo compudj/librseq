@@ -90,6 +90,7 @@ dkms.conf
 /tests/syscall_errors_test.tap
 /tests/unregistered_test_cxx.tap
 /tests/unregistered_test.tap
+/tests/percpu_counter_test.tap
 
 #automake
 /include/config.h

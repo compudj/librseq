@@ -46,7 +46,8 @@ noinst_PROGRAMS = \
 	syscall_errors_test.tap \
 	syscall_errors_test_cxx.tap \
 	unregistered_test_cxx.tap \
-	unregistered_test.tap
+	unregistered_test.tap \
+	percpu_counter_test.tap
 
 dist_noinst_SCRIPTS = \
 	run_fork_test_cxx.tap \
@@ -121,6 +122,9 @@ basic_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/util
 
 basic_test_cxx_tap_SOURCES = basic_test_cxx.cpp
 basic_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
+
+percpu_counter_test_tap_SOURCES = percpu_counter_test.c
+percpu_counter_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
 fork_test_tap_SOURCES = fork_test.c
 fork_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
@@ -199,7 +203,8 @@ TESTS = \
 	mempool_cow_race_test.tap \
 	mempool_cow_race_test_cxx.tap \
 	mempool_test.tap \
-	mempool_test_cxx.tap
+	mempool_test_cxx.tap \
+	percpu_counter_test.tap
 
 if ENABLE_SHARED
 if ENABLE_SECCOMP
