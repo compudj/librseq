@@ -6,6 +6,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <unistd.h>
 
 #include <rseq/compiler.h>
 
