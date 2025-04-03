@@ -15,6 +15,11 @@
 #define __rseq_align_mask(v, mask)	(((v) + (mask)) & ~(mask))
 #define rseq_align(v, align)		__rseq_align_mask(v, (__typeof__(v)) (align) - 1)
 
+/*   
+ * fls: returns the position of the most significant bit.
+ * Returns 0 if no bit is set, else returns the position of the most
+ * significant bit (from 1 to 32 on 32-bit, from 1 to 64 on 64-bit).
+ */
 static inline
 unsigned int rseq_fls_u64(uint64_t x)
 {
