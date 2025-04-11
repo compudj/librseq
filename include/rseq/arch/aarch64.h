@@ -136,7 +136,20 @@ do {										\
 	"	b	%l[" __rseq_str(abort_label) "]\n"			\
 	"222:\n"
 
-/* Jump to local label @label when @cpu_id != @current_cpu_id. */
+/*
+ * Store the address of the critical section descriptor structure at
+ * @cs_label into the @rseq_cs pointer and emit the label @label, which
+ * is the beginning of the sequence of consecutive assembly instructions.
+ *
+ *  @label:
+ *    Local label to the beginning of the sequence of consecutive assembly
+ *    instructions.
+ *  @cs_label:
+ *    Source local label to the critical section descriptor structure.
+ *  @rseq_cs:
+ *    Destination pointer where to store the address of the critical
+ *    section descriptor structure.
+ */
 #define RSEQ_ASM_STORE_RSEQ_CS(label, cs_label, rseq_cs)			\
 	RSEQ_INJECT_ASM(1)							\
 	"	adrp	" RSEQ_ASM_TMP_REG ", " __rseq_str(cs_label) "\n"	\
