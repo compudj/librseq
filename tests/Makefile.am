@@ -185,11 +185,7 @@ TESTS = \
 	run_unregistered_test.tap \
 	run_unregistered_test_cxx.tap \
 	run_syscall_errors_test.tap \
-	run_syscall_errors_test_cxx.tap \
-	mempool_cow_race_test.tap \
-	mempool_cow_race_test_cxx.tap \
-	mempool_test.tap \
-	mempool_test_cxx.tap
+	run_syscall_errors_test_cxx.tap
 
 if ENABLE_SHARED
 if ENABLE_SECCOMP
@@ -206,4 +202,8 @@ TESTS += \
 	basic_percpu_ops_mm_cid_test.tap \
 	basic_percpu_ops_mm_cid_test_cxx.tap \
 	run_param_test.tap \
-	run_param_test_cxx.tap
+	run_param_test_cxx.tap \
+	mempool_cow_race_test.tap \
+	mempool_cow_race_test_cxx.tap \
+	mempool_test.tap \
+	mempool_test_cxx.tap
