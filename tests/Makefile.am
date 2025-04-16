@@ -95,10 +95,10 @@ basic_percpu_mm_cid_benchmark_cxx_tap_CPPFLAGS = $(AM_CPPFLAGS) -DBUILDOPT_RSEQ_
 basic_percpu_mm_cid_benchmark_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
 syscall_errors_test_tap_SOURCES = syscall_errors_test.c
-syscall_errors_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
+syscall_errors_test_tap_LDADD = $(top_builddir)/tests/utils/libtap.la
 
 syscall_errors_test_cxx_tap_SOURCES = syscall_errors_test_cxx.cpp
-syscall_errors_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
+syscall_errors_test_cxx_tap_LDADD = $(top_builddir)/tests/utils/libtap.la
 
 unregistered_test_tap_SOURCES = unregistered_test.c
 unregistered_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)

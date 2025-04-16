@@ -12,6 +12,9 @@
 #include <linux/types.h>
 #include <asm/byteorder.h>
 
+/* Original struct rseq allocation size is 32 bytes. */
+#define RSEQ_ABI_ORIG_ALLOC_SIZE		32
+
 enum rseq_abi_cpu_id_state {
 	RSEQ_ABI_CPU_ID_UNINITIALIZED		= -1,
 	RSEQ_ABI_CPU_ID_REGISTRATION_FAILED		= -2,
