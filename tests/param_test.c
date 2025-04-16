@@ -472,9 +472,6 @@ static void *test_percpu_spinlock_thread(void *arg)
 	struct spinlock_test_data __rseq_percpu *data = thread_data->data;
 	long long i, reps;
 
-	if (!opt_disable_rseq && thread_data->reg &&
-	    rseq_register_current_thread())
-		abort();
 	reps = thread_data->reps;
 	for (i = 0; i < reps; i++) {
 		int cpu = rseq_this_cpu_lock(&data->lock);
@@ -488,9 +485,6 @@ static void *test_percpu_spinlock_thread(void *arg)
 	}
 	printf_verbose("tid %d: number of rseq abort: %d, signals delivered: %u\n",
 		       (int) rseq_gettid(), nr_abort, signals_delivered);
-	if (!opt_disable_rseq && thread_data->reg &&
-	    rseq_unregister_current_thread())
-		abort();
 	return NULL;
 }
 
@@ -580,9 +574,6 @@ static void *test_percpu_inc_thread(void *arg)
 	struct inc_test_data __rseq_percpu *data = thread_data->data;
 	long long i, reps;
 
-	if (!opt_disable_rseq && thread_data->reg &&
-	    rseq_register_current_thread())
-		abort();
 	reps = thread_data->reps;
 	for (i = 0; i < reps; i++) {
 		int ret;
@@ -602,9 +593,6 @@ static void *test_percpu_inc_thread(void *arg)
 	}
 	printf_verbose("tid %d: number of rseq abort: %d, signals delivered: %u\n",
 		       (int) rseq_gettid(), nr_abort, signals_delivered);
-	if (!opt_disable_rseq && thread_data->reg &&
-	    rseq_unregister_current_thread())
-		abort();
 	return NULL;
 }
 
@@ -771,9 +759,6 @@ static void *test_percpu_list_thread(void *arg)
 	long long i, reps;
 	struct percpu_list __rseq_percpu *list = (struct percpu_list __rseq_percpu *)arg;
 
-	if (!opt_disable_rseq && rseq_register_current_thread())
-		abort();
-
 	reps = opt_reps;
 	for (i = 0; i < reps; i++) {
 		struct percpu_list_node *node;
@@ -787,8 +772,6 @@ static void *test_percpu_list_thread(void *arg)
 
 	printf_verbose("tid %d: number of rseq abort: %d, signals delivered: %u\n",
 		       (int) rseq_gettid(), nr_abort, signals_delivered);
-	if (!opt_disable_rseq && rseq_unregister_current_thread())
-		abort();
 
 	return NULL;
 }
@@ -982,9 +965,6 @@ static void *test_percpu_buffer_thread(void *arg)
 	long long i, reps;
 	struct percpu_buffer __rseq_percpu *buffer = (struct percpu_buffer __rseq_percpu *)arg;
 
-	if (!opt_disable_rseq && rseq_register_current_thread())
-		abort();
-
 	reps = opt_reps;
 	for (i = 0; i < reps; i++) {
 		struct percpu_buffer_node *node;
@@ -1002,8 +982,6 @@ static void *test_percpu_buffer_thread(void *arg)
 
 	printf_verbose("tid %d: number of rseq abort: %d, signals delivered: %u\n",
 		       (int) rseq_gettid(), nr_abort, signals_delivered);
-	if (!opt_disable_rseq && rseq_unregister_current_thread())
-		abort();
 
 	return NULL;
 }
@@ -1225,9 +1203,6 @@ static void *test_percpu_memcpy_buffer_thread(void *arg)
 	long long i, reps;
 	struct percpu_memcpy_buffer __rseq_percpu *buffer = (struct percpu_memcpy_buffer __rseq_percpu *)arg;
 
-	if (!opt_disable_rseq && rseq_register_current_thread())
-		abort();
-
 	reps = opt_reps;
 	for (i = 0; i < reps; i++) {
 		struct percpu_memcpy_buffer_node item;
@@ -1246,8 +1221,6 @@ static void *test_percpu_memcpy_buffer_thread(void *arg)
 
 	printf_verbose("tid %d: number of rseq abort: %d, signals delivered: %u\n",
 		       (int) rseq_gettid(), nr_abort, signals_delivered);
-	if (!opt_disable_rseq && rseq_unregister_current_thread())
-		abort();
 
 	return NULL;
 }
@@ -1422,12 +1395,6 @@ void *test_membarrier_worker_thread(void *arg)
 	const long long iters = opt_reps;
 	long long i;
 
-	if (rseq_register_current_thread()) {
-		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		abort();
-	}
-
 	/* Wait for initialization. */
 	while (!rseq_smp_load_acquire(&args->percpu_list_ptr)) { }
 
@@ -1444,11 +1411,6 @@ void *test_membarrier_worker_thread(void *arg)
 		} while (rseq_unlikely(ret));
 	}
 
-	if (rseq_unregister_current_thread()) {
-		fprintf(stderr, "Error: rseq_unregister_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		abort();
-	}
 	return NULL;
 }
 
@@ -1537,12 +1499,6 @@ void *test_membarrier_manager_thread(void *arg)
 	args->max_nr_cpus = rseq_mempool_get_max_nr_cpus(mempool);
 	args->mempool = mempool;
 
-	if (rseq_register_current_thread()) {
-		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		abort();
-	}
-
 	/* Init lists. */
 	list_a = test_membarrier_alloc_percpu_list(mempool);
 	assert(list_a);
@@ -1612,11 +1568,6 @@ void *test_membarrier_manager_thread(void *arg)
 	test_membarrier_free_percpu_list(args, list_a);
 	test_membarrier_free_percpu_list(args, list_b);
 
-	if (rseq_unregister_current_thread()) {
-		fprintf(stderr, "Error: rseq_unregister_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		abort();
-	}
 	ret = rseq_mempool_destroy(mempool);
 	if (ret) {
 		perror("rseq_mempool_destroy");
@@ -1863,6 +1814,11 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if (rseq_init() != RSEQ_INIT_OK) {
+		printf_verbose("librseq initialization failed\n");
+		goto no_rseq;
+	}
+
 	loop_cnt_1 = loop_cnt[1];
 	loop_cnt_2 = loop_cnt[2];
 	loop_cnt_3 = loop_cnt[3];
@@ -1873,8 +1829,6 @@ int main(int argc, char **argv)
 	if (set_signal_handler())
 		goto error;
 
-	if (!opt_disable_rseq && rseq_register_current_thread())
-		goto error;
 	if (!opt_disable_rseq && !rseq_validate_cpu_id()) {
 		printf_verbose("The rseq cpu id getter is unavailable\n");
 		goto no_rseq;
@@ -1905,8 +1859,6 @@ int main(int argc, char **argv)
 		test_membarrier();
 		break;
 	}
-	if (!opt_disable_rseq && rseq_unregister_current_thread())
-		abort();
 end:
 	return 0;
 

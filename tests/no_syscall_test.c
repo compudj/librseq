@@ -10,7 +10,7 @@
 
 #include "tap.h"
 
-#define NR_TESTS 4
+#define NR_TESTS 5
 
 /*
  * Ensure the main executable has at least one TLS variable which will be
@@ -34,10 +34,22 @@ int main(void)
 {
 	struct rseq_abi *rseq_abi;
 
+	diag("Test the library init when libc rseq support is present but the syscall is unavailable");
 	plan_tests(NR_TESTS);
 
-	if (rseq_available(RSEQ_AVAILABLE_QUERY_KERNEL)) {
-		fail("The rseq syscall should be unavailable");
+	/*
+	 * Skip all tests if the libc doesn't have rseq support
+	 */
+	if (!rseq_available(RSEQ_AVAILABLE_QUERY_LIBC)) {
+		skip(NR_TESTS, "The libc doesn't have rseq support");
+		goto end;
+	}
+
+	if (rseq_init() == RSEQ_INIT_OK) {
+		pass("Initialize librseq")
+	} else {
+		fail("Initialize librseq")
+		skip(NR_TESTS - 1, "Error: librseq initialization failed");
 		goto end;
 	}
 
@@ -48,8 +60,8 @@ int main(void)
 	ok(rseq_offset != 0, "rseq_offset prior to registration is not 0 (%td)", rseq_offset);
 
 	rseq_abi = rseq_get_abi();
-	ok((int32_t) rseq_abi->cpu_id == RSEQ_ABI_CPU_ID_UNINITIALIZED,
-			"rseq->cpu_id is set to RSEQ_ABI_CPU_ID_UNINITIALIZED (%d)",
+	ok((int32_t) rseq_abi->cpu_id == RSEQ_ABI_CPU_ID_REGISTRATION_FAILED,
+			"rseq->cpu_id is set to RSEQ_ABI_CPU_ID_REGISTRATION_FAILED (%d)",
 			(int32_t) rseq_abi->cpu_id);
 
 end:

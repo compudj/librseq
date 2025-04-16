@@ -12,6 +12,9 @@
 #include <linux/types.h>
 #include <asm/byteorder.h>
 
+/* Original struct rseq feature size is 20 bytes. */
+#define RSEQ_ABI_ORIG_FEATURE_SIZE		20
+
 /* Original struct rseq allocation size is 32 bytes. */
 #define RSEQ_ABI_ORIG_ALLOC_SIZE		32
 

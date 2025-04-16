@@ -45,6 +45,14 @@ enum rseq_available_query {
 };
 
 /*
+ * Return values of rseq_init().
+ */
+enum rseq_init_return {
+	RSEQ_INIT_OK = 0,
+	RSEQ_INIT_ERROR_MISSING_SYMBOLS = 1,
+};
+
+/*
  * User code can define RSEQ_GET_ABI_OVERRIDE to override the
  * rseq_get_abi() implementation, for instance to use glibc's symbols
  * directly.
@@ -69,13 +77,10 @@ extern ptrdiff_t rseq_offset;
  * size for the rseq area and the feature size supported by the kernel.
  */
 
-/*
- * Size of the active rseq feature set. 0 if the registration was
- * unsuccessful.
- */
+/* Size of the active rseq features. 0 if the registration failed. */
 extern unsigned int rseq_size;
 
-/* Flags used during rseq registration. */
+/* Flags used at rseq registration. */
 extern unsigned int rseq_flags;
 
 /*
@@ -105,45 +110,51 @@ extern "C" {
 #endif
 
 /*
- * Register rseq for the current thread. This needs to be called once
- * by any thread which uses restartable sequences, before they start
- * using restartable sequences, to ensure restartable sequences
- * succeed. A restartable sequence executed from a non-registered
- * thread will always fail.
+ * Initialize librseq, must be called once per process.
  */
-int rseq_register_current_thread(void);
+int rseq_init(void);
 
 /*
- * Unregister rseq for current thread.
- */
-int rseq_unregister_current_thread(void);
-
-/*
- * Restartable sequence fallback for reading the current CPU number.
+ * Slow fallback to get the current CPU number.
  */
 int32_t rseq_fallback_current_cpu(void);
 
 /*
- * Restartable sequence fallback for reading the current node number.
+ * Slow fallback to get the current node number.
  */
 int32_t rseq_fallback_current_node(void);
 
 /*
- * Returns true if rseq is supported.
+ * Returns true if rseq is supported. The query types are:
+ *
+ *   RSEQ_AVAILABLE_QUERY_KERNEL:
+ *     Returns true if the rseq syscall is available.
+ *
+ *   RSEQ_AVAILABLE_QUERY_LIBC:
+ *     Returns true if the libc exposes the rseq symbols.
  */
 bool rseq_available(unsigned int query);
 
+
 /*
- * rseq_get_max_nr_cpus: Get the max_nr_cpus auto-detected value.
- *
+ * Returns true if rseq is registered.
+ */
+static inline __attribute__((always_inline))
+bool rseq_registered(void)
+{
+	return rseq_size > 0;
+}
+
+/*
  * Returns the max_nr_cpus auto-detected at pool creation when invoked
  * with @nr_max_cpus=0 argument.
  */
 int rseq_get_max_nr_cpus(void);
 
 /*
- * Values returned can be either the current CPU number, -1 (rseq is
- * uninitialized), or -2 (rseq initialization has failed).
+ * Get the current CPU number from the rseq area. Values returned can be either
+ * the current CPU number, -1 (rseq is uninitialized), or -2 (rseq
+ * initialization has failed).
  */
 static inline __attribute__((always_inline))
 int32_t rseq_current_cpu_raw(void)
@@ -168,6 +179,9 @@ uint32_t rseq_cpu_start(void)
 	return RSEQ_READ_ONCE(rseq_get_abi()->cpu_id_start);
 }
 
+/*
+ * Get the current CPU number from the rseq area, fallback to a syscall
+ */
 static inline __attribute__((always_inline))
 uint32_t rseq_current_cpu(void)
 {
@@ -179,6 +193,9 @@ uint32_t rseq_current_cpu(void)
 	return cpu;
 }
 
+/*
+ * Returns true if the 'node_id' feature is available.
+ */
 static inline __attribute__((always_inline))
 bool rseq_node_id_available(void)
 {
@@ -186,7 +203,7 @@ bool rseq_node_id_available(void)
 }
 
 /*
- * Current NUMA node number.
+ * Get the current NUMA node number.
  */
 static inline __attribute__((always_inline))
 uint32_t rseq_current_node_id(void)
@@ -195,18 +212,27 @@ uint32_t rseq_current_node_id(void)
 	return RSEQ_READ_ONCE(rseq_get_abi()->node_id);
 }
 
+/*
+ * Returns true if the 'mm_cid' feature is available.
+ */
 static inline __attribute__((always_inline))
 bool rseq_mm_cid_available(void)
 {
 	return (int) rseq_size >= (int) rseq_offsetofend(struct rseq_abi, mm_cid);
 }
 
+/*
+ * Get the current memory map concurrency id.
+ */
 static inline __attribute__((always_inline))
 uint32_t rseq_current_mm_cid(void)
 {
 	return RSEQ_READ_ONCE(rseq_get_abi()->mm_cid);
 }
 
+/*
+ * Clear the rseq_cs pointer.
+ */
 static inline __attribute__((always_inline))
 void rseq_clear_rseq_cs(void)
 {

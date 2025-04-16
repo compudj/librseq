@@ -148,12 +148,6 @@ static void *test_percpu_benchmark_thread(void *arg)
 
 	set_affinity();
 
-	if (rseq_register_current_thread()) {
-		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		abort();
-	}
-
 	/*
 	 * Rendez-vous across all threads to make sure the number of
 	 * threads >= number of possible CPUs for the entire test duration.
@@ -201,11 +195,6 @@ static void *test_percpu_benchmark_thread(void *arg)
 	while (!__atomic_load_n(&test_stop, __ATOMIC_RELAXED))
 		rseq_barrier();
 
-	if (rseq_unregister_current_thread()) {
-		fprintf(stderr, "Error: rseq_unregister_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		abort();
-	}
 	data->total_time += total_time;
 
 	return NULL;
@@ -272,31 +261,28 @@ int main(int argc, char **argv)
 		rand_order[index] = tmp;
 	}
 
-	if (!rseq_available(RSEQ_AVAILABLE_QUERY_KERNEL)) {
-		skip(NR_TESTS, "The rseq syscall is unavailable");
+	/*
+	 * Skip all tests if the libc doesn't have rseq support
+	 */
+	if (!rseq_available(RSEQ_AVAILABLE_QUERY_LIBC)) {
+		skip(NR_TESTS, "The libc doesn't have rseq support");
+	}
+
+	if (rseq_init() == RSEQ_INIT_OK) {
+		pass("Initialized librseq");
+	} else {
+		fail("Initialized librseq")
+		skip(NR_TESTS - 1, "Error: librseq initialization failed");
 		goto end;
 	}
 
-	if (rseq_register_current_thread()) {
-		fail("rseq_register_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		goto end;
-	} else {
-		pass("Registered current thread with rseq");
-	}
 	if (!rseq_validate_cpu_id()) {
-		skip(NR_TESTS - 1, "Error: cpu id getter unavailable");
+		skip(NR_TESTS - 2, "Error: cpu id getter unavailable");
 		goto end;
 	}
+
 	test_percpu_benchmark();
 
-	if (rseq_unregister_current_thread()) {
-		fail("rseq_unregister_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		goto end;
-	} else {
-		pass("Unregistered current thread with rseq");
-	}
 end:
 	rseq_mempool_percpu_free(percpudata);
 	rseq_mempool_destroy(mempool);

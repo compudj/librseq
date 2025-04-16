@@ -17,7 +17,7 @@
 
 #include "tap.h"
 
-#define NR_TESTS 4
+#define NR_TESTS 3
 
 #define ARRAY_SIZE(arr)	(sizeof(arr) / sizeof((arr)[0]))
 
@@ -116,20 +116,10 @@ static void *test_percpu_spinlock_thread(void *arg)
 	struct spinlock_test_data *data = (struct spinlock_test_data *) arg;
 	int i, cpu;
 
-	if (rseq_register_current_thread()) {
-		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		abort();
-	}
 	for (i = 0; i < data->reps; i++) {
 		cpu = rseq_this_cpu_lock(&data->lock);
 		data->c[cpu].count++;
 		rseq_percpu_unlock(&data->lock, cpu);
-	}
-	if (rseq_unregister_current_thread()) {
-		fprintf(stderr, "Error: rseq_unregister_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		abort();
 	}
 
 	return NULL;
@@ -249,12 +239,6 @@ static void *test_percpu_list_thread(void *arg)
 	int i;
 	struct percpu_list *list = (struct percpu_list *)arg;
 
-	if (rseq_register_current_thread()) {
-		fprintf(stderr, "Error: rseq_register_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		abort();
-	}
-
 	for (i = 0; i < 100000; i++) {
 		struct percpu_list_node *node;
 
@@ -262,12 +246,6 @@ static void *test_percpu_list_thread(void *arg)
 		sched_yield();  /* encourage shuffling */
 		if (node)
 			this_cpu_list_push(list, node, NULL);
-	}
-
-	if (rseq_unregister_current_thread()) {
-		fprintf(stderr, "Error: rseq_unregister_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		abort();
 	}
 
 	return NULL;
@@ -300,10 +278,12 @@ static void test_percpu_list(void)
 		}
 	}
 
+	diag(" Create threads");
 	for (i = 0; i < 200; i++)
 		pthread_create(&test_threads[i], NULL,
 		       test_percpu_list_thread, &list);
 
+	diag(" Join threads");
 	for (i = 0; i < 200; i++)
 		pthread_join(test_threads[i], NULL);
 
@@ -326,32 +306,29 @@ int main(void)
 {
 	plan_tests(NR_TESTS);
 
-	if (!rseq_available(RSEQ_AVAILABLE_QUERY_KERNEL)) {
-		skip(NR_TESTS, "The rseq syscall is unavailable");
+	/*
+	 * Skip all tests if the libc doesn't have rseq support
+	 */
+	if (!rseq_available(RSEQ_AVAILABLE_QUERY_LIBC)) {
+		skip(NR_TESTS, "The libc doesn't have rseq support");
+	}
+
+	if (rseq_init() == RSEQ_INIT_OK) {
+		pass("Initialized librseq");
+	} else {
+		fail("Initialized librseq")
+		skip(NR_TESTS - 1, "Error: librseq initialization failed");
 		goto end;
 	}
 
-	if (rseq_register_current_thread()) {
-		fail("rseq_register_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		goto end;
-	} else {
-		pass("Registered current thread with rseq");
-	}
 	if (!rseq_validate_cpu_id()) {
-		skip(NR_TESTS - 1, "Error: cpu id getter unavailable");
+		skip(NR_TESTS - 2, "Error: cpu id getter unavailable");
 		goto end;
 	}
+
 	test_percpu_spinlock();
 	test_percpu_list();
 
-	if (rseq_unregister_current_thread()) {
-		fail("rseq_unregister_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		goto end;
-	} else {
-		pass("Unregistered current thread with rseq");
-	}
 end:
 	exit(exit_status());
 }

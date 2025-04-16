@@ -77,33 +77,26 @@ static void test_cpu_pointer(void)
 
 int main(void)
 {
+	diag("Basic test coverage for critical regions and rseq_current_cpu()");
+
 	/*
-	 * Skip all tests if the rseq syscall is unavailable
+	 * Skip all tests if the libc doesn't have rseq support
 	 */
-	if (rseq_available(RSEQ_AVAILABLE_QUERY_KERNEL)) {
+	if (rseq_available(RSEQ_AVAILABLE_QUERY_LIBC)) {
 		plan_no_plan();
 	} else {
-		plan_skip_all("The rseq syscall is unavailable");
+		plan_skip_all("The libc doesn't have rseq support");
 	}
 
-	if (rseq_register_current_thread()) {
-		fail("rseq_register_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		goto end;
+	if (rseq_init() == RSEQ_INIT_OK) {
+		pass("Initialized librseq");
 	} else {
-		pass("Registered current thread with rseq");
+		fail("Initialized librseq")
+		goto end;
 	}
 
 	test_registered();
 	test_cpu_pointer();
-
-	if (rseq_unregister_current_thread()) {
-		fail("rseq_unregister_current_thread(...) failed(%d): %s\n",
-			errno, strerror(errno));
-		goto end;
-	} else {
-		pass("Unregistered current thread with rseq");
-	}
 
 end:
 	exit(exit_status());
