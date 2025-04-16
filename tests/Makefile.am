@@ -23,8 +23,6 @@ noinst_PROGRAMS = \
 	basic_percpu_mm_cid_benchmark_cxx.tap \
 	basic_test.tap \
 	basic_test_cxx.tap \
-	fork_test.tap \
-	fork_test_cxx.tap \
 	mempool_test.tap \
 	mempool_test_cxx.tap \
 	mempool_cow_race_test.tap \
@@ -49,8 +47,6 @@ noinst_PROGRAMS = \
 	unregistered_test.tap
 
 dist_noinst_SCRIPTS = \
-	run_fork_test_cxx.tap \
-	run_fork_test.tap \
 	run_no_syscall_test_cxx.tap \
 	run_no_syscall_test.tap \
 	run_param_test_cxx.tap \
@@ -122,12 +118,6 @@ basic_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/util
 basic_test_cxx_tap_SOURCES = basic_test_cxx.cpp
 basic_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
-fork_test_tap_SOURCES = fork_test.c
-fork_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
-
-fork_test_cxx_tap_SOURCES = fork_test_cxx.cpp
-fork_test_cxx_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
-
 mempool_test_tap_SOURCES = mempool_test.c
 mempool_test_tap_LDADD = $(top_builddir)/src/librseq.la $(top_builddir)/tests/utils/libtap.la $(DL_LIBS)
 
@@ -192,8 +182,6 @@ TESTS = \
 	unit/arch_mo_cxx.tap \
 	basic_test.tap \
 	basic_test_cxx.tap \
-	run_fork_test.tap \
-	run_fork_test_cxx.tap \
 	run_unregistered_test.tap \
 	run_unregistered_test_cxx.tap \
 	run_syscall_errors_test.tap \
