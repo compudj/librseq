@@ -140,6 +140,7 @@
 #include <rseq/percpu-counter-tree.h>
 #include "rseq-utils.h"
 #include "smp.h"
+#include "rcu.h"
 
 #define RSEQ_COUNTER_SET_SIZE	(4 * sizeof(unsigned long))
 #define BIT_PER_ULONG		(8 * sizeof(unsigned long))
@@ -153,7 +154,7 @@
 struct percpu_counter_tree {
 	/* Fast-path fields. */
 	uint8_t __rseq_percpu *level0;
-	uint8_t level0_bit_mask;
+	unsigned long level0_bit_mask;
 	unsigned long approx_sum;
 	long bias;			/* bias for counter_set */
 
@@ -161,6 +162,10 @@ struct percpu_counter_tree {
 	uint8_t __rseq_percpu *items;
 	unsigned long batch_size_order;
 	unsigned long inaccuracy;	/* approximation imprecise within ± inaccuracy */
+
+	/* This lock protects precise sum state. */
+	pthread_mutex_t lock;
+	unsigned long nr_ongoing_precise_sum;
 };
 
 /*
@@ -198,6 +203,8 @@ struct counter_config {
 	unsigned char nr_levels;
 	unsigned char n_arity_order[MAX_NR_LEVELS];
 };
+
+static struct rseq_rcu_gp_state rcu_gp;
 
 /*
  * nr_items is the number of items in the tree for levels 1 to and
@@ -473,6 +480,7 @@ struct percpu_counter_tree *percpu_counter_tree_alloc(unsigned long batch_size)
 	counter->batch_size_order = rseq_get_count_order_ulong(batch_size);
 	counter->approx_sum = 0;
 	counter->bias = 0;
+	counter->nr_ongoing_precise_sum = 0;
 	counter->level0 = (uint8_t __rseq_percpu *)rseq_mempool_byte_zmalloc(percpu_mempool);
 	if (!counter->level0) {
 		goto error;
@@ -484,9 +492,10 @@ struct percpu_counter_tree *percpu_counter_tree_alloc(unsigned long batch_size)
 		counter->items = (uint8_t __rseq_percpu *)rseq_mempool_byte_zmalloc(item_mempool);
 		if (!counter->items)
 			goto free_level0;
-		counter->level0_bit_mask = (uint8_t)(1UL << counter->batch_size_order);
+		counter->level0_bit_mask = 1UL << counter->batch_size_order;
 	}
 	counter->inaccuracy = inaccuracy_multiplier << counter->batch_size_order;
+	pthread_mutex_init(&counter->lock, NULL);
 	return counter;
 
 free_level0:
@@ -500,6 +509,7 @@ void percpu_counter_tree_destroy(struct percpu_counter_tree *counter)
 {
 	if (!counter)
 		return;
+	pthread_mutex_destroy(&counter->lock);
 	if (counter->items)
 		rseq_mempool_byte_free(item_mempool, counter->items);
 	rseq_mempool_byte_free(percpu_mempool, counter->level0);
@@ -540,16 +550,15 @@ long percpu_counter_tree_carry(long orig, long res, long inc, unsigned long bit_
 }
 
 static
-void percpu_counter_tree_add_slowpath(struct percpu_counter_tree *counter, long inc, int cpu)
+void percpu_counter_tree_add_slowpath(struct percpu_counter_tree *counter, long inc, int cpu, unsigned long bit_mask)
 {
 	unsigned int level_items, item_index = 0, nr_levels = counter_config->nr_levels,
 		     level, n_arity_order, inc_shift;
-	unsigned long bit_mask;
 
 	if (!nr_cpus_order)
 		abort();	/* Should never be called for 1 cpu. */
 	n_arity_order = counter_config->n_arity_order[0];
-	bit_mask = counter->level0_bit_mask << n_arity_order;
+	bit_mask <<= n_arity_order;
 	level_items = 1U << (nr_cpus_order - n_arity_order);
 	inc_shift = counter->batch_size_order;
 
@@ -581,16 +590,27 @@ void percpu_counter_tree_add_slowpath(struct percpu_counter_tree *counter, long 
 
 void percpu_counter_tree_add(struct percpu_counter_tree *counter, long inc)
 {
-	unsigned long bit_mask = counter->level0_bit_mask;
-	unsigned long orig, res;
+	struct rseq_rcu_read_state rcu_state;
+	unsigned long orig, res, bit_mask;
 	int cpu;
 
 	if (!inc)
 		return;
-	/* Single CPU. */
-	if (!bit_mask) {
-		counter->approx_sum += inc;
-		return;
+	rseq_rcu_read_begin(&rcu_gp, &rcu_state);
+	bit_mask = __atomic_load_n(&counter->level0_bit_mask, __ATOMIC_RELAXED);
+	/*
+	 * Control dependency orders level0_bit_mask load vs
+	 * stores to the tree level 0 and intermediate nodes.
+	 */
+	if (rseq_unlikely(!bit_mask)) {
+		if (!nr_cpus_order) {
+			/* Single CPU. */
+			counter->approx_sum += inc;
+		} else {
+			/* Ongoing precise sum. */
+			(void)__atomic_add_fetch(&counter->approx_sum, inc, __ATOMIC_RELAXED);
+		}
+		goto end;
 	}
 	cpu = rseq_current_cpu();
 	//TODO: implement rseq byte-wise add return. Use __atomic_add_fetch meanwhile.
@@ -599,9 +619,10 @@ void percpu_counter_tree_add(struct percpu_counter_tree *counter, long inc)
 	percpu_counter_tree_dbg_printf("%s: cpu: %d, inc: %ld, bit_mask: %lu, orig %lu, res %lu\n",
 			__func__, cpu, inc, bit_mask, orig, res);
 	inc = percpu_counter_tree_carry(orig, res, inc, bit_mask);
-        if (!inc)
-		return;
-	percpu_counter_tree_add_slowpath(counter, inc, cpu);
+	if (inc)
+		percpu_counter_tree_add_slowpath(counter, inc, cpu, bit_mask);
+end:
+	rseq_rcu_read_end(&rcu_gp, &rcu_state);
 }
 
 long percpu_counter_tree_approximate_sum(struct percpu_counter_tree *counter)
@@ -610,6 +631,18 @@ long percpu_counter_tree_approximate_sum(struct percpu_counter_tree *counter)
 		       (unsigned long)__atomic_load_n(&counter->bias, __ATOMIC_RELAXED));
 }
 
+/*
+ * The precise sum is only accurate if updaters are quiescent, because
+ * they may be in flight and propagating a carry.
+ * 
+ * Surround updaters by an RCU read-side critical section, and use the
+ * level 0 bit mask value 0 to divert updaters to the global approximate
+ * counter sum while at least one precise sum is being aggregated.
+ * 
+ * Precise sum aggregation wait for a grace period to ensure updaters
+ * are not modifying the level 0 and intermediate tree nodes while the
+ * precise sum reads those values.
+ */
 static
 long percpu_counter_tree_precise_sum_unbiased(struct percpu_counter_tree *counter)
 {
@@ -617,6 +650,16 @@ long percpu_counter_tree_precise_sum_unbiased(struct percpu_counter_tree *counte
 		     level, n_arity_order, inc_shift;
 	unsigned long sum = 0;
 	int nr_cpus, cpu;
+
+	if (!nr_cpus_order)
+		return counter->approx_sum;
+
+	pthread_mutex_lock(&counter->lock);
+	if (++counter->nr_ongoing_precise_sum == 1)
+		__atomic_store_n(&counter->level0_bit_mask, 0, __ATOMIC_RELAXED);
+	pthread_mutex_unlock(&counter->lock);
+
+	rseq_rcu_wait_grace_period(&rcu_gp);
 
 	nr_cpus = get_possible_cpus_array_len();
 	if (!nr_cpus)
@@ -651,13 +694,19 @@ long percpu_counter_tree_precise_sum_unbiased(struct percpu_counter_tree *counte
 	}
 	/* Last level */
 	sum += __atomic_load_n(&counter->approx_sum, __ATOMIC_RELAXED);
+
+	pthread_mutex_lock(&counter->lock);
+	if (--counter->nr_ongoing_precise_sum == 0) {
+		__atomic_store_n(&counter->level0_bit_mask,
+				 1UL << counter->batch_size_order,
+				 __ATOMIC_RELEASE);
+	}
+	pthread_mutex_unlock(&counter->lock);
 	return (long) sum;
 }
 
 /*
  * Precise sum. Perform the sum of all per-cpu counters.
- * TODO: precise sum is only precise if updaters are quiescent, because
- * they may be in flight and propagating a carry.
  */
 long percpu_counter_tree_precise_sum(struct percpu_counter_tree *counter)
 {
@@ -795,6 +844,7 @@ void init(void)
 {
 	int nr_cpus;
 
+	rseq_rcu_gp_init(&rcu_gp);
 	nr_cpus = get_possible_cpus_array_len();
 	if (!nr_cpus)
 		abort();
@@ -832,4 +882,5 @@ void fini(void)
 		perror("rseq_mempool_byte_destroy");
 		abort();
 	}
+	rseq_rcu_gp_exit(&rcu_gp);
 }
