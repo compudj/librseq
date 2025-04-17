@@ -5,7 +5,7 @@ lib_LTLIBRARIES = librseq.la
 
 librseq_la_SOURCES = \
 	rseq.c rseq-mempool.c rseq-utils.h smp.c smp.h list.h \
-	percpu-counter-tree.c
+	percpu-counter-tree.c rcu.c rcu.h
 
 librseq_la_LDFLAGS = -no-undefined -version-info $(RSEQ_LIBRARY_VERSION)
 librseq_la_LIBADD = $(DL_LIBS)
