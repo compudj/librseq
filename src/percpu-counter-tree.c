@@ -134,6 +134,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <limits.h>
+#include <hwloc.h>
 
 #include <rseq/rseq.h>
 #include <rseq/mempool.h>
@@ -205,6 +206,7 @@ struct counter_config {
 	unsigned char n_arity_order[MAX_NR_LEVELS];
 };
 
+static int *cpu_mapping_os_to_logical;
 static struct rseq_rcu_gp_state rcu_gp;
 
 /*
@@ -299,6 +301,19 @@ uint8_t atomic_byte_load_relaxed(uint8_t *p)
 		load.word = __atomic_load_n(&wp->word, __ATOMIC_RELAXED);
 		return load.bytes[offset];
 	}
+}
+
+/*
+ * Ensure that cpu index placement follows the logical processor unit
+ * (PU) order from hwloc, which provides better topology locality for
+ * contiguous numbers.
+ */
+static
+int cpu_os_to_logical(int cpu)
+{
+	if (!cpu_mapping_os_to_logical)
+		return cpu;
+        return cpu_mapping_os_to_logical[cpu];
 }
 
 static
@@ -614,6 +629,7 @@ void percpu_counter_tree_add_slowpath(struct percpu_counter_tree *counter, long 
 {
 	unsigned int level_items, item_index = 0, nr_levels = counter_config->nr_levels,
 		     level, n_arity_order, inc_shift;
+	int logical_cpu = cpu_os_to_logical(cpu);
 
 	if (!nr_cpus_order)
 		abort();	/* Should never be called for 1 cpu. */
@@ -627,7 +643,7 @@ void percpu_counter_tree_add_slowpath(struct percpu_counter_tree *counter, long 
 		uint8_t *count;
 
 		count = rseq_percpu_ptr(counter->items,
-					item_index + (cpu & (level_items - 1)));
+					item_index + (logical_cpu & (level_items - 1)));
 		res = atomic_byte_add_return_relaxed(count, inc >> inc_shift);
 		orig = res - (inc >> inc_shift);
 		percpu_counter_tree_dbg_printf(
@@ -974,6 +990,62 @@ unsigned long calculate_inaccuracy_multiplier(void)
 	return inaccuracy;
 }
 
+static
+int init_cpu_mapping(void)
+{
+	hwloc_topology_t topology;
+	hwloc_obj_t obj;
+	int nbpu, ret, cpu;
+	bool identity = true;
+
+	hwloc_topology_init(&topology);
+	hwloc_topology_load(topology);
+
+	nbpu = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_PU);
+	if (nbpu <= 0) {
+		ret = -EINVAL;
+		goto end;
+	}
+	cpu_mapping_os_to_logical = calloc(nbpu, sizeof(int));
+	if (!cpu_mapping_os_to_logical) {
+		ret = -ENOMEM;
+		goto end;
+	}
+	obj = hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, 0);
+	while (obj) {
+		if (obj->os_index >= (unsigned int)nbpu) {
+			ret = -EINVAL;
+			goto end;
+		}
+		cpu_mapping_os_to_logical[obj->os_index] = obj->logical_index;
+		obj = hwloc_get_next_obj_by_type(topology, HWLOC_OBJ_PU, obj);
+	}
+	for (cpu = 0; cpu < nbpu; cpu++) {
+		if (cpu_mapping_os_to_logical[cpu] != cpu) {
+			identity = false;
+			break;
+		}
+	}
+	if (identity) {
+		/* No need for a mapping table for identity function. */
+		free(cpu_mapping_os_to_logical);
+		cpu_mapping_os_to_logical = NULL;
+	}
+	ret = 0;
+end:
+	if (ret)
+		free(cpu_mapping_os_to_logical);
+	hwloc_topology_destroy(topology);
+
+	return ret;
+}
+
+static
+void fini_cpu_mapping(void)
+{
+	free(cpu_mapping_os_to_logical);
+}
+
 static __attribute__((constructor))
 void init(void)
 {
@@ -1005,6 +1077,8 @@ void init(void)
 		perror("rseq_mempool_byte_create");
 		abort();
 	}
+	if (init_cpu_mapping())
+		abort();
 }
 
 static __attribute__((destructor))
@@ -1012,6 +1086,7 @@ void fini(void)
 {
 	int ret;
 
+	fini_cpu_mapping();
 	ret = rseq_mempool_byte_destroy(item_mempool);
 	if (ret) {
 		perror("rseq_mempool_byte_destroy");

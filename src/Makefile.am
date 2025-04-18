@@ -8,7 +8,7 @@ librseq_la_SOURCES = \
 	percpu-counter-tree.c rcu.c rcu.h
 
 librseq_la_LDFLAGS = -no-undefined -version-info $(RSEQ_LIBRARY_VERSION)
-librseq_la_LIBADD = $(DL_LIBS)
+librseq_la_LIBADD = $(DL_LIBS) -lhwloc
 
 if ENABLE_NUMA
 librseq_la_LIBADD += -lnuma
