@@ -256,6 +256,11 @@ union word {
 	uint8_t bytes[4];
 };
 
+union ptr {
+	intptr_t ptr;
+	uint8_t bytes[sizeof(intptr_t)];
+};
+
 /*
  * Atomic add return fallback using 4-byte cmpxchg for architectures
  * which do not implement byte atomics. This is OK because the memory
@@ -299,6 +304,39 @@ uint8_t atomic_byte_load_relaxed(uint8_t *p)
 		load.word = __atomic_load_n(&wp->word, __ATOMIC_RELAXED);
 		return load.bytes[offset];
 	}
+}
+
+/*
+ * rseq add return using uintptr_t cmpxchg.
+ * This is OK because the memory layout of the byte counter set
+ * guarantees that counter sets contain RSEQ_COUNTER_SET_SIZE counters,
+ * and are aligned on RSEQ_COUNTER_SET_SIZE. The value of
+ * RSEQ_COUNTER_SET_SIZE needs to be at least sizeof(uintptr_t) bytes.
+ */
+static
+uint8_t local_byte_add_return_relaxed(uint8_t __rseq_percpu *p, uint8_t v, int *ret_cpu)
+{
+	union ptr __rseq_percpu *ptrp = (union ptr __rseq_percpu *)((uintptr_t)p & ~(sizeof(union ptr) - 1));
+	unsigned int offset = p - &ptrp->bytes[0];
+	union ptr orig, newv;
+	uint8_t new_byte;
+	int ret, cpu;
+
+	for (;;) {
+		union ptr *cpu_ptrp;
+
+		cpu = rseq_cpu_start();
+		cpu_ptrp = (union ptr *)rseq_percpu_ptr(&ptrp->ptr, cpu);
+		newv.ptr = orig.ptr = __atomic_load_n(&cpu_ptrp->ptr, __ATOMIC_RELAXED);
+		new_byte = newv.bytes[offset] + v;
+		newv.bytes[offset] = new_byte;
+		ret = rseq_load_cbne_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU_CPU_ID,
+						&cpu_ptrp->ptr, orig.ptr, newv.ptr, cpu);
+		if (!ret)
+			break;
+	}
+	*ret_cpu = cpu;
+	return new_byte;
 }
 
 /*
@@ -628,9 +666,7 @@ void percpu_counter_tree_add(struct percpu_counter_tree *counter, long inc)
 		}
 		goto end;
 	}
-	cpu = rseq_current_cpu();
-	//TODO: implement rseq byte-wise add return. Use __atomic_add_fetch meanwhile.
-	res = atomic_byte_add_return_relaxed(rseq_percpu_ptr(counter->level0, cpu), inc);
+	res = local_byte_add_return_relaxed(counter->level0, inc, &cpu);
 	orig = res - inc;
 	percpu_counter_tree_dbg_printf("%s: cpu: %d, inc: %ld, bit_mask: %lu, orig %lu, res %lu\n",
 			__func__, cpu, inc, bit_mask, orig, res);
