@@ -271,6 +271,22 @@ int rseq_load_cbeq_store_add_load_store__ptr(enum rseq_mo rseq_mo, enum rseq_per
 }
 
 static inline __attribute__((always_inline))
+int rseq_stride_inc__ptr(enum rseq_mo rseq_mo, enum rseq_percpu_mode percpu_mode, intptr_t *v, unsigned int stride_order)
+{
+	if (rseq_mo != RSEQ_MO_RELAXED || percpu_mode != RSEQ_PERCPU_CPU_ID)
+		return -1;
+	return rseq_stride_inc__ptr_relaxed_cpu_id(v, stride_order);
+}
+
+static inline __attribute__((always_inline))
+int rseq_stride_add_return__byte(enum rseq_mo rseq_mo, enum rseq_percpu_mode percpu_mode, uint8_t *v, uint8_t *res, uint8_t inc, unsigned int stride_order, int *cpu)
+{
+	if (rseq_mo != RSEQ_MO_RELAXED || percpu_mode != RSEQ_PERCPU_CPU_ID)
+		return -1;
+	return rseq_stride_add_return__byte_relaxed_cpu_id(v, res, inc, stride_order, cpu);
+}
+
+static inline __attribute__((always_inline))
 int rseq_load_add_store__ptr(enum rseq_mo rseq_mo, enum rseq_percpu_mode percpu_mode,
 	      intptr_t *v, intptr_t count, int cpu)
 {

@@ -107,7 +107,7 @@ int main(void)
 		pass("Registered current thread with rseq");
 	}
 
-	benchmark_global_counter_inc();
+	//benchmark_global_counter_inc();
 	benchmark_counter_inc(32);
 
 	if (rseq_unregister_current_thread()) {

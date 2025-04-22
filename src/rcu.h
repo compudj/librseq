@@ -40,7 +40,6 @@ struct rseq_rcu_gp_state {
 
 struct rseq_rcu_read_state {
 	struct rseq_rcu_percpu_count *percpu_count;
-	int cpu;
 };
 
 extern unsigned int rseq_rcu_rseq_membarrier_available __attribute__((visibility("hidden")));
@@ -74,14 +73,12 @@ void rseq_rcu_read_begin(struct rseq_rcu_gp_state *gp_state, struct rseq_rcu_rea
 	unsigned int period;
 	int cpu;
 
-	cpu = rseq_cpu_start();
 	period = __atomic_load_n(&gp_state->period, __ATOMIC_RELAXED);
-	cpu_gp_state = &gp_state->percpu_state[cpu];
+	cpu_gp_state = &gp_state->percpu_state[0];
 	read_state->percpu_count = begin_cpu_count = &cpu_gp_state->count[period];
-	read_state->cpu = cpu;
 	if (rseq_likely(rseq_rcu_rseq_membarrier_available &&
-			!rseq_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU_CPU_ID,
-				   (intptr_t *)&begin_cpu_count->rseq_begin, 1, cpu))) {
+			!rseq_stride_inc__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU_CPU_ID,
+					(intptr_t *)&begin_cpu_count->rseq_begin, sizeof(struct rseq_rcu_cpu_gp_state)))) {
 		/*
 		 * This compiler barrier (A) is paired with membarrier() at (C),
 		 * (D), (E). It effectively upgrades this compiler barrier to a
@@ -102,9 +99,8 @@ void rseq_rcu_read_begin(struct rseq_rcu_gp_state *gp_state, struct rseq_rcu_rea
 	cpu = sched_getcpu();
 	if (rseq_unlikely(cpu < 0))
 		cpu = 0;
-	read_state->cpu = cpu;
 	cpu_gp_state = &gp_state->percpu_state[cpu];
-	read_state->percpu_count = begin_cpu_count = &cpu_gp_state->count[period];
+	begin_cpu_count = &cpu_gp_state->count[period];
 	(void) __atomic_add_fetch(&begin_cpu_count->begin, 1, __ATOMIC_SEQ_CST);
 }
 
@@ -112,7 +108,7 @@ static inline
 void rseq_rcu_read_end(struct rseq_rcu_gp_state *gp_state, struct rseq_rcu_read_state *read_state)
 {
 	struct rseq_rcu_percpu_count *begin_cpu_count = read_state->percpu_count;
-	int cpu = read_state->cpu;
+	int cpu;
 
 	/*
 	 * This compiler barrier (B) is paired with membarrier() at (C),
@@ -129,8 +125,8 @@ void rseq_rcu_read_end(struct rseq_rcu_gp_state *gp_state, struct rseq_rcu_read_
 	 */
 	rseq_barrier();
 	if (rseq_likely(rseq_rcu_rseq_membarrier_available &&
-			!rseq_load_add_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU_CPU_ID,
-				   (intptr_t *)&begin_cpu_count->rseq_end, 1, cpu))) {
+			!rseq_stride_inc__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU_CPU_ID,
+				(intptr_t *)&begin_cpu_count->rseq_end, sizeof(struct rseq_rcu_cpu_gp_state)))) {
 		/*
 		 * This barrier (F) is paired with membarrier()
 		 * at (G). It orders increment of the begin/end
@@ -145,6 +141,11 @@ void rseq_rcu_read_end(struct rseq_rcu_gp_state *gp_state, struct rseq_rcu_read_
 	 * barrier or membarrier() at (G). It orders increment of the
 	 * begin/end counters before load/store to the futex.
 	 */
+	/* Fallback to atomic increment and SEQ_CST. */
+	cpu = sched_getcpu();
+	if (rseq_unlikely(cpu < 0))
+		cpu = 0;
+	begin_cpu_count = (struct rseq_rcu_percpu_count *)((uintptr_t)begin_cpu_count + (cpu * sizeof(struct rseq_rcu_cpu_gp_state)));
 	(void) __atomic_add_fetch(&begin_cpu_count->end, 1, __ATOMIC_SEQ_CST);
 end:
 	rseq_rcu_wake_up_gp(gp_state);

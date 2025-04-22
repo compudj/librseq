@@ -28,6 +28,89 @@
 	(defined(RSEQ_TEMPLATE_INDEX_CPU_ID) || defined(RSEQ_TEMPLATE_INDEX_MM_CID))
 
 static inline __attribute__((always_inline))
+int RSEQ_TEMPLATE_IDENTIFIER(rseq_stride_add_return__byte)(uint8_t *v, uint8_t *res, uint8_t inc, unsigned int stride, int *cpu)
+{
+	RSEQ_INJECT_C(9)
+
+	__asm__ __volatile__ goto (
+		RSEQ_ASM_DEFINE_TABLE(3, 1f, 2f, 4f) /* start, commit, abort */
+		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[ne])
+		/* Start rseq by storing table entry pointer into rseq_cs. */
+		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]))
+		"movslq " __rseq_str(RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_INDEX_CPU_ID_OFFSET(%[rseq_offset])) ", %%rbx\n\t"
+		"movl %%ebx, %[cpu]\n\t"
+		"imul %[stride], %%ebx\n\t"
+		"lea %[v], %%rax\n\t"
+		"lea (%%rbx,%%rax,1), %%rax\n\t"
+		"movb (%%rax), %%bl\n\t"
+		"movb %%bl, %[res]\n\t"
+		/* final store */
+		"addb %[inc], (%%rax)\n\t"
+		"2:\n\t"
+		RSEQ_INJECT_ASM(4)
+		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
+		: /* gcc asm goto does not allow outputs */
+		: [rseq_offset]		"r" ((long long int) rseq_offset),
+		  [v]			"m" (*v),
+		  [res]			"m" (*res),
+		  [inc]			"r" (inc),
+		  [cpu]			"m" (*cpu),
+		  [stride]		"er" (stride)
+		: "memory", "cc", "rax", "rbx"
+		  RSEQ_INJECT_CLOBBER
+		: abort, ne
+	);
+	rseq_after_asm_goto();
+	*res += inc;
+	return 0;
+abort:
+	rseq_after_asm_goto();
+	RSEQ_INJECT_FAILED
+	return -1;
+ne:
+	rseq_after_asm_goto();
+	return 1;
+}
+
+
+static inline __attribute__((always_inline))
+int RSEQ_TEMPLATE_IDENTIFIER(rseq_stride_inc__ptr)(intptr_t *v, unsigned int stride)
+{
+	RSEQ_INJECT_C(9)
+
+	__asm__ __volatile__ goto (
+		RSEQ_ASM_DEFINE_TABLE(3, 1f, 2f, 4f) /* start, commit, abort */
+		RSEQ_ASM_DEFINE_EXIT_POINT(1f, %l[ne])
+		/* Start rseq by storing table entry pointer into rseq_cs. */
+		RSEQ_ASM_STORE_RSEQ_CS(1, 3b, RSEQ_ASM_TP_SEGMENT:RSEQ_ASM_CS_OFFSET(%[rseq_offset]))
+		"movslq " __rseq_str(RSEQ_ASM_TP_SEGMENT:RSEQ_TEMPLATE_INDEX_CPU_ID_OFFSET(%[rseq_offset])) ", %%rbx\n\t"
+		"imul %[stride], %%ebx\n\t"
+		"lea %[v], %%rax\n\t"
+		/* final store */
+		"incq (%%rbx,%%rax,1)\n\t"
+		"2:\n\t"
+		RSEQ_INJECT_ASM(4)
+		RSEQ_ASM_DEFINE_ABORT(4, "", abort)
+		: /* gcc asm goto does not allow outputs */
+		: [rseq_offset]		"r" ((long long int) rseq_offset),
+		  [v]			"m" (*v),
+		  [stride]		"er" (stride)
+		: "memory", "cc", "rax", "rbx"
+		  RSEQ_INJECT_CLOBBER
+		: abort, ne
+	);
+	rseq_after_asm_goto();
+	return 0;
+abort:
+	rseq_after_asm_goto();
+	RSEQ_INJECT_FAILED
+	return -1;
+ne:
+	rseq_after_asm_goto();
+	return 1;
+}
+
+static inline __attribute__((always_inline))
 int RSEQ_TEMPLATE_IDENTIFIER(rseq_load_cbne_store__ptr)(intptr_t *v, intptr_t expect, intptr_t newv, int cpu)
 {
 	RSEQ_INJECT_C(9)

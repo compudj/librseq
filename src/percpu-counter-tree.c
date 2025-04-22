@@ -316,27 +316,16 @@ uint8_t atomic_byte_load_relaxed(uint8_t *p)
 static
 uint8_t local_byte_add_return_relaxed(uint8_t __rseq_percpu *p, uint8_t v, int *ret_cpu)
 {
-	union ptr __rseq_percpu *ptrp = (union ptr __rseq_percpu *)((uintptr_t)p & ~(sizeof(union ptr) - 1));
-	unsigned int offset = p - &ptrp->bytes[0];
-	union ptr orig, newv;
-	uint8_t new_byte;
-	int ret, cpu;
+	int ret;
+	uint8_t res;
 
 	for (;;) {
-		union ptr *cpu_ptrp;
-
-		cpu = rseq_cpu_start();
-		cpu_ptrp = (union ptr *)rseq_percpu_ptr(&ptrp->ptr, cpu);
-		newv.ptr = orig.ptr = __atomic_load_n(&cpu_ptrp->ptr, __ATOMIC_RELAXED);
-		new_byte = newv.bytes[offset] + v;
-		newv.bytes[offset] = new_byte;
-		ret = rseq_load_cbne_store__ptr(RSEQ_MO_RELAXED, RSEQ_PERCPU_CPU_ID,
-						&cpu_ptrp->ptr, orig.ptr, newv.ptr, cpu);
+		ret = rseq_stride_add_return__byte(RSEQ_MO_RELAXED, RSEQ_PERCPU_CPU_ID,
+						p, &res, v, RSEQ_MEMPOOL_STRIDE, ret_cpu);
 		if (!ret)
 			break;
 	}
-	*ret_cpu = cpu;
-	return new_byte;
+	return res;
 }
 
 /*
