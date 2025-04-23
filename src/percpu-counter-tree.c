@@ -639,19 +639,21 @@ void percpu_counter_tree_add_slowpath(struct percpu_counter_tree *counter, long 
 	inc_shift = counter->batch_size_order;
 
 	for (level = 1; level < nr_levels; level++) {
-		unsigned long orig, res;
-		uint8_t *count;
+		if ((inc >> inc_shift) & ((1UL << n_arity_order) - 1)) {
+			unsigned long orig, res;
+			uint8_t *count;
 
-		count = rseq_percpu_ptr(counter->items,
-					item_index + (logical_cpu & (level_items - 1)));
-		res = atomic_byte_add_return_relaxed(count, inc >> inc_shift);
-		orig = res - (inc >> inc_shift);
-		percpu_counter_tree_dbg_printf(
-				"%s: cpu: %d, level %u, inc: %ld, bit_mask: %lu, orig %lu, res %lu\n",
-				__func__, cpu, level, inc, bit_mask,
-				orig << inc_shift, res << inc_shift);
-		inc = percpu_counter_tree_carry(orig << inc_shift, res << inc_shift,
-						inc, bit_mask);
+			count = rseq_percpu_ptr(counter->items,
+						item_index + (logical_cpu & (level_items - 1)));
+			res = atomic_byte_add_return_relaxed(count, inc >> inc_shift);
+			orig = res - (inc >> inc_shift);
+			percpu_counter_tree_dbg_printf(
+					"%s: cpu: %d, level %u, inc: %ld, bit_mask: %lu, orig %lu, res %lu\n",
+					__func__, cpu, level, inc, bit_mask,
+					orig << inc_shift, res << inc_shift);
+			inc = percpu_counter_tree_carry(orig << inc_shift, res << inc_shift,
+							inc, bit_mask);
+		}
 		if (!inc)
 			return;
 		item_index += level_items;
@@ -668,7 +670,7 @@ static
 void percpu_counter_tree_byte_add(struct percpu_counter_tree *counter, long inc)
 {
 	struct rseq_rcu_read_state rcu_state;
-	unsigned long orig, res, bit_mask;
+	unsigned long bit_mask;
 	int cpu;
 
 	if (!inc)
@@ -690,11 +692,15 @@ void percpu_counter_tree_byte_add(struct percpu_counter_tree *counter, long inc)
 		}
 		goto end;
 	}
-	res = atomic_byte_add_return_relaxed(rseq_percpu_ptr((uint8_t __rseq_percpu *)counter->level0, cpu), inc);
-	orig = res - inc;
-	percpu_counter_tree_dbg_printf("%s: cpu: %d, inc: %ld, bit_mask: %lu, orig %lu, res %lu\n",
-			__func__, cpu, inc, bit_mask, orig, res);
-	inc = percpu_counter_tree_carry(orig, res, inc, bit_mask);
+	if (rseq_likely(inc & ((1UL << counter->batch_size_order) - 1))) {
+		unsigned long orig, res;
+
+		res = atomic_byte_add_return_relaxed(rseq_percpu_ptr((uint8_t __rseq_percpu *)counter->level0, cpu), inc);
+		orig = res - inc;
+		percpu_counter_tree_dbg_printf("%s: cpu: %d, inc: %ld, bit_mask: %lu, orig %lu, res %lu\n",
+				__func__, cpu, inc, bit_mask, orig, res);
+		inc = percpu_counter_tree_carry(orig, res, inc, bit_mask);
+	}
 	if (inc)
 		percpu_counter_tree_add_slowpath(counter, inc, cpu, bit_mask);
 end:
