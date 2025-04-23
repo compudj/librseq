@@ -153,10 +153,11 @@
 
 struct percpu_counter_tree {
 	/* Fast-path fields. */
-	uint8_t __rseq_percpu *level0;
+	void __rseq_percpu *level0;
 	unsigned long level0_bit_mask;
 	unsigned long approx_sum;
 	long bias;			/* bias for counter_set */
+	enum percpu_counter_tree_type type;
 
 	/* Slow-path fields. */
 	uint8_t __rseq_percpu *items;
@@ -246,7 +247,8 @@ static const struct counter_config *counter_config;
  * different positions of a tree without wasting memory and cache with
  * padding.
  */
-static struct rseq_mempool_byte *percpu_mempool, *item_mempool;
+static struct rseq_mempool_byte *percpu_byte_mempool, *item_mempool;
+static struct rseq_mempool *percpu_long_mempool;
 static unsigned int nr_cpus_order, inaccuracy_multiplier;
 
 union word {
@@ -464,16 +466,50 @@ int rseq_mempool_byte_destroy(struct rseq_mempool_byte *pool)
 	return 0;
 }
 
-struct percpu_counter_tree *percpu_counter_tree_alloc(unsigned long batch_size)
+static
+struct rseq_mempool *rseq_mempool_long_create(const char *pool_name, size_t nr_cpus)
+{
+	struct rseq_mempool_attr *attr = NULL;
+	struct rseq_mempool *pool = NULL;
+	int ret;
+
+	attr = rseq_mempool_attr_create();
+	if (!attr)
+		goto error;
+	ret = rseq_mempool_attr_set_percpu(attr, RSEQ_MEMPOOL_STRIDE, nr_cpus);
+	if (ret)
+		goto error;
+	pool = rseq_mempool_create(pool_name, sizeof(unsigned long), attr);
+	if (!pool)
+		goto error;
+	rseq_mempool_attr_destroy(attr);
+	attr = NULL;
+	return pool;
+
+error:
+	if (attr)
+		rseq_mempool_attr_destroy(attr);
+	return NULL;
+}
+
+struct percpu_counter_tree *percpu_counter_tree_alloc(unsigned long batch_size, enum percpu_counter_tree_type type)
 {
 	struct percpu_counter_tree *counter = NULL;
 
 	/* Batch size must be power of 2 */
 	if (!batch_size || (batch_size & (batch_size - 1)))
 		return NULL;
-	/* Maximum batch size is 256 (one byte). */
-	if (batch_size > (1U << CHAR_BIT))
+	switch (type) {
+	case PERCPU_COUNTER_TREE_TYPE_BYTE:
+		/* Maximum batch size is 256 (one byte). */
+		if (batch_size > (1U << CHAR_BIT))
+			return NULL;
+		break;
+	case PERCPU_COUNTER_TREE_TYPE_LONG:
+		break;
+	default:
 		return NULL;
+	}
 	counter = calloc(1, sizeof(struct percpu_counter_tree));
 	if (!counter)
 		goto error;
@@ -481,14 +517,22 @@ struct percpu_counter_tree *percpu_counter_tree_alloc(unsigned long batch_size)
 	counter->approx_sum = 0;
 	counter->bias = 0;
 	counter->nr_ongoing_precise_sum = 0;
-	counter->level0 = (uint8_t __rseq_percpu *)rseq_mempool_byte_zmalloc(percpu_mempool);
-	if (!counter->level0) {
-		goto error;
-	}
+	counter->type = type;
 	if (!nr_cpus_order) {
 		counter->items = NULL;
 		counter->level0_bit_mask = 0;
 	} else {
+		switch (type) {
+		case PERCPU_COUNTER_TREE_TYPE_BYTE:
+			counter->level0 = (void __rseq_percpu *)rseq_mempool_byte_zmalloc(percpu_byte_mempool);
+			break;
+		case PERCPU_COUNTER_TREE_TYPE_LONG:
+			counter->level0 = (void __rseq_percpu *)rseq_mempool_zmalloc(percpu_long_mempool);
+			break;
+		}
+		if (!counter->level0) {
+			goto error;
+		}
 		counter->items = (uint8_t __rseq_percpu *)rseq_mempool_byte_zmalloc(item_mempool);
 		if (!counter->items)
 			goto free_level0;
@@ -499,7 +543,14 @@ struct percpu_counter_tree *percpu_counter_tree_alloc(unsigned long batch_size)
 	return counter;
 
 free_level0:
-	rseq_mempool_percpu_free(counter->level0);
+	switch (type) {
+	case PERCPU_COUNTER_TREE_TYPE_BYTE:
+		rseq_mempool_byte_free(percpu_byte_mempool, counter->level0);
+		break;
+	case PERCPU_COUNTER_TREE_TYPE_LONG:
+		rseq_mempool_percpu_free(counter->level0);
+		break;
+	}
 error:
 	free(counter);
 	return NULL;
@@ -512,7 +563,16 @@ void percpu_counter_tree_destroy(struct percpu_counter_tree *counter)
 	pthread_mutex_destroy(&counter->lock);
 	if (counter->items)
 		rseq_mempool_byte_free(item_mempool, counter->items);
-	rseq_mempool_byte_free(percpu_mempool, counter->level0);
+	if (counter->level0) {
+		switch (counter->type) {
+		case PERCPU_COUNTER_TREE_TYPE_BYTE:
+			rseq_mempool_byte_free(percpu_byte_mempool, counter->level0);
+			break;
+		case PERCPU_COUNTER_TREE_TYPE_LONG:
+			rseq_mempool_percpu_free(counter->level0);
+			break;
+		}
+	}
 	free(counter);
 }
 
@@ -588,7 +648,8 @@ void percpu_counter_tree_add_slowpath(struct percpu_counter_tree *counter, long 
 	(void)__atomic_add_fetch(&counter->approx_sum, inc, __ATOMIC_RELAXED);
 }
 
-void percpu_counter_tree_add(struct percpu_counter_tree *counter, long inc)
+static
+void percpu_counter_tree_byte_add(struct percpu_counter_tree *counter, long inc)
 {
 	struct rseq_rcu_read_state rcu_state;
 	unsigned long orig, res, bit_mask;
@@ -613,7 +674,7 @@ void percpu_counter_tree_add(struct percpu_counter_tree *counter, long inc)
 		}
 		goto end;
 	}
-	res = atomic_byte_add_return_relaxed(rseq_percpu_ptr(counter->level0, cpu), inc);
+	res = atomic_byte_add_return_relaxed(rseq_percpu_ptr((uint8_t __rseq_percpu *)counter->level0, cpu), inc);
 	orig = res - inc;
 	percpu_counter_tree_dbg_printf("%s: cpu: %d, inc: %ld, bit_mask: %lu, orig %lu, res %lu\n",
 			__func__, cpu, inc, bit_mask, orig, res);
@@ -622,6 +683,45 @@ void percpu_counter_tree_add(struct percpu_counter_tree *counter, long inc)
 		percpu_counter_tree_add_slowpath(counter, inc, cpu, bit_mask);
 end:
 	rseq_rcu_read_end(&rcu_gp, &rcu_state);
+}
+
+static
+void percpu_counter_tree_long_add(struct percpu_counter_tree *counter, long inc)
+{
+	unsigned long orig, res, bit_mask = counter->level0_bit_mask;
+	int cpu;
+
+	if (!inc)
+		return;
+	bit_mask = counter->level0_bit_mask;
+	if (rseq_unlikely(!bit_mask)) {
+		/* Single CPU. */
+		counter->approx_sum += inc;
+		return;
+	}
+	cpu = rseq_current_cpu();
+	res = __atomic_add_fetch(rseq_percpu_ptr((unsigned long __rseq_percpu *)counter->level0, cpu),
+				 inc, __ATOMIC_RELAXED);
+	orig = res - inc;
+	percpu_counter_tree_dbg_printf("%s: cpu: %d, inc: %ld, bit_mask: %lu, orig %lu, res %lu\n",
+			__func__, cpu, inc, bit_mask, orig, res);
+	inc = percpu_counter_tree_carry(orig, res, inc, bit_mask);
+	if (inc)
+		percpu_counter_tree_add_slowpath(counter, inc, cpu, bit_mask);
+}
+
+void percpu_counter_tree_add(struct percpu_counter_tree *counter, long inc)
+{
+	switch (counter->type) {
+	case PERCPU_COUNTER_TREE_TYPE_BYTE:
+		percpu_counter_tree_byte_add(counter, inc);
+		break;
+	case PERCPU_COUNTER_TREE_TYPE_LONG:
+		percpu_counter_tree_long_add(counter, inc);
+		break;
+	default:
+		abort();
+	}
 }
 
 long percpu_counter_tree_approximate_sum(struct percpu_counter_tree *counter)
@@ -643,7 +743,7 @@ long percpu_counter_tree_approximate_sum(struct percpu_counter_tree *counter)
  * precise sum reads those values.
  */
 static
-long percpu_counter_tree_precise_sum_unbiased(struct percpu_counter_tree *counter)
+long percpu_counter_tree_byte_precise_sum_unbiased(struct percpu_counter_tree *counter)
 {
 	unsigned int level_items, item_index = 0, nr_levels = counter_config->nr_levels,
 		     level, n_arity_order, inc_shift;
@@ -666,7 +766,7 @@ long percpu_counter_tree_precise_sum_unbiased(struct percpu_counter_tree *counte
 
 	/* Level 0 */
 	for (cpu = 0; cpu < nr_cpus; cpu++) {
-		uint8_t *count = rseq_percpu_ptr(counter->level0, cpu);
+		uint8_t *count = rseq_percpu_ptr((uint8_t __rseq_percpu *)counter->level0, cpu);
 		unsigned long v = (unsigned long)atomic_byte_load_relaxed(count);
 
 		sum += v & ((1UL << counter->batch_size_order) - 1);
@@ -702,6 +802,42 @@ long percpu_counter_tree_precise_sum_unbiased(struct percpu_counter_tree *counte
 	}
 	pthread_mutex_unlock(&counter->lock);
 	return (long) sum;
+}
+
+static
+long percpu_counter_tree_long_precise_sum_unbiased(struct percpu_counter_tree *counter)
+{
+	unsigned long sum = 0;
+	int nr_cpus, cpu;
+
+	if (!nr_cpus_order)
+		return counter->approx_sum;
+
+	nr_cpus = get_possible_cpus_array_len();
+	if (!nr_cpus)
+		abort();
+
+	/* Level 0 */
+	for (cpu = 0; cpu < nr_cpus; cpu++) {
+		unsigned long *count = rseq_percpu_ptr((unsigned long __rseq_percpu *)counter->level0, cpu);
+		unsigned long v = __atomic_load_n(count, __ATOMIC_RELAXED);
+
+		sum += v;
+	}
+	return (long) sum;
+}
+
+static
+long percpu_counter_tree_precise_sum_unbiased(struct percpu_counter_tree *counter)
+{
+	switch (counter->type) {
+	case PERCPU_COUNTER_TREE_TYPE_BYTE:
+		return percpu_counter_tree_byte_precise_sum_unbiased(counter);
+	case PERCPU_COUNTER_TREE_TYPE_LONG:
+		return percpu_counter_tree_long_precise_sum_unbiased(counter);
+	default:
+		abort();
+	}
 }
 
 /*
@@ -854,9 +990,14 @@ void init(void)
 	}
 	counter_config = &per_nr_cpu_order_config[nr_cpus_order];
 	inaccuracy_multiplier = calculate_inaccuracy_multiplier();
-	percpu_mempool = rseq_mempool_byte_create("percpu_counter_tree", nr_cpus);
-	if (!percpu_mempool) {
+	percpu_byte_mempool = rseq_mempool_byte_create("percpu_counter_tree_byte", nr_cpus);
+	if (!percpu_byte_mempool) {
 		perror("rseq_mempool_byte_create");
+		abort();
+	}
+	percpu_long_mempool = rseq_mempool_long_create("percpu_counter_tree_long", nr_cpus);
+	if (!percpu_long_mempool) {
+		perror("rseq_mempool_create");
 		abort();
 	}
 	item_mempool = rseq_mempool_byte_create("item_counter_tree", counter_config->nr_items);
@@ -876,7 +1017,7 @@ void fini(void)
 		perror("rseq_mempool_byte_destroy");
 		abort();
 	}
-	ret = rseq_mempool_byte_destroy(percpu_mempool);
+	ret = rseq_mempool_byte_destroy(percpu_byte_mempool);
 	if (ret) {
 		perror("rseq_mempool_byte_destroy");
 		abort();
