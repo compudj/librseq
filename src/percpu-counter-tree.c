@@ -243,14 +243,14 @@ static const struct counter_config *counter_config;
 /*
  * The percpu_mempool contains level 0 counters. It is indexed per-cpu.
  *
- * The item_mempool contains intermediate counters for levels 1 to N.
+ * The item mempools contains intermediate counters for levels 1 to N.
  * It is indexed based on the position within the tree rather than by the
  * cpu number. It is used to prevent false-sharing across counters at
  * different positions of a tree without wasting memory and cache with
  * padding.
  */
-static struct rseq_mempool_byte *percpu_byte_mempool, *item_mempool;
-static struct rseq_mempool *percpu_long_mempool;
+static struct rseq_mempool_byte *percpu_byte_mempool, *item_byte_mempool;
+static struct rseq_mempool *percpu_long_mempool, *item_long_mempool;
 static unsigned int nr_cpus_order, inaccuracy_multiplier;
 
 union word {
@@ -548,7 +548,14 @@ struct percpu_counter_tree *percpu_counter_tree_alloc(unsigned long batch_size, 
 		if (!counter->level0) {
 			goto error;
 		}
-		counter->items = (uint8_t __rseq_percpu *)rseq_mempool_byte_zmalloc(item_mempool);
+		switch (type) {
+		case PERCPU_COUNTER_TREE_TYPE_BYTE:
+			counter->items = (void __rseq_percpu *)rseq_mempool_byte_zmalloc(item_byte_mempool);
+			break;
+		case PERCPU_COUNTER_TREE_TYPE_LONG:
+			counter->items = (void __rseq_percpu *)rseq_mempool_zmalloc(item_long_mempool);
+			break;
+		}
 		if (!counter->items)
 			goto free_level0;
 		counter->level0_bit_mask = 1UL << counter->batch_size_order;
@@ -576,14 +583,16 @@ void percpu_counter_tree_destroy(struct percpu_counter_tree *counter)
 	if (!counter)
 		return;
 	pthread_mutex_destroy(&counter->lock);
-	if (counter->items)
-		rseq_mempool_byte_free(item_mempool, counter->items);
 	if (counter->level0) {
 		switch (counter->type) {
 		case PERCPU_COUNTER_TREE_TYPE_BYTE:
+			if (counter->items)
+				rseq_mempool_byte_free(item_byte_mempool, counter->items);
 			rseq_mempool_byte_free(percpu_byte_mempool, counter->level0);
 			break;
 		case PERCPU_COUNTER_TREE_TYPE_LONG:
+			if (counter->items)
+				rseq_mempool_percpu_free(counter->items);
 			rseq_mempool_percpu_free(counter->level0);
 			break;
 		}
@@ -628,24 +637,31 @@ static
 void percpu_counter_tree_add_slowpath(struct percpu_counter_tree *counter, long inc, int cpu, unsigned long bit_mask)
 {
 	unsigned int level_items, item_index = 0, nr_levels = counter_config->nr_levels,
-		     level, n_arity_order, inc_shift;
+		     level, n_arity_order, inc_shift = 0;
 	int logical_cpu = cpu_os_to_logical(cpu);
+	bool byte_counters = (counter->type == PERCPU_COUNTER_TREE_TYPE_BYTE);
 
 	if (!nr_cpus_order)
 		abort();	/* Should never be called for 1 cpu. */
 	n_arity_order = counter_config->n_arity_order[0];
 	bit_mask <<= n_arity_order;
 	level_items = 1U << (nr_cpus_order - n_arity_order);
-	inc_shift = counter->batch_size_order;
+	if (byte_counters)
+		inc_shift = counter->batch_size_order;
 
 	for (level = 1; level < nr_levels; level++) {
-		if ((inc >> inc_shift) & ((1UL << n_arity_order) - 1)) {
+		if (!byte_counters || ((inc >> inc_shift) & ((1UL << n_arity_order) - 1))) {
 			unsigned long orig, res;
-			uint8_t *count;
 
-			count = rseq_percpu_ptr(counter->items,
-						item_index + (logical_cpu & (level_items - 1)));
-			res = atomic_byte_add_return_relaxed(count, inc >> inc_shift);
+			if (byte_counters) {
+				uint8_t *count = rseq_percpu_ptr((uint8_t __rseq_percpu *)counter->items,
+							item_index + (logical_cpu & (level_items - 1)));
+				res = atomic_byte_add_return_relaxed(count, inc >> inc_shift);
+			} else {
+				unsigned long *count = rseq_percpu_ptr((unsigned long __rseq_percpu *)counter->items,
+							item_index + (logical_cpu & (level_items - 1)));
+				res = __atomic_add_fetch(count, inc, __ATOMIC_RELAXED);
+			}
 			orig = res - (inc >> inc_shift);
 			percpu_counter_tree_dbg_printf(
 					"%s: cpu: %d, level %u, inc: %ld, bit_mask: %lu, orig %lu, res %lu\n",
@@ -657,7 +673,8 @@ void percpu_counter_tree_add_slowpath(struct percpu_counter_tree *counter, long 
 		if (!inc)
 			return;
 		item_index += level_items;
-		inc_shift += n_arity_order;
+		if (byte_counters)
+			inc_shift += n_arity_order;
 		n_arity_order = counter_config->n_arity_order[level];
 		level_items >>= n_arity_order;
 		bit_mask <<= n_arity_order;
@@ -1078,9 +1095,14 @@ void init(void)
 		perror("rseq_mempool_create");
 		abort();
 	}
-	item_mempool = rseq_mempool_byte_create("item_counter_tree", counter_config->nr_items);
-	if (!item_mempool) {
+	item_byte_mempool = rseq_mempool_byte_create("item_byte_counter_tree", counter_config->nr_items);
+	if (!item_byte_mempool) {
 		perror("rseq_mempool_byte_create");
+		abort();
+	}
+	item_long_mempool = rseq_mempool_long_create("item_counter_tree_long", counter_config->nr_items);
+	if (!item_long_mempool) {
+		perror("rseq_mempool_long_create");
 		abort();
 	}
 	if (init_cpu_mapping())
@@ -1093,7 +1115,7 @@ void fini(void)
 	int ret;
 
 	fini_cpu_mapping();
-	ret = rseq_mempool_byte_destroy(item_mempool);
+	ret = rseq_mempool_byte_destroy(item_byte_mempool);
 	if (ret) {
 		perror("rseq_mempool_byte_destroy");
 		abort();
@@ -1101,6 +1123,16 @@ void fini(void)
 	ret = rseq_mempool_byte_destroy(percpu_byte_mempool);
 	if (ret) {
 		perror("rseq_mempool_byte_destroy");
+		abort();
+	}
+	ret = rseq_mempool_destroy(item_long_mempool);
+	if (ret) {
+		perror("rseq_mempool_destroy");
+		abort();
+	}
+	ret = rseq_mempool_destroy(percpu_long_mempool);
+	if (ret) {
+		perror("rseq_mempool_destroy");
 		abort();
 	}
 	rseq_rcu_gp_exit(&rcu_gp);
