@@ -274,25 +274,25 @@ AC_OUTPUT
 # Mini-report on what will be built.
 #
 
-PPRINT_INIT
-PPRINT_SET_INDENT(1)
-PPRINT_SET_TS(38)
+AE_PPRINT_INIT
+AE_PPRINT_SET_INDENT(1)
+AE_PPRINT_SET_TS(38)
 
 AS_ECHO
-AS_ECHO("${PPRINT_COLOR_BLDBLU}librseq $PACKAGE_VERSION${PPRINT_COLOR_RST}")
+AS_ECHO("${AE_PPRINT_COLOR_BLDBLU}librseq $PACKAGE_VERSION${AE_PPRINT_COLOR_RST}")
 AS_ECHO
 
-PPRINT_SUBTITLE([Features])
+AE_PPRINT_SUBTITLE([Features])
 
-PPRINT_PROP_STRING([Target architecture], $host_cpu)
+AE_PPRINT_PROP_STRING([Target architecture], $host_cpu)
 AE_IS_FEATURE_ENABLED([numa]) && value=1 || value=0
-PPRINT_PROP_BOOL([NUMA], $value)
+AE_PPRINT_PROP_BOOL([NUMA], $value)
 
 report_bindir="`eval eval echo $bindir`"
 report_libdir="`eval eval echo $libdir`"
 
 # Print the bindir and libdir this `make install' will install into.
 AS_ECHO
-PPRINT_SUBTITLE([Install directories])
-PPRINT_PROP_STRING([Binaries], [$report_bindir])
-PPRINT_PROP_STRING([Libraries], [$report_libdir])
+AE_PPRINT_SUBTITLE([Install directories])
+AE_PPRINT_PROP_STRING([Binaries], [$report_bindir])
+AE_PPRINT_PROP_STRING([Libraries], [$report_libdir])
