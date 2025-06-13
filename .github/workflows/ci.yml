@@ -1,0 +1,21 @@
+name: Unit Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Build the Docker image
+      run: docker build -t librseq-ci-image tests/image/ubuntu/
+
+    - name: Run unit tests
+      run: |
+        docker run -v $(pwd):/librseq --rm librseq-ci-image ./tests/image/ubuntu/run.sh
