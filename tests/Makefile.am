@@ -188,6 +188,8 @@ param_test_mm_cid_compare_twice_cxx_LDADD = $(top_builddir)/src/librseq.la $(DL_
 
 # Run shorter tests first
 TESTS = \
+	unit/arch_mo.tap \
+	unit/arch_mo_cxx.tap \
 	basic_test.tap \
 	basic_test_cxx.tap \
 	run_fork_test.tap \
