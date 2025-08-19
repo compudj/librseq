@@ -72,3 +72,14 @@ custom prefix to `configure` by using the `--prefix` switch
     make
     sudo make install
     sudo ldconfig
+
+### Running the test suite
+
+To run the test suite after a successful build:
+
+    make check
+
+The default list of tests to run can be overriden by the TESTS variable:
+
+    make check TESTS="run_unregistered_test.tap"
+
