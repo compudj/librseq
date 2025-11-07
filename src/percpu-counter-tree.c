@@ -215,8 +215,8 @@ static struct rseq_rcu_gp_state rcu_gp;
  * per-cpu counters.
  */
 static const struct counter_config per_nr_cpu_order_config[] = {
-	[0] =	{ .nr_items = 1,	.nr_levels = 0,		.n_arity_order = { 0 } },
-	[1] =	{ .nr_items = 3,	.nr_levels = 1,		.n_arity_order = { 1 } },
+	[0] =	{ .nr_items = 0,	.nr_levels = 0,		.n_arity_order = { 0 } },
+	[1] =	{ .nr_items = 1,	.nr_levels = 1,		.n_arity_order = { 1 } },
 	[2] =	{ .nr_items = 3,	.nr_levels = 2,		.n_arity_order = { 1, 1 } },
 	[3] =	{ .nr_items = 7,	.nr_levels = 3,		.n_arity_order = { 1, 1, 1 } },
 	[4] =	{ .nr_items = 7,	.nr_levels = 3,		.n_arity_order = { 2, 1, 1 } },
