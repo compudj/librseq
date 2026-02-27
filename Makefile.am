@@ -13,6 +13,7 @@ dist_doc_DATA = README.md
 
 EXTRA_DIST = \
 	LICENSE \
+	LICENSES/Autoconf-exception-2.0.txt \
 	LICENSES/LicenseRef-Autoconf-exception-macro.txt \
 	LICENSES/BSD-2-Clause.txt \
 	LICENSES/FSFAP.txt \
