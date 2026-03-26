@@ -231,6 +231,15 @@ uint32_t rseq_current_mm_cid(void)
 }
 
 /*
+ * Returns true if the 'slice_ctrl' feature is available.
+ */
+static inline __attribute__((always_inline))
+bool rseq_slice_ctrl_available(void)
+{
+	return (int) rseq_size >= (int) rseq_offsetofend(struct rseq_abi, slice_ctrl);
+}
+
+/*
  * Clear the rseq_cs pointer.
  */
 static inline __attribute__((always_inline))
