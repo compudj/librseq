@@ -56,6 +56,7 @@ Mkfile.old
 dkms.conf
 
 /src/librseq.pc
+/src/rseq-status
 /tests/basic_percpu_ops_test.tap
 /tests/basic_percpu_ops_test_cxx.tap
 /tests/basic_percpu_ops_mm_cid_test.tap

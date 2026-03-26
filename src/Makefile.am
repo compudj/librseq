@@ -13,5 +13,10 @@ if ENABLE_NUMA
 librseq_la_LIBADD += -lnuma
 endif
 
+bin_PROGRAMS = rseq-status
+
+rseq_status_SOURCES = rseq-status.c
+rseq_status_LDADD = librseq.la
+
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = librseq.pc
