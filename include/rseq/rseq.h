@@ -138,11 +138,17 @@ bool rseq_available(unsigned int query);
 
 /*
  * Returns true if rseq is registered.
+ *
+ * Compared as signed, like the feature predicates below: rseq_size is -1U
+ * until a successful rseq_init(), and an unsigned comparison reads that
+ * sentinel as ~4 billion and answers "registered" for an uninitialized
+ * library -- while rseq_offset is still PTRDIFF_MIN, so a caller that
+ * believes it goes on to build an rseq area pointer from a garbage offset.
  */
 static inline __attribute__((always_inline))
 bool rseq_registered(void)
 {
-	return rseq_size > 0;
+	return (int) rseq_size > 0;
 }
 
 /*
