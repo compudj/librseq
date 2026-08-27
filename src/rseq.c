@@ -15,7 +15,6 @@
 #include <assert.h>
 #include <signal.h>
 #include <limits.h>
-#include <dlfcn.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/auxv.h>
@@ -32,6 +31,21 @@
 # define AT_RSEQ_ALIGN			28
 #endif
 
+
+/*
+ * Weak references to the public rseq symbols exposed by the libc
+ * (glibc >= 2.35, declared in <sys/rseq.h>). They are resolved (or
+ * left NULL) by the dynamic linker at load time. Unlike
+ * dlsym(RTLD_NEXT, ...), weak references do not depend on the
+ * position of librseq within the global symbol search scope: with
+ * dlsym(RTLD_NEXT, ...), a librseq loaded as a transitive dependency
+ * of an LD_PRELOAD into an executable which does not link against it
+ * directly is positioned after libc and ld.so in the search scope,
+ * where the "next" lookup finds nothing and initialization fails.
+ */
+extern const ptrdiff_t __rseq_offset __attribute__((weak));
+extern const unsigned int __rseq_size __attribute__((weak));
+extern const unsigned int __rseq_flags __attribute__((weak));
 
 /*
  * Private internal variables.
@@ -126,12 +140,12 @@ int rseq_init(void)
 		goto unlock_ok;
 
 	/*
-	 * Get the libc rseq public symbols, all 3 are required for a
-	 * successful initialization.
+	 * Get the libc rseq public symbols through weak references,
+	 * all 3 are required for a successful initialization.
 	 */
-	libc_rseq_offset_p = dlsym(RTLD_NEXT, "__rseq_offset");
-	libc_rseq_size_p = dlsym(RTLD_NEXT, "__rseq_size");
-	libc_rseq_flags_p = dlsym(RTLD_NEXT, "__rseq_flags");
+	libc_rseq_offset_p = &__rseq_offset;
+	libc_rseq_size_p = &__rseq_size;
+	libc_rseq_flags_p = &__rseq_flags;
 	if (!libc_rseq_size_p || !libc_rseq_offset_p || !libc_rseq_flags_p) {
 		pthread_mutex_unlock(&init_lock);
 		return RSEQ_INIT_ERROR_MISSING_SYMBOLS;
@@ -210,9 +224,9 @@ bool rseq_available(unsigned int query)
 		}
 		break;
 	case RSEQ_AVAILABLE_QUERY_LIBC:
-		libc_rseq_offset_p = dlsym(RTLD_NEXT, "__rseq_offset");
-		libc_rseq_size_p = dlsym(RTLD_NEXT, "__rseq_size");
-		libc_rseq_flags_p = dlsym(RTLD_NEXT, "__rseq_flags");
+		libc_rseq_offset_p = &__rseq_offset;
+		libc_rseq_size_p = &__rseq_size;
+		libc_rseq_flags_p = &__rseq_flags;
 		if (libc_rseq_offset_p && libc_rseq_size_p && libc_rseq_flags_p)
 			return true;
 		break;
