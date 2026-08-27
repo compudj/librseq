@@ -247,10 +247,18 @@ bool rseq_slice_ctrl_available(void)
 
 /*
  * Clear the rseq_cs pointer.
+ *
+ * No-op when rseq is not registered: there is no rseq area to clear,
+ * and rseq_get_abi() would compute its address from an unset offset
+ * sentinel. This keeps unconditional library-unload calls to
+ * rseq_prepare_unload() safe when librseq initialization failed or
+ * was never performed.
  */
 static inline __attribute__((always_inline))
 void rseq_clear_rseq_cs(void)
 {
+	if (!rseq_registered())
+		return;
 	RSEQ_WRITE_ONCE(rseq_get_abi()->rseq_cs.arch.ptr, 0);
 }
 
